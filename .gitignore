@@ -1,0 +1,4 @@
+node_modules/
+*.out
+__pycache__/
+tests/power-table-dq10jp.json

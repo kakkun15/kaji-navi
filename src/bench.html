@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>鍛冶ナビ 性能テスト</title>
+<style>
+:root{ --bg:#0f1115; --card:#20242c; --line:#3c4353; --ink:#f4f6f9; --sub:#adb6c5; --accent:#ff9447; --good:#3fd98b; --bad:#ff6b6b; color-scheme:dark; }
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.6 system-ui,"Yu Gothic UI","Hiragino Sans",sans-serif}
+main{max-width:860px;margin:0 auto;padding:16px}
+h1{font-size:20px;margin:4px 0 2px} .sub{color:var(--sub);font-size:13px;margin:0 0 14px}
+.row{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:12px}
+label{color:var(--sub);font-weight:700;font-size:13px} select,input{font:inherit;font-weight:700;background:#090b0e;color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:5px 8px;min-height:38px}
+input[type=number]{width:90px}
+button{font:inherit;font-weight:800;border-radius:10px;border:1px solid #b84d00;background:linear-gradient(180deg,#ff7a14,#d95a00);color:#fff;padding:8px 16px;min-height:42px;cursor:pointer}
+button.sec{background:var(--card);border-color:var(--line);color:var(--ink)}
+button:disabled{opacity:.45}
+table{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden;margin-bottom:12px;font-variant-numeric:tabular-nums}
+th,td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:right} th:first-child,td:first-child{text-align:left}
+th{color:var(--sub);font-size:13px}
+.big{font-size:22px;font-weight:800}
+.good{color:var(--good)} .bad{color:var(--bad)}
+.bar{height:10px;background:#090b0e;border:1px solid var(--line);border-radius:6px;overflow:hidden;margin:6px 0 2px} .bar span{display:block;height:100%;background:var(--accent);width:0}
+#out{width:100%;min-height:90px;background:#090b0e;color:var(--ink);border:1px solid var(--line);border-radius:10px;font:12px/1.5 ui-monospace,Consolas,monospace;padding:8px}
+.note{color:var(--sub);font-size:13px}
+</style>
+</head>
+<body>
+<main>
+  <h1>鍛冶ナビ 性能テスト</h1>
+  <p class="sub">「ふつう」と「最強」に、同じ局(理想値・伸び・会心の乱数が同じ)を打たせて比べる。PC のスレッドを全部使う。開いたまま放っておけばよい。</p>
+  <div class="row">
+    <label>商材 <select id="item"><option value="hidane">超ようせいのひだね</option><option value="lamp">まおうの錬金ランプ</option><option value="hammer">光の鍛冶ハンマー</option><option value="pan">光のフライパン</option></select></label>
+    <label>局数 <input id="n" type="number" min="10" max="5000" value="300"></label>
+    <label>種 <input id="seed" type="number" value="700"></label>
+    <label>開始の集中力 <input id="focus" type="number" value="245"></label>
+    <label>必殺 <select id="hs"><option value="">なし</option><option value="start">打ち始めにチャージ</option><option value="mid">叩いた後に10%でチャージ</option></select></label>
+    <label>スレッド <input id="thr" type="number" min="1" max="32"></label>
+    <label>比べる <select id="ma"><option value="normal">ふつう</option><option value="max">最強</option><option value="wide">超最強(広く)</option><option value="deep">超最強(3手)</option></select>
+      と <select id="mb"><option value="max">最強</option><option value="normal">ふつう</option><option value="wide">超最強(広く)</option><option value="deep">超最強(3手)</option></select></label>
+    <button id="go">始める</button><button class="sec" id="stop" disabled>止める</button>
+  </div>
+  <div class="bar"><span id="bar"></span></div>
+  <div class="note" id="prog">まだ始めていない</div>
+  <table>
+    <thead><tr><th>打ち方</th><th>局</th><th>大成功</th><th>超えて失敗</th><th>集中力切れ</th><th>1局の時間</th></tr></thead>
+    <tbody id="tb"></tbody>
+  </table>
+  <div class="row" style="display:block">
+    <div>同じ局で片方だけ大成功: <b id="pair">—</b></div>
+    <div class="note" id="verdict"></div>
+  </div>
+  <div class="row" style="display:block">
+    <label>結果(この文をそのまま Claude に貼る)</label>
+    <textarea id="out" readonly></textarea>
+    <button class="sec" id="copy">コピー</button>
+  </div>
+  <p class="note">ふつう = 鍛冶ナビの「ふつう」(ランプは軽い2手読み、ほかは1手読み)。最強 = 鍛冶ナビの「最強」と同じ読み(上位12手を2手先まで、K=12・K2=24)。
+  超最強(広く) = 上位24手を2手先まで、結果を倍の数ためす(K=16・K2=48)。超最強(3手) = 上位3手を3手先まで(2手目以降は軽い2手読み)。超最強はまだ鍛冶ナビに入っていない(ここで上がるか確かめてから入れる)。超最強(3手)は1局がとても長いので、局数は100くらいで。</p>
+</main>
+<script src="core.js"></script>
+<script src="game.js"></script>
+<script src="value.js"></script>
+<script src="pool.js"></script>
+<script src="weights.js"></script>
+<script>
+(function(){
+'use strict';
+const $ = id => document.getElementById(id), W = window.KAJI_WEIGHTS || {};
+const MODES = {
+  normal: { name: 'ふつう', search: item => item === 'lamp' ? { depth: 2, K: 6, N2: 3, K2: 4, overPen: 1 } : { depth: 1, K: 12, overPen: 1 } },
+  max:    { name: '最強',   search: () => ({ depth: 2, K: 12, N2: 12, K2: 24, overPen: 1 }) },
+  wide:   { name: '超最強(広く)', search: () => ({ depth: 2, K: 16, N2: 24, K2: 48, overPen: 1 }) },
+  deep:   { name: '超最強(3手)', search: () => ({ depth: 3, K: 12, N3: 3, K3: 4, overPen: 1, c: { K: 8, N2: 3, K2: 4 } }) },
+};
+$('thr').value = Math.max(1, Math.min(24, (navigator.hardwareConcurrency || 4) - 2));
+let run = null;
+function blank(){ return { n: 0, great: 0, over: 0, under: 0, ms: 0 }; }
+function pct(a, b){ return b ? (a / b * 100).toFixed(1) + '%' : '—'; }
+function render(){
+  if(!run) return;
+  const R = run, done = R.res.normal.n + R.res.max.n, total = R.N * 2;
+  $('bar').style.width = (done / total * 100) + '%';
+  const el = (performance.now() - R.t0) / 1000, eta = done ? el / done * (total - done) : 0;
+  $('prog').textContent = `${done} / ${total} 局(${R.N}局×2通り) 経過 ${Math.round(el / 60)}分` + (done < total && done ? ` ・ 残り約 ${Math.round(eta / 60)}分` : '') + (R.stopped ? ' ・ 止めた' : done >= total ? ' ・ 終わった' : '');
+  $('tb').innerHTML = ['normal', 'max'].map(k => { const x = R.res[k];
+    return `<tr><td>${MODES[R.modes[k]].name}</td><td>${x.n}</td><td class="big">${pct(x.great, x.n)}</td><td>${pct(x.over, x.n)}</td><td>${pct(x.under, x.n)}</td><td>${x.n ? (x.ms / x.n / 1000).toFixed(1) + '秒' : '—'}</td></tr>`; }).join('');
+  // 両方打ち終わった局どうしで比べる
+  let a = 0, b = 0, both = 0;
+  for(let g = 0; g < R.N; g++){ const x = R.byG.normal[g], y = R.byG.max[g]; if(x == null || y == null) continue; both++; if(y && !x) b++; if(x && !y) a++; }
+  const nA = MODES[R.modes.normal].name, nB = MODES[R.modes.max].name;
+  $('pair').textContent = both ? `${nB}だけ ${b}局 / ${nA}だけ ${a}局(両方終わった ${both}局のうち)` : '—';
+  // 符号検定のおおよそ(片方だけ大成功した局のうち、最強が勝った割合が偶然でどれくらい起きるか)
+  const m = a + b; let v = '';
+  if(m >= 10){ const z = (b - m / 2) / Math.sqrt(m / 4); v = Math.abs(z) >= 1.96 ? (z > 0 ? `${nB}の方がはっきり上(偶然では起きにくい差)` : `${nA}の方がはっきり上`) : '差ははっきりしない(局を増やすと分かるかもしれない)'; v += ` ・ z = ${z.toFixed(2)}`; }
+  $('verdict').textContent = v;
+  $('out').value = JSON.stringify({ A: R.modes.normal, B: R.modes.max, item: R.item, N: R.N, seed: R.seed, focus: R.focus, hs: R.hs || 'なし', threads: R.thr,
+    normal: { n: R.res.normal.n, great: R.res.normal.great, over: R.res.normal.over, under: R.res.normal.under, sec: +(R.res.normal.ms / Math.max(1, R.res.normal.n) / 1000).toFixed(2) },
+    max: { n: R.res.max.n, great: R.res.max.great, over: R.res.max.over, under: R.res.max.under, sec: +(R.res.max.ms / Math.max(1, R.res.max.n) / 1000).toFixed(2) },
+    onlyMax: b, onlyNormal: a, paired: both });
+  try{ localStorage.setItem('kajiBenchLastV1', $('out').value); }catch(e){}
+}
+$('go').onclick = async () => {
+  const item = $('item').value, N = Math.max(1, +$('n').value | 0), seed = +$('seed').value | 0, focus = +$('focus').value | 0, hs = $('hs').value, thr = Math.max(1, +$('thr').value | 0);
+  if(!W[item]){ $('prog').textContent = 'この商材の重みが無い'; return; }
+  KajiPool.stop(); if(!KajiPool.start(thr)){ $('prog').textContent = 'Worker を立てられなかった(PC の Chrome / Edge で開く)'; return; }
+  KajiPool.setNet(item, W[item]);
+  const cfg = { item, level: focus >= 253 ? 80 : 79, hammer: 'hikari', star: 3, focus };
+  const modes = { normal: $('ma').value, max: $('mb').value };
+  run = { modes, item, N, seed, focus, hs, thr, t0: performance.now(), res: { normal: blank(), max: blank() }, byG: { normal: [], max: [] }, stopped: false };
+  $('go').disabled = true; $('stop').disabled = false;
+  const R = run, jobs = [];
+  // ふつう(速い)と最強(遅い)を交互に積む。最強の方を先に積んで、終わりの待ちを短くする
+  for(let g = 0; g < N; g++) for(const k of ['max', 'normal']){
+    jobs.push(KajiPool.game({ cfg, seed, g, hs, search: MODES[modes[k]].search(item) }).then(r => {
+      if(R !== run || !r) return;
+      const x = R.res[k]; x.n++; x.great += r.great; x.over += r.over; x.under += r.under; x.ms += r.ms; R.byG[k][g] = r.great;
+      render();
+    }));
+  }
+  render();
+  await Promise.all(jobs);
+  if(R === run){ $('go').disabled = false; $('stop').disabled = true; render(); }
+};
+$('stop').onclick = () => { if(!run) return; run.stopped = true; KajiPool.cancelQueued(); KajiPool.stop(); $('go').disabled = false; $('stop').disabled = true; render(); };
+$('copy').onclick = () => { $('out').select(); try{ navigator.clipboard.writeText($('out').value); }catch(e){ document.execCommand('copy'); } };
+try{ const last = localStorage.getItem('kajiBenchLastV1'); if(last) $('out').value = last; }catch(e){}
+})();
+</script>
+</body>
+</html>

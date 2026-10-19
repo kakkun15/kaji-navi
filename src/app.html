@@ -1,0 +1,676 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0f1115">
+<meta name="robots" content="noindex,nofollow">
+<title>鍛冶ナビ</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+/* 配色: ダーク配色(濃い紺地・白い太字・オレンジのボタン)。ゲーム中に見やすいよう、いつも暗い配色 */
+:root{
+  --bg:#0f1115; --bg2:#171a20; --card:#20242c; --card2:#272c36; --line:#3c4353; --ink2:#566074; --sunk:#090b0e;
+  --ink:#f4f6f9; --sub:#adb6c5;
+  --accent:#ff9447; --btn1:#ff7a14; --btn2:#d95a00; --accent-ink:#fff; --gold:#ffcf5c;
+  --crit:#ff7ad1; --amb:#ffcf5c; --good:#3fd98b; --bad:#ff6b6b; --blue:#58a6ff; --chip:#2a303b;
+  --zone:rgba(63,217,139,.28); --fill:#7d8aa3; --lit:#ffcf5c;
+  --raise:0 2px 0 rgba(0,0,0,.55); --shadow:0 1px 0 rgba(0,0,0,.4),0 3px 8px rgba(0,0,0,.35);
+  color-scheme:dark;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,-apple-system,"Hiragino Sans","Yu Gothic UI",sans-serif;touch-action:manipulation}
+main{max-width:620px;margin:0 auto;padding-block:10px calc(190px + env(safe-area-inset-bottom,0px));padding-left:max(12px,env(safe-area-inset-left,0px));padding-right:max(12px,env(safe-area-inset-right,0px))}
+button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+button{font:inherit;font-weight:700;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:10px;padding:8px 12px;cursor:pointer;min-height:44px;box-shadow:var(--raise)}
+button:active{transform:translateY(1px);box-shadow:none;background:#2d333f}
+button.main{background:linear-gradient(180deg,var(--btn1),var(--btn2));color:#fff;border-color:#b84d00;font-weight:800;box-shadow:0 3px 0 #8a3a00}
+button.main:active{box-shadow:0 1px 0 #8a3a00}
+button:disabled{opacity:.45}
+select{font:inherit;font-weight:700;padding:6px 10px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink);min-height:44px;max-width:100%}
+.top{display:flex;gap:6px;align-items:center}
+.top select{flex:1;min-width:0;color:var(--gold);font-size:16px;padding:6px 6px}
+.top button{white-space:nowrap;padding:8px 10px;flex:none}
+.stats{display:grid;grid-template-columns:1fr 1fr auto;gap:8px;margin:10px 0}
+.vbtn{flex-direction:column;justify-content:center;align-items:center;gap:0;padding:4px 10px;min-width:58px}
+.vbtn b{font-size:15px}
+.vbtn.off b{color:var(--sub)}
+.vbtn.on b{color:var(--good)}
+.hsb{display:flex;width:100%;align-items:center;justify-content:space-between;gap:8px;margin:-2px 0 10px;min-height:44px;padding:6px 12px;text-align:left}
+.hsb small{color:var(--sub);font-size:13px;font-weight:700}
+.hsb b{font-size:17px;font-weight:800;color:var(--sub)}
+.hsb span{font-size:12px;color:var(--sub);font-weight:700}
+.hsb.hs1{border-color:#5fd3ff} .hsb.hs1 b{color:#5fd3ff}
+.hsb.hs2{border-color:var(--btn1);background:linear-gradient(180deg,#5a2a08,#3a1c06)} .hsb.hs2 b{color:#ffb070}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:4px 10px;text-align:left;min-height:56px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.stat small{color:var(--sub);font-size:13px;font-weight:700}
+.stat b{font-size:28px;font-weight:800;font-variant-numeric:tabular-nums;letter-spacing:.01em}
+.stat .u{font-size:13px;color:var(--sub)}
+.stat .k{font-size:12px;padding:1px 8px;border-radius:999px;background:var(--chip);color:var(--sub);font-weight:700}
+.stat .k.on{background:var(--gold);color:#1a1405}
+.board{display:flex;flex-direction:column;gap:8px}
+.brow{display:grid;gap:8px}
+.cell{position:relative;background:linear-gradient(180deg,var(--card2),var(--card));border:2px solid var(--ink2);border-radius:12px;padding:4px 8px 8px;min-width:0;text-align:center;cursor:pointer;box-shadow:var(--shadow)}
+.cell.gap{visibility:hidden}
+.cell .lbl{font-size:12px;color:var(--sub);font-weight:700;display:flex;justify-content:center;align-items:center;gap:4px;flex-wrap:wrap;min-height:20px}
+.cell .lbl i{font-style:normal;font-size:12px;padding:0 7px;border-radius:6px;background:var(--btn1);color:#fff;font-weight:800}
+.cell .lbl i.lit{background:var(--gold);color:#1a1405}
+.cell .v{font-size:40px;font-weight:800;font-variant-numeric:tabular-nums;line-height:1.1;letter-spacing:.01em}
+.cell .z{display:grid;grid-template-columns:1fr 1fr;font-size:15px;font-weight:700;color:var(--sub);font-variant-numeric:tabular-nums;border-top:1px solid var(--line);margin-top:2px}
+.cell .z span+span{border-left:1px solid var(--line)}
+.cell .need{font-size:13px;font-weight:700;color:var(--sub);font-variant-numeric:tabular-nums;min-height:19px}
+.cell .bar{position:relative;height:10px;border-radius:5px;background:var(--sunk);overflow:hidden;margin-top:5px;border:1px solid var(--line)}
+.cell .bar span{position:absolute;top:0;bottom:0}
+.cell .bar .f{left:0;background:var(--fill)}
+.cell .bar .zn{background:var(--zone);border-left:2px solid var(--good);border-right:2px solid var(--good)}
+.cell .bel{font-size:12px;font-weight:700;color:var(--good);min-height:18px}
+.cell.hit{border-color:var(--btn1);box-shadow:0 0 0 2px rgba(255,122,20,.35),var(--shadow)}
+.cell.in{border-color:var(--good)}
+.cell.in .v{color:var(--good)}
+.cell.in.hit{border-color:var(--btn1)}
+.cell.over{border-color:var(--bad)}
+.cell.over .v{color:var(--bad)}
+.cell.litc{box-shadow:0 0 0 3px var(--lit),var(--shadow)}
+.cell.pick{outline:3px dashed var(--lit);outline-offset:2px;animation:blink 1.2s ease-in-out infinite}
+@keyframes blink{50%{outline-color:transparent}}
+.foot{position:fixed;left:0;right:0;bottom:0;background:linear-gradient(180deg,#1c2028,#15181d);border-top:1px solid var(--line);box-shadow:0 -4px 12px rgba(0,0,0,.5);padding-block:10px calc(10px + env(safe-area-inset-bottom,0px));padding-left:max(12px,env(safe-area-inset-left,0px));padding-right:max(12px,env(safe-area-inset-right,0px));z-index:10}
+.foot .in{max-width:620px;margin:0 auto}
+.rec{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:6px;min-height:34px;flex-wrap:wrap}
+.rec .nm{font-size:24px;font-weight:800;color:var(--accent)}
+.rec .tg{font-size:15px;font-weight:700;color:var(--ink)}
+.rec .p{font-size:14px;color:var(--sub);white-space:nowrap;font-variant-numeric:tabular-nums}
+.rec .p b{color:var(--ink);font-size:19px}
+.acts{display:flex;gap:8px}
+.acts .main{flex:1;min-height:56px;font-size:19px}
+.acts .chain{flex:none;min-height:56px;font-size:15px;padding:6px 12px;line-height:1.2}
+.alts{display:flex;gap:6px;margin:-2px 0 8px;overflow-x:auto;scrollbar-width:none;overscroll-behavior-x:contain}
+.alts::-webkit-scrollbar{display:none}
+.alts button{min-height:38px;padding:4px 10px;font-size:13px;color:var(--sub);box-shadow:none;white-space:nowrap;flex:none}
+.cfgb{min-height:32px;padding:2px 10px;font-size:12px;margin:2px 0 4px;box-shadow:none}
+.msg{font-size:14px;color:var(--sub);margin:10px 2px}
+.msg.warn{color:var(--accent);font-weight:700}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.65);display:none;align-items:flex-end;z-index:20}
+.modal.show{display:flex}
+.sheet{width:100%;max-width:620px;margin:0 auto;background:var(--bg2);border:1px solid var(--line);border-bottom:0;border-radius:16px 16px 0 0;padding:14px 14px calc(14px + env(safe-area-inset-bottom));max-height:92vh;overflow-y:auto}
+.sheet h2{font-size:15px;margin:0 0 8px;color:var(--sub);font-weight:700;text-align:center}
+.reels{display:flex;flex-direction:column;gap:8px;margin-bottom:12px}
+.rrow{display:grid;gap:8px}
+.rcell{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:4px 4px 2px;min-width:0}
+.rcell.gap{visibility:hidden}
+.rcell.still{opacity:.55;text-align:center;padding:10px 4px}
+.rcell .rl{font-size:12px;color:var(--sub);font-weight:700;text-align:center;height:18px}
+.rcell .rl b{margin-left:4px}
+.rl b.c{color:var(--crit)} .rl b.a{color:var(--amb)}
+.reel{overflow-y:auto;scroll-snap-type:y mandatory;overscroll-behavior:contain;scrollbar-width:none;
+  -webkit-mask-image:linear-gradient(transparent,#000 30%,#000 70%,transparent);mask-image:linear-gradient(transparent,#000 30%,#000 70%,transparent);
+  background:linear-gradient(transparent calc(50% - 22px),#353c4a calc(50% - 22px),#353c4a calc(50% + 22px),transparent calc(50% + 22px))}
+.reel::-webkit-scrollbar{display:none}
+.reel button{display:block;width:100%;height:44px;min-height:0;border:0;background:none;border-radius:0;padding:0;scroll-snap-align:center;box-shadow:none;
+  font-size:21px;font-weight:700;color:var(--sub);font-variant-numeric:tabular-nums}
+.reel button:active{transform:none;background:none}
+.reel button.c{color:var(--crit)} .reel button.a{color:var(--amb)}
+.reel button.on{color:var(--ink);font-size:27px;font-weight:800}
+.reel button.c.on{color:var(--crit)} .reel button.a.on{color:var(--amb)}
+.reel button.ov{text-decoration:line-through;color:var(--bad)}
+.num{display:flex;gap:8px;align-items:center;margin:8px 0 12px}
+.num input{flex:1;font:inherit;font-size:30px;font-weight:800;text-align:center;padding:8px;border:1px solid var(--line);border-radius:10px;background:var(--sunk);color:var(--ink);min-width:0}
+.row2{display:flex;gap:8px}
+.row2 button{flex:1}
+.note{font-size:12px;color:var(--sub);margin-top:16px;line-height:1.7}
+.note b{color:var(--ink)}
+.vrate select{min-height:34px;padding:2px 8px;font-size:13px;margin:4px 0 2px}
+.note .warn{color:var(--amb);font-weight:700}
+.form{display:grid;grid-template-columns:auto 1fr;gap:10px 12px;align-items:center;margin:4px 0 14px}
+.form label{font-size:14px;color:var(--sub);font-weight:700}
+.form input,.form select{font:inherit;font-size:18px;font-weight:700;padding:6px 10px;border:1px solid var(--line);border-radius:10px;background:var(--sunk);color:var(--ink);min-height:44px;width:100%;min-width:0}
+.form .hint{grid-column:1/-1;font-size:12px;color:var(--sub);margin-top:-4px}
+@media (max-width:380px){ .cell .v{font-size:34px} .stat b{font-size:24px} .top select{font-size:15px} }
+</style>
+</head>
+<body>
+<main>
+  <div class="top">
+    <select id="item" aria-label="商材"></select>
+    <button id="undo" aria-label="1手戻す">戻す</button>
+    <button id="reset">最初から</button>
+  </div>
+  <div class="stats">
+    <button class="stat" id="stTemp"><small>温度</small><b id="temp">1000</b><span class="u">℃</span><span class="k" id="kind"></span></button>
+    <button class="stat" id="stFocus"><small>集中力</small><b id="focus">242</b></button>
+    <button class="stat vbtn" id="vB" aria-label="声のオン・オフ"><small>声</small><b id="vBt">オン</b></button>
+  </div>
+  <button class="hsb" id="hsB" aria-label="必殺(ヘパイトスの炎)の状態"><small>必殺</small><b id="hsBt">なし</b><span id="hsBn">たまったら押す</span></button>
+  <div class="board" id="board"></div>
+  <div class="msg" id="msg"></div>
+  <!--SELF-PANEL-->
+  <div class="note">
+    <span id="cfgNote"></span> <button class="cfgb" id="cfgB">開始の集中力を変える</button><br>
+    <label class="vrate">計算の強さ <select id="power"><option value="normal">ふつう</option><option value="max">最強(PC・全スレッド)</option></select></label>
+    <label class="vrate">声の速さ <select id="vRate"><option value="0.9">ゆっくり</option><option value="1">ややゆっくり</option><option value="1.15">ふつう</option><option value="1.35">はやい</option><option value="1.6">とてもはやい</option><option value="1.9">さらにはやい</option></select></label><br>
+    盤面のマス・温度・集中力は押すと手で直せる。<br>
+    必殺がたまったら(ゲームのメニューに「ひっさつ」が出たら)「必殺」を押して「たまった」にする。押すたびに なし → たまった → 効果中 と変わる。<br>
+    推奨手は、打てる手を全部ためして、その後の大成功の見込みが一番高い手。見込みはゲームを再現して学習した計算で、元のツールのコードは使っていない。<br>
+    声は「声」ボタンでオン・オフ(スマホは最初に画面に触った後から鳴る)。声: VOICEVOX:ずんだもん
+  </div>
+</main>
+
+<div class="foot"><div class="in">
+  <div class="rec" id="rec"></div>
+  <div class="alts" id="alts"></div>
+  <div class="acts"><button class="main" id="go">計算中…</button><button class="chain" id="chainB" hidden></button></div>
+</div></div>
+
+<div class="modal" id="reelM"><div class="sheet" onclick="event.stopPropagation()">
+  <h2>ゲームと同じ位置のマスを合わせて「決定」</h2>
+  <div class="reels" id="reels"></div>
+  <div class="row2"><button id="reelCancel">やめる</button><button class="main" id="reelOk">決定</button></div>
+</div></div>
+
+<div class="modal" id="cfgM"><div class="sheet" onclick="event.stopPropagation()">
+  <h2>開始の集中力</h2>
+  <div class="num"><input id="cfF" type="number" inputmode="numeric" min="1" max="999" aria-label="開始の集中力"></div>
+  <div class="hint" style="font-size:12px;color:var(--sub);margin:-4px 2px 12px">ゲームで打ち始める前に出ている集中力の数字。光の鍛冶ハンマー★3 で計算する。</div>
+  <div class="row2"><button id="cfgCancel">やめる</button><button class="main" id="cfgOk">決める</button></div>
+</div></div>
+
+<div class="modal" id="numM"><div class="sheet" onclick="event.stopPropagation()">
+  <h2 id="numT"></h2>
+  <div class="num"><input id="numI" type="number" inputmode="numeric"></div>
+  <div class="row2"><button id="numCancel">やめる</button><button class="main" id="numOk">決める</button></div>
+</div></div>
+
+<script src="core.js"></script>
+<script src="game.js"></script>
+<script src="value.js"></script>
+<script src="pool.js"></script>
+<script src="weights.js"></script>
+<script src="voice.js"></script>
+<script>
+(function(){
+'use strict';
+const C = KajiCore, GM = KajiGame, V = KajiValue, W = window.KAJI_WEIGHTS || {};
+const ITEM_ORDER = ['lamp', 'hidane', 'hammer', 'pan'];
+const SEARCH = { lamp: { depth: 2, K: 6, N2: 3, K2: 4 } };       // ランプだけ軽い2手読み(1000局で +4pt)
+const $ = id => document.getElementById(id);
+const STORE = 'kajiNaviV1', CFG_STORE = 'kajiNaviCfgV1';
+// 条件は「開始の集中力」だけ。ハンマーは光の鍛冶ハンマー★3 で決め打ち。
+// 打てる技は集中力から決める: 253 以上(光★3 の Lv80)なら左右打ちまで、それより下は弱ねらい打ちまで
+const CFG_STORE2 = 'kajiNaviCfgV2';
+let cfg = { focus: 245 };
+try{
+  const j2 = JSON.parse(localStorage.getItem(CFG_STORE2) || 'null');
+  if(j2 && j2.focus >= 1) cfg.focus = j2.focus | 0;
+  else {      // 前の版の保存(職人Lv・ハンマー)から引き継ぐ
+    const j = JSON.parse(localStorage.getItem(CFG_STORE) || 'null');
+    if(j && j.level >= 75) cfg.focus = 243 + 2 * (j.level - 75) + (j.fadj | 0);
+  }
+}catch(e){}
+function saveCfg(){ try{ localStorage.setItem(CFG_STORE2, JSON.stringify({ focus: cfg.focus })); }catch(e){} }
+function mkG(key){ return GM.setup({ item: key, level: cfg.focus >= 253 ? 80 : 79, hammer: 'hikari', star: 3, focus: cfg.focus }); }
+
+let item = 'lamp', G = null, net = null, s = null, hist = [];
+let qs = null, pend = null, busy = false, calcId = 0;
+
+// ---- 乱数(読みの引き直しを毎回同じにする) ----
+function seeded(a){ return function(){ a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a);
+  t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+function loadNet(key){
+  const j = W[key]; if(!j) return null;
+  const n = { sizes: j.sizes, L: j.L.map(l => ({ n: l.n, m: l.m, W: Float32Array.from(l.W), b: Float32Array.from(l.b) })) };
+  n.ver = j.sizes[0] === V.featLen(G, 1) ? 1 : j.sizes[0] === V.featLen(G, 3) ? 3 : 2;
+  return n;
+}
+function setItem(key, keepState){
+  item = key;
+  G = mkG(key);
+  net = loadNet(key);
+  if(!keepState){ s = GM.newState(G); hist = []; pend = null; }
+  save(); recalc();
+}
+
+// ---- 保存(この端末だけ) ----
+function save(){ try{ localStorage.setItem(STORE, JSON.stringify({ item, s, hist: hist.slice(-40) })); }catch(e){} }
+function restore(){
+  try{
+    const j = JSON.parse(localStorage.getItem(STORE) || 'null');
+    if(j && GM.ITEMS[j.item] && j.s){ item = j.item; G = mkG(item); net = loadNet(item); s = j.s; hist = j.hist || []; return true; }
+  }catch(e){}
+  return false;
+}
+function snap(){ hist.push(JSON.parse(JSON.stringify(s))); if(hist.length > 60) hist.shift(); }
+
+// ---- 表示 ----
+const KIND = { shuchu: { 400: '消費半分', 200: '会心ターン' }, tataki: { 400: '威力2倍', 200: '威力半分' }, hikari: { 400: '光る', 200: '光る' }, none: {} };
+const HS_LABEL = ['なし', 'たまった', '効果中'];
+const HS_NOTE = ['たまったら押す', '使ったら押す', '叩いたら自動で なし'];
+function renderHs(){ const h = s.hs | 0; $('hsBt').textContent = HS_LABEL[h]; $('hsBn').textContent = HS_NOTE[h]; $('hsB').className = 'hsb' + (h ? ' hs' + h : ''); }
+function renderCfg(){ $('cfgNote').innerHTML = `<b>開始の集中力 ${cfg.focus}</b>(光の鍛冶ハンマー★3)`; }
+function render(){
+  renderCfg(); renderHs();
+  $('temp').textContent = s.temp; $('focus').textContent = s.F;
+  const k = s.first ? 0 : C.tempKind(s.temp), lab = (KIND[G.trait] || {})[k];
+  $('kind').textContent = lab || ''; $('kind').className = 'k' + (lab ? ' on' : ''); $('kind').style.display = lab ? '' : 'none';
+  const rows = G.cells.length / 2, best = qs && qs[0] && qs[0].a, tg = best && best.t.area ? best.tg : [];
+  const picking = Array.isArray(s.lit);
+  let h = '';
+  for(let r = 0; r < rows; r++){
+    const cols = [0, 1].filter(c => G.cells.some((z, i) => z && i % 2 === c));
+    h += `<div class="brow" style="grid-template-columns:repeat(${cols.length},1fr)">`;
+    for(const c of cols){
+      const i = 2*r + c, z = G.cells[i];
+      if(!z){ h += '<div class="cell gap"></div>'; continue; }
+      const v = s.v[i], top = Math.max(z[1] * 1.08, v + 1);
+      const cls = ['cell', v > z[1] ? 'over' : v >= z[0] ? 'in' : '', tg.includes(i) ? 'hit' : '', s.lit === i ? 'litc' : '',
+                   picking && s.lit.includes(i) ? 'pick' : ''].join(' ');
+      const tags = (tg.includes(i) ? '<i>叩く</i>' : '') + (s.lit === i ? '<i class="lit">光</i>' : '');
+      const b = s.bel[i], nz = b.map((p, q) => p > 1e-9 ? z[0] + q : null).filter(x => x !== null);
+      const bel = nz.length && nz.length < b.length ? (nz.length === 1 ? `理想値 ${nz[0]}` : `理想値 ${nz[0]}〜${nz[nz.length-1]}`) : '';
+      const need = v < z[0] ? `あと ${z[0] - v}〜${z[1] - v}` : v <= z[1] ? 'ゾーン内' : '超えた';
+      h += `<div class="${cls}" data-i="${i}"><div class="lbl">${posName(i)}${tags}</div><div class="v">${v}</div>`
+         + `<div class="z"><span>${z[0]}</span><span>${z[1]}</span></div><div class="bar"><span class="f" style="width:${Math.min(100, v/top*100)}%"></span>`
+         + `<span class="zn" style="left:${z[0]/top*100}%;width:${(z[1]-z[0])/top*100}%"></span></div><div class="bel">${bel || `<span class="need">${need}</span>`}</div></div>`;
+    }
+    h += '</div>';
+  }
+  $('board').innerHTML = h;
+  renderFoot();
+}
+function actName(a){ return a ? a.t.name : 'ここでやめる(仕上げ)'; }
+// マスの呼び名(ゲーム画面の位置。使っている段だけで数える: 2段なら 上・下、3段なら 上・中・下)
+function posName(i){
+  const rs = [...new Set(G.active.map(j => Math.floor(j / 2)))].sort((a, b) => a - b), k = rs.indexOf(Math.floor(i / 2));
+  const row = rs.length === 2 ? ['上', '下'][k] : rs.length === 3 ? ['上', '中', '下'][k] : rs.length === 1 ? '' : (k + 1) + '段目';
+  return (i % 2 === 0 ? '左' : '右') + row;
+}
+function tgName(a){ return a && a.tg.length ? a.tg.map(posName).join('・') : ''; }
+function pct(x){ return (x * 100).toFixed(x > 0.995 || x < 0.005 ? 0 : 1) + '%'; }
+function renderFoot(){
+  const go = $('go'), msg = $('msg');
+  msg.className = 'msg'; msg.textContent = '';
+  $('chainB').hidden = true;
+  $('alts').innerHTML = '';
+  if(Array.isArray(s.lit)){
+    $('rec').innerHTML = '<span class="nm">光ったマスを押す</span>';
+    go.textContent = '盤面の点滅しているマスから選ぶ'; go.disabled = true; return;
+  }
+  if(s.dead){ $('rec').innerHTML = '<span class="nm" style="color:var(--bad)">ゾーンを超えた</span>'; go.textContent = '最初から'; go.disabled = false; go.onclick = () => doReset(); return; }
+  if(busy || !qs){ $('rec').innerHTML = '<span class="tg">計算中…</span>'; go.textContent = '計算中…'; go.disabled = true; return; }
+  const best = qs[0];
+  if(!best.a){
+    $('rec').innerHTML = `<span><span class="nm">仕上げる</span></span><span class="p">大成功の見込み <b>${pct(best.q)}</b></span>`;
+    go.textContent = 'この局を終えて最初から'; go.disabled = false; go.onclick = () => doReset();
+    msg.textContent = best.idleCut ? 'この後は温度を変えても叩く所が無いので、ここで仕上げる(火力上げ・冷やし込みは打たなくていい)。' : 'これ以上打つより、ここで仕上げる方が大成功しやすい。'; return;
+  }
+  const c = GM.costOf(G, s, best.a.t);
+  if(lastCalc) msg.textContent = `最強で読んだ(${(lastCalc.ms / 1000).toFixed(1)}秒・${lastCalc.threads}スレッド)`;
+  else if(power === 'max' && MAX_SKIP[item]) msg.textContent = 'この商材は最強でも上がらなかったので、ふつうの読み(2手読み)で出している。';
+  if(s.hs === 2) msg.textContent = '必殺の効果中: 次に叩く技は、当たったマスが全部会心(理想値で止まる)。';
+  else if(s.hs === 1 && best.a.t.hs) msg.textContent = '必殺を使う(集中力は使わず、温度 −50)。';
+  else if(s.hs === 1 && best.hsPick) msg.textContent = '必殺は温存。超4連打ちの4マスを、使った後の1打で理想値ぴったりに届く所まで寄せている(揃ったら「ヘパイトスの炎」を推す)。';
+  $('rec').innerHTML = `<span><span class="nm">${best.a.t.name}</span> <span class="tg">${tgName(best.a)}</span></span>`
+    + `<span class="p">消費${c} / 見込み <b>${s.hs === 1 && best.hsPick && best.a.t.area ? '寄せ中' : pct(best.q2 !== undefined ? best.q2 : best.q)}</b></span>`;
+  // 必殺を温存して寄せている間は、ほかの手の%(温存の分を数えていない)を出さない
+  if(!(s.hs === 1 && best.hsPick)) $('alts').innerHTML = qs.slice(1, 3).map((x, k) => `<button data-k="${k+1}">${actName(x.a)} ${tgName(x.a)} ${pct(x.q2 !== undefined ? x.q2 : x.q)}</button>`).join('');
+  $('alts').querySelectorAll('button').forEach(b => b.onclick = () => startAct(qs[+b.dataset.k].a));
+  go.textContent = best.a.t.area ? '打った → 結果を入れる' : '打った'; go.disabled = false;
+  go.onclick = () => startAct(best.a);
+  // 火力上げ・冷やし込みが続けて推奨される時は、まとめて入れるボタンを出す(打つたびに押し直さなくてよい)
+  const cb = $('chainB');
+  if(!best.a.t.area && chainN > 1){ cb.hidden = false; cb.innerHTML = `×${chainN}<br>まとめて`; cb.onclick = () => applyChain(best.a, chainN); }
+}
+// 今の推奨(温度だけの技)が、打った後も続けて推奨される回数(最大6)。1手読みでなぞる
+let chainN = 0;
+function calcChain(a){
+  let t = GM.cloneState(s), k = 0;
+  const opt = { K: 8, overPen: OVER_PEN, rnd: seeded(777), buf: new Float32Array(V.featLen(G, net.ver)) };
+  while(k < 6){
+    GM.afterAct(G, t, a, null); k++;
+    if(Array.isArray(t.lit) || t.F < GM.costOf(G, t, a.t)) break;
+    const r = V.evalActs(net, G, t, opt); r.sort((x, y) => y.q - x.q);
+    if(!r[0].a || r[0].a.t.id !== a.t.id) break;
+  }
+  return k;
+}
+function applyChain(a, n){
+  snap();
+  for(let k = 0; k < n && !Array.isArray(s.lit); k++){ if(GM.costOf(G, s, a.t) > s.F) break; GM.afterAct(G, s, a, null); }
+  save(); recalc();
+}
+
+// ---- 声(ずんだもん・VOICEVOX)。推奨手を読み上げる ----
+// スマホ(とくに iPhone)は、画面に触った時でないと音を出せない。最初に触った時に音の出口(Web Audio)を開けておき、
+// その後は計算が終わったら(触っていなくても)流せるようにする。マナーモードでも鳴るよう audioSession を playback にする
+const VOICE_KEY = 'kajiNaviVoiceV1', RATE_KEY = 'kajiNaviVoiceRateV1';
+let voiceOn = true, voiceRate = 1.15;          // 声の速さ(収録が 1.15 なので 1.15 がそのまま)
+try{ const v = localStorage.getItem(VOICE_KEY); if(v !== null) voiceOn = v === '1'; }catch(e){}
+try{ const r = parseFloat(localStorage.getItem(RATE_KEY)); if(r >= 0.6 && r <= 2.5) voiceRate = r; }catch(e){}
+const CLIP_BASE = 1.15;
+// 計算の強さ。最強は PC のスレッドを全部使って、上位12手を2手先まで読む(pool.js)
+const POWER_KEY = 'kajiNaviPowerV1';
+let power = 'normal';
+try{ if(localStorage.getItem(POWER_KEY) === 'max') power = 'max'; }catch(e){}
+// 超える確率の罰(value.js の overPen)。1 で、同じ局どうしの比べで 大成功はそのまま・超えて失敗が
+// ランプ 11.7→0.0%(600局)、ひだね 7.7→0.3%(300局)。ゾーンの外で終わる局(超え+届かず)も減った
+const OVER_PEN = 1;
+// 最強を使わない商材。ランプは利用者の PC の性能テスト(300局・種700)で ふつう(軽い2手読み)69.3% / 最強 71.0%、
+// 片方だけ大成功 48局 / 53局(差なし)・超えて失敗 3局 / 10局。最強にしても上がらないので、ふつうの読みのまま
+const MAX_SKIP = { lamp: true };
+const MAXOPT = { K: 12, Ki: 12, N2: 12, K2: 24, overPen: OVER_PEN, seed: 12345 };
+let lastCalc = null;      // { ms, threads }
+function playRate(){ return Math.max(0.5, Math.min(2.5, voiceRate / ((typeof AR_CLIP_INFO !== 'undefined' && AR_CLIP_INFO.speed) || CLIP_BASE))); }
+function setVoiceRate(r){ if(!(r >= 0.6 && r <= 2.5)) return; voiceRate = r; try{ localStorage.setItem(RATE_KEY, String(r)); }catch(e){} const el = $('vRate'); if(el) el.value = String(r); }
+const VC = { ctx: null, buf: new Map(), src: null, el: null, seq: 0, primed: false, saidKey: null, chain: null, log: [] };
+const SILENT_WAV = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=';
+function vUnlock(){
+  try{ if(navigator.audioSession) navigator.audioSession.type = 'playback'; }catch(e){}
+  try{
+    if(!VC.ctx){ const AC = window.AudioContext || window.webkitAudioContext; if(AC) VC.ctx = new AC(); }
+    if(VC.ctx){
+      if(VC.ctx.state !== 'running') VC.ctx.resume().catch(() => {});
+      const b = VC.ctx.createBuffer(1, 1, 22050), src = VC.ctx.createBufferSource();
+      src.buffer = b; src.connect(VC.ctx.destination); src.start(0);
+    }
+  }catch(e){}
+  // 予備: audio 要素も触った時に1回鳴らしておく(Web Audio で流せなかった時に使う)
+  try{ if(!VC.el){ VC.el = new Audio(); VC.el.playsInline = true; } if(!VC.primed){ VC.el.src = SILENT_WAV; const p = VC.el.play(); if(p && p.catch) p.catch(() => {}); VC.primed = true; } }catch(e){}
+  try{ if(window.speechSynthesis && !VC.tts){ const u = new SpeechSynthesisUtterance(' '); u.volume = 0; speechSynthesis.speak(u); VC.tts = true; } }catch(e){}
+}
+['pointerdown', 'touchend', 'click', 'keydown'].forEach(ev => document.addEventListener(ev, vUnlock, { passive: true, capture: true }));
+function clipBytes(text){ const b = atob(AR_CLIPS[text]), u = new Uint8Array(b.length); for(let i = 0; i < b.length; i++) u[i] = b.charCodeAt(i); return u; }
+function clipBuf(text){
+  if(VC.buf.has(text)) return VC.buf.get(text);
+  const u = clipBytes(text);
+  const p = new Promise((res, rej) => { try{ const r = VC.ctx.decodeAudioData(u.buffer, res, rej); if(r && r.then) r.then(res, rej); }catch(e){ rej(e); } });
+  VC.buf.set(text, p); p.catch(() => VC.buf.delete(text));
+  return p;
+}
+function vStop(){
+  VC.seq++;
+  try{ if(VC.src){ VC.src.stop(); VC.src = null; } }catch(e){}
+  try{ if(VC.el && !VC.el.paused) VC.el.pause(); }catch(e){}
+  try{ if(window.speechSynthesis && (speechSynthesis.speaking || speechSynthesis.pending)) speechSynthesis.cancel(); }catch(e){}
+}
+function vTts(text){
+  try{
+    if(!window.speechSynthesis) return false;
+    const u = new SpeechSynthesisUtterance(text), v = speechSynthesis.getVoices().find(x => /^ja/i.test(x.lang));
+    u.lang = 'ja-JP'; u.rate = Math.max(0.5, Math.min(2, voiceRate * 0.95)); if(v) u.voice = v; speechSynthesis.speak(u); return true;
+  }catch(e){ return false; }
+}
+async function vSay(text){
+  VC.log.push(text); if(VC.log.length > 40) VC.log.shift();
+  if(!voiceOn) return;
+  vStop();
+  const seq = VC.seq, clip = typeof AR_CLIPS !== 'undefined' && AR_CLIPS[text], pr = playRate();
+  // 速さを変える時は、まず audio 要素(声の高さを変えずに速くできる)。最初に触った時に鳴らしてあるのでスマホでも流せる
+  if(clip && VC.el && Math.abs(pr - 1) > 0.01){
+    try{
+      const old = VC.url; VC.url = URL.createObjectURL(new Blob([clipBytes(text)], { type: 'audio/mpeg' })); if(old) URL.revokeObjectURL(old);
+      VC.el.src = VC.url; VC.el.preservesPitch = true; VC.el.webkitPreservesPitch = true;
+      VC.el.defaultPlaybackRate = pr; VC.el.playbackRate = pr;
+      await VC.el.play(); VC.el.playbackRate = pr; VC.how = 'audio'; return;
+    }catch(e){}
+    if(seq !== VC.seq) return;
+  }
+  if(clip && VC.ctx){
+    try{
+      if(VC.ctx.state !== 'running') await VC.ctx.resume();
+      const b = await clipBuf(text);
+      if(seq !== VC.seq) return;
+      const src = VC.ctx.createBufferSource(); src.buffer = b; src.playbackRate.value = pr; src.connect(VC.ctx.destination); src.start(0); VC.src = src;
+      VC.how = 'webaudio'; return;
+    }catch(e){}
+  }
+  if(seq !== VC.seq) return;
+  if(clip && VC.el){
+    try{
+      const old = VC.url; VC.url = URL.createObjectURL(new Blob([clipBytes(text)], { type: 'audio/mpeg' })); if(old) URL.revokeObjectURL(old);
+      VC.el.src = VC.url; VC.el.defaultPlaybackRate = pr; VC.el.playbackRate = pr; await VC.el.play(); VC.how = 'audio'; return;
+    }catch(e){}
+  }
+  if(seq !== VC.seq) return;
+  if(vTts(text)) VC.how = 'tts';
+}
+// 読み上げの文(収録した文と同じ言い方)
+const YOMI = { tataku: 'たたく', jouge: 'じょうげうち', tekagen: 'てかげんうち', nibai: 'にばいうち', karyoku: 'かりょくあげ',
+  yonren: 'よんれんうち', sanbai: 'さんばいうち', nerai: 'ねらいうち', chouyon: 'ちょうよんれんうち', hiyashi: 'ひやしこみ',
+  naname: 'ななめうち', neppuu: 'ねっぷうおろし', jgnerai: 'じょうげねらいうち', jakunerai: 'じゃくねらいうち', sayuu: 'さゆううち',
+  hissatsu: 'ひっさつ' };
+function rowList(){ return [...new Set(G.active.map(j => Math.floor(j / 2)))].sort((a, b) => a - b); }
+function rowNm(r){ const rs = rowList(), k = rs.indexOf(r); return rs.length === 2 ? ['上', '下'][k] : rs.length === 3 ? ['上', '中', '下'][k] : rs.length === 1 ? '' : (k + 1) + '段目の'; }
+function voicePlace(a){
+  const t = a.t, tg = a.tg;
+  if(!tg.length) return '';
+  if(tg.length === 1) return posName(tg[0]);
+  const rs = [...new Set(tg.map(i => Math.floor(i / 2)))], cs = [...new Set(tg.map(i => i % 2))], all = rowList();
+  if(t.area === 'sq') return all.length > 2 ? rs.map(rowNm).join('と') + 'の段' : '';
+  if(t.area === 'col') return (cs[0] === 0 ? '左' : '右') + 'の列' + (all.length > 2 ? '、' + rs.map(rowNm).join('と') : '');
+  if(t.area === 'row') return (rowNm(rs[0]) || '') + 'の段';
+  if(t.area === 'diag'){ const r = tg.find(i => i % 2 === 1), l = tg.find(i => i % 2 === 0); return posName(r) + 'と' + posName(l); }
+  return tg.map(posName).join('と');
+}
+function moveText(a, n){ const p = voicePlace(a); return (YOMI[a.t.id] || a.t.name) + (p ? '、' + p : '') + (n > 1 ? `、${n}回` : ''); }
+// 推奨が出たら読み上げる。同じ局面・同じ手は繰り返さない。「火力上げ、2回」と言った後は、その回数を打ち終わるまで黙る
+function announce(force){
+  if(!voiceOn || (window.NR && window.NR.on)) return;         // 画面読み取り中(自分用)は、読み取り側が読み上げる
+  let text = null;
+  const a = qs && qs[0] && qs[0].a;
+  if(Array.isArray(s.lit)) text = '光ったマスを選んで';
+  else if(s.dead || !qs) return;
+  else if(!a) text = '全部入った。仕上げ';
+  else text = moveText(a, !a.t.area && chainN > 1 ? chainN : 1);
+  const key = text + '|' + [s.temp, s.F, s.v.join(','), String(s.lit)].join('/');
+  if(!force && key === VC.saidKey) return;
+  VC.saidKey = key;
+  if(!force && a && !a.t.area && VC.chain && VC.chain.id === a.t.id && VC.chain.temps.includes(s.temp)) return;
+  VC.chain = null;
+  if(a && !a.t.area && chainN > 1){ const temps = []; for(let k = 1; k < chainN; k++) temps.push(s.temp + a.t.dT * k); VC.chain = { id: a.t.id, temps }; }
+  vSay(text);
+}
+function renderVoice(){ $('vBt').textContent = voiceOn ? 'オン' : 'オフ'; $('vB').className = 'stat vbtn ' + (voiceOn ? 'on' : 'off'); }
+
+// ---- 推奨手 ----
+function recalc(){
+  qs = null; render();
+  if(s.dead || Array.isArray(s.lit) || !net) { if(!net) $('msg').textContent = 'この商材の計算はまだ無い'; if(Array.isArray(s.lit)) announce(false); return; }
+  busy = true; const id = ++calcId;
+  setTimeout(() => {
+    if(id !== calcId) return;
+    const sp = SEARCH[item] || { depth: 1 };
+    const opt = { K: sp.K || 12, N2: sp.N2, K2: sp.K2, overPen: OVER_PEN, rnd: seeded(12345), buf: new Float32Array(V.featLen(G, net.ver)) };
+    let res;
+    if(power === 'max' && !MAX_SKIP[item] && !s.hs && window.KajiPool && KajiPool.start()){
+      // 最強: Worker に手分けして読ませる(待っている間も画面は動く)
+      const t0 = performance.now(), cfgW = { item, level: G.level, hammer: G.hammer, star: G.star, focus: G.focus };
+      KajiPool.setNet(item, W[item]);
+      KajiPool.evalMax(cfgW, s, MAXOPT).then(r => {
+        if(id !== calcId) return;
+        r.sort((a, b) => b.q2 - a.q2);
+        lastCalc = { ms: performance.now() - t0, threads: KajiPool.size };
+        finishCalc(id, r);
+      });
+      return;
+    }
+    if(s.hs){ res = V.evalActsHS(net, G, s, opt); }          // 必殺がからむ時は専用の読み(並べ替え済み)
+    else if(sp.depth === 2){ res = V.evalActs2(net, G, s, opt); res.sort((a, b) => b.q2 - a.q2); }
+    else { res = V.evalActs(net, G, s, opt); res.sort((a, b) => b.q - a.q); }
+    if(id !== calcId) return;
+    lastCalc = null;
+    finishCalc(id, res);
+  }, 30);
+}
+function finishCalc(id, res){
+  {
+    // 温度だけの技と「仕上げる」が同じ見込みなら、仕上げる(打っても変わらないのに集中力を使うだけなので)
+    const qv = x => x.q2 !== undefined ? x.q2 : x.q, stop = res.find(x => !x.a);
+    if(stop && res[0] !== stop && res[0].a && !res[0].a.t.area && qv(stop) >= qv(res[0]) - 1e-6){ res.splice(res.indexOf(stop), 1); res.unshift(stop); }
+    // 余った集中力で火力上げ・冷やし込みを打つだけで、結局どこも叩かずに終わるなら、ここで仕上げる
+    else if(net && !s.hs) res = V.trimIdle(net, G, s, res, { overPen: OVER_PEN, buf: new Float32Array(V.featLen(G, net.ver)) });
+    qs = res; busy = false; chainN = 0; render();
+    if(window.__naviOnCalc) try{ window.__naviOnCalc(); }catch(e){}
+    const b = res[0] && res[0].a;
+    // 温度だけの技は、続けて何回打つかを数えてから読み上げる(「かりょくあげ、2回」)
+    if(b && !b.t.area && !s.hs) setTimeout(() => { if(id !== calcId) return; chainN = calcChain(b); if(id === calcId){ renderFoot(); announce(false); } }, 20);
+    else announce(false);
+  }
+}
+
+// ---- 手を打つ ----
+function startAct(a){
+  if(!a) return;
+  if(!a.t.area){            // 火力上げ・冷やし込み: 結果は決まっている
+    snap(); GM.afterAct(G, s, a, null); save(); recalc(); return;
+  }
+  // 叩く前の局面で、マスごとに出うる結果を求めておく(温度・光ったマスは叩く前の物)
+  const per = a.tg.map(j => {
+    const { rs, cr } = GM.hitParams(G, s, a.t, j);
+    return { j, outs: GM.massOutcomes(G.cells[j], s.v[j], s.bel[j], rs, cr) };
+  });
+  pend = { a, per, sel: {} };
+  openReels();
+}
+function reelItems(outs, z){
+  const m = new Map();
+  for(const o of outs){ const x = m.get(o.w) || { w: o.w, n: 0, c: 0 }; if(o.crit) x.c += o.p; else x.n += o.p; m.set(o.w, x); }
+  const its = [...m.values()].sort((a, b) => a.w - b.w).map(x => ({ w: x.w, tag: x.n > 0 && x.c > 0 ? 'a' : x.c > 0 ? 'c' : 'n', p: x.n + x.c, ov: x.w > z[1] }));
+  // 最初に合わせる値: 会心でない値の真ん中(一番出やすい)
+  const ns = its.filter(x => x.tag !== 'c'); const base = ns.length ? ns : its;
+  return { its, start: its.indexOf(base[Math.floor((base.length - 1) / 2)]) };
+}
+function openReels(){
+  const rows = G.cells.length / 2, tgs = pend.per.map(p => p.j);
+  const usedRows = [...Array(rows).keys()].filter(r => G.cells[2*r] || G.cells[2*r+1]);
+  const cols = [0, 1].filter(c => G.cells.some((z, i) => z && i % 2 === c));
+  const vis = usedRows.length >= 3 ? 3 : 5;
+  let h = '';
+  for(const r of usedRows){
+    h += `<div class="rrow" style="grid-template-columns:repeat(${cols.length},1fr)">`;
+    for(const c of cols){
+      const i = 2*r + c, z = G.cells[i];
+      if(!z){ h += '<div class="rcell gap"></div>'; continue; }
+      if(!tgs.includes(i)){ h += `<div class="rcell still"><div class="rl">${posName(i)}</div><b>${s.v[i]}</b></div>`; continue; }
+      const p = pend.per.find(x => x.j === i), ri = reelItems(p.outs, z);
+      p.its = ri.its; pend.sel[i] = ri.start;
+      h += `<div class="rcell"><div class="rl">${posName(i)}<b id="rt${i}"></b></div><div class="reel" id="rl${i}" style="height:${44*vis}px;padding:${22*(vis-1)}px 0">`
+         + ri.its.map((x, k) => `<button class="${x.tag}${x.ov ? ' ov' : ''}" data-k="${k}">${x.w}</button>`).join('') + '</div></div>';
+    }
+    h += '</div>';
+  }
+  $('reels').innerHTML = h;
+  $('reelM').classList.add('show');
+  for(const p of pend.per){
+    const el = $('rl' + p.j);
+    el.scrollTop = pend.sel[p.j] * 44;
+    let tm = null;
+    el.addEventListener('scroll', () => { mark(p.j); clearTimeout(tm); tm = setTimeout(() => mark(p.j), 120); }, { passive: true });
+    el.querySelectorAll('button').forEach(b => b.onclick = () => { el.scrollTo({ top: +b.dataset.k * 44, behavior: 'smooth' }); });
+    mark(p.j);
+  }
+}
+function mark(j){
+  const el = $('rl' + j), p = pend && pend.per.find(x => x.j === j); if(!el || !p) return;
+  const k = Math.max(0, Math.min(p.its.length - 1, Math.round(el.scrollTop / 44)));
+  pend.sel[j] = k;
+  el.querySelectorAll('button').forEach(b => b.classList.toggle('on', +b.dataset.k === k));
+  const t = p.its[k].tag, e = $('rt' + j);
+  e.textContent = t === 'c' ? ' 会心' : t === 'a' ? ' 会心?' : ''; e.className = t;
+}
+function closeReels(){ $('reelM').classList.remove('show'); pend = null; }
+function commitReels(){
+  if(!pend) return;
+  snap();
+  const a = pend.a;
+  for(const p of pend.per){
+    const w = p.its[pend.sel[p.j]].w, z = G.cells[p.j];
+    // 選んだ値になる結果(会心あり・なし)を確率で混ぜて、理想値の見込みを更新する
+    const hit = p.outs.filter(o => o.w === w);
+    let tot = 0; const bel = new Array(s.bel[p.j].length).fill(0);
+    for(const o of hit){ tot += o.p; for(let q = 0; q < bel.length; q++) bel[q] += o.p * o.bel[q]; }
+    if(tot > 0) s.bel[p.j] = bel.map(x => x / tot);
+    s.v[p.j] = w;
+    if(w > z[1]) s.dead = true;
+  }
+  GM.afterAct(G, s, a, null);      // 集中力・温度。光るマスは候補の一覧になる(盤面で選ぶ)
+  closeReels(); save(); recalc();
+}
+
+// ---- 光ったマス・手直し ----
+$('board').addEventListener('click', e => {
+  const c = e.target.closest('.cell'); if(!c || c.classList.contains('gap')) return;
+  const i = +c.dataset.i;
+  if(Array.isArray(s.lit)){ if(s.lit.includes(i)){ s.lit = i; save(); recalc(); } return; }
+  askNum(`${posName(i)}の値`, s.v[i], v => { snap(); s.v[i] = v; s.dead = v > G.cells[i][1]; s.first = false; save(); recalc(); });
+});
+$('stTemp').onclick = () => askNum('温度(℃)', s.temp, v => { snap(); s.temp = Math.round(v / 50) * 50; s.first = s.first && s.temp === 1000; s.lit = null;
+  if(G.trait === 'hikari' && !s.first && s.temp % 200 === 0){ const c = G.active.filter(i => s.v[i] < G.cells[i][0]); if(c.length) s.lit = c; }
+  save(); recalc(); });
+$('stFocus').onclick = () => askNum('集中力', s.F, v => { snap(); s.F = v; save(); recalc(); });
+let numCb = null;
+function askNum(t, v, cb){ $('numT').textContent = t; $('numI').value = v; numCb = cb; $('numM').classList.add('show'); setTimeout(() => $('numI').select(), 50); }
+$('numOk').onclick = () => { const v = parseInt($('numI').value, 10); $('numM').classList.remove('show'); if(Number.isFinite(v) && v >= 0 && numCb) numCb(v); numCb = null; };
+$('numCancel').onclick = () => { $('numM').classList.remove('show'); numCb = null; };
+$('numM').onclick = $('numCancel').onclick;
+$('reelOk').onclick = commitReels;
+$('reelCancel').onclick = closeReels;
+$('reelM').onclick = closeReels;
+
+// ---- 自分の条件 ----
+$('cfgB').onclick = () => { $('cfF').value = cfg.focus; $('cfgM').classList.add('show'); setTimeout(() => $('cfF').select(), 50); };
+$('cfgCancel').onclick = () => $('cfgM').classList.remove('show');
+$('cfgM').onclick = $('cfgCancel').onclick;
+$('cfgOk').onclick = () => {
+  const f = parseInt($('cfF').value, 10);
+  if(!(f >= 1 && f <= 999)) return;
+  const fresh = !hist.length && s.first;                  // まだ打っていなければ、新しい集中力で始め直す
+  cfg = { focus: f }; saveCfg();
+  $('cfgM').classList.remove('show');
+  G = mkG(item); net = loadNet(item);
+  if(fresh) s = GM.newState(G);
+  save(); recalc();
+};
+
+// ---- スマホ: 鍛冶の間は画面を消さない(対応していない所では何もしない) ----
+let wake = null;
+async function keepAwake(){
+  try{ if(!wake && navigator.wakeLock && document.visibilityState === 'visible'){ wake = await navigator.wakeLock.request('screen'); wake.addEventListener('release', () => { wake = null; }); } }catch(e){ wake = null; }
+}
+document.addEventListener('pointerdown', keepAwake, { passive: true });
+document.addEventListener('visibilitychange', () => { if(document.visibilityState === 'visible') keepAwake(); });
+
+$('vB').onclick = () => {
+  voiceOn = !voiceOn; try{ localStorage.setItem(VOICE_KEY, voiceOn ? '1' : '0'); }catch(e){}
+  renderVoice();
+  if(voiceOn){ VC.saidKey = null; VC.chain = null; announce(true); } else vStop();
+};
+renderVoice();
+$('vRate').value = String(voiceRate);
+$('power').value = power;
+$('power').onchange = e => { power = e.target.value === 'max' ? 'max' : 'normal'; try{ localStorage.setItem(POWER_KEY, power); }catch(e2){} if(power === 'max' && window.KajiPool) KajiPool.start(); recalc(); };
+$('vRate').onchange = e => { setVoiceRate(+e.target.value); VC.saidKey = null; announce(true); };
+// 必殺の状態を手で切り替える(なし → たまった → 効果中 → なし)。戻すで戻せる
+$('hsB').onclick = () => { if(pend) return; snap(); s.hs = ((s.hs | 0) + 1) % 3; save(); recalc(); };
+
+function doReset(){ s = GM.newState(G); hist = []; pend = null; save(); recalc(); }
+$('reset').onclick = doReset;
+$('undo').onclick = () => { if(!hist.length) return; s = hist.pop(); pend = null; save(); recalc(); };
+$('item').innerHTML = ITEM_ORDER.filter(k => GM.ITEMS[k]).map(k => `<option value="${k}">${GM.ITEMS[k].name}${W[k] ? '' : '(準備中)'}</option>`).join('');
+$('item').onchange = e => setItem(e.target.value, false);
+
+if(restore()){ $('item').value = item; recalc(); }
+else { $('item').value = item; setItem(item, false); }
+window.__navi = { get s(){ return s; }, get qs(){ return qs; }, get G(){ return G; }, get cfg(){ return cfg; }, get item(){ return item; }, get net(){ return net; },
+  get hist(){ return hist; }, get busy(){ return busy; }, startAct, commitReels, get pend(){ return pend; },
+  // 外から局面を書き換える(戻すで戻せる)。fn(s) の中で s を直接いじる
+  mut(fn){ snap(); fn(s); pend = null; if($('reelM').classList.contains('show')) $('reelM').classList.remove('show'); save(); recalc(); },
+  reset(F){ s = GM.newState(G); if(Number.isFinite(F)) s.F = F; hist = []; pend = null; save(); recalc(); },
+  // 画面で見た打ち始めの集中力を覚える
+  setStartFocus(f){ if(cfg.focus === f) return; cfg = { focus: f }; saveCfg(); G = mkG(item); net = loadNet(item); renderCfg(); },
+  setHs(h){ if((s.hs | 0) === h) return; snap(); s.hs = h; save(); recalc(); },
+  get power(){ return power; }, get lastCalc(){ return lastCalc; },
+  setVoiceRate, get voiceRate(){ return voiceRate; }, get vel(){ return VC.el ? { rate: VC.el.playbackRate, pitch: VC.el.preservesPitch, src: !!VC.el.src } : null; },
+  recalc, closeReels, say: vSay, moveText, get voiceOn(){ return voiceOn; }, get vlog(){ return VC.log; }, get vhow(){ return VC.how; } };
+})();
+</script>
+<!--SELF-SCRIPTS-->
+</body>
+</html>

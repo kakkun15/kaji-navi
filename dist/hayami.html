@@ -1,0 +1,459 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>鍛冶の早見</title>
+<style>
+:root{
+  --bg:#f6f4ef; --card:#fff; --ink:#1f1d1a; --sub:#6b665e; --line:#e3ded4;
+  --accent:#c2410c; --accent-ink:#fff; --crit:#b45309; --good:#15803d; --chip:#efe9dd;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#16140f; --card:#211e18; --ink:#f1ece2; --sub:#a59d8f; --line:#3a352c;
+    --accent:#f97316; --accent-ink:#1a1209; --crit:#fbbf24; --good:#4ade80; --chip:#2d2920;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#16140f; --card:#211e18; --ink:#f1ece2; --sub:#a59d8f; --line:#3a352c;
+  --accent:#f97316; --accent-ink:#1a1209; --crit:#fbbf24; --good:#4ade80; --chip:#2d2920;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,-apple-system,"Hiragino Sans","Yu Gothic UI",sans-serif}
+main{max-width:760px;margin:0 auto;padding:12px 16px 48px}
+h1{font-size:18px;margin:4px 0 12px;font-weight:700;letter-spacing:.02em}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:12px}
+.temp{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.temp input{width:5.2em;font-size:40px;font-weight:800;text-align:right;border:none;background:transparent;color:var(--ink);font-variant-numeric:tabular-nums;padding:0}
+.temp .u{font-size:24px;font-weight:700;margin-right:6px}
+.kind{font-size:13px;padding:2px 8px;border-radius:999px;background:var(--chip);color:var(--sub)}
+.kind.on{background:var(--accent);color:var(--accent-ink)}
+.btns{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+button{font:inherit;border:1px solid var(--line);background:var(--chip);color:var(--ink);border-radius:8px;padding:8px 12px;cursor:pointer;min-height:44px}
+button.main{background:var(--accent);color:var(--accent-ink);border-color:transparent;font-weight:700}
+select,input[type=number]{font:inherit;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);min-height:40px}
+label{font-size:13px;color:var(--sub);display:flex;flex-direction:column;gap:2px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
+.toggle{display:flex;align-items:center;gap:6px;font-size:15px;color:var(--ink);flex-direction:row;min-height:40px}
+.toggle input{width:22px;height:22px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px}
+.tc{border:1px solid var(--line);border-radius:10px;padding:10px;background:var(--card)}
+.tc .nm{font-weight:700;display:flex;justify-content:space-between;gap:6px}
+.tc .nm span{font-weight:400;color:var(--sub);font-size:13px}
+.big{font-size:28px;font-weight:800;font-variant-numeric:tabular-nums;line-height:1.2}
+.big small{font-size:15px;font-weight:600;color:var(--sub)}
+.vals{font-size:13px;color:var(--sub);font-variant-numeric:tabular-nums;word-spacing:2px}
+.crit{color:var(--crit);font-weight:700;font-variant-numeric:tabular-nums}
+.muted{color:var(--sub);font-size:13px}
+table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+th,td{padding:8px 6px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+th{font-size:13px;color:var(--sub);font-weight:600}
+td:first-child,th:first-child{text-align:left}
+tr.now td{background:var(--chip);font-weight:700}
+.tbl{overflow-x:auto}
+.rec{display:flex;flex-direction:column;gap:6px}
+.ri{display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border-radius:8px;background:var(--chip)}
+.ri b{font-size:17px}
+.ri.best{outline:2px solid var(--good)}
+.pct{font-weight:800;font-variant-numeric:tabular-nums}
+details summary{cursor:pointer;color:var(--sub);font-size:14px;min-height:32px;display:flex;align-items:center}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chips label{flex-direction:row;align-items:center;gap:4px;background:var(--chip);padding:6px 10px;border-radius:999px;color:var(--ink);font-size:14px}
+footer{font-size:12px;color:var(--sub);margin-top:20px;line-height:1.7}
+footer a{color:var(--sub)}
+</style>
+</head>
+<body>
+<main>
+<h1>鍛冶の早見 <span class="muted">温度ごとの伸びと会心率</span></h1>
+
+<section class="card">
+  <div class="temp">
+    <input id="temp" type="number" inputmode="numeric" step="50" min="0" max="3000" value="1000" aria-label="温度"><span class="u">℃</span>
+    <span id="kind" class="kind"></span>
+  </div>
+  <div class="btns">
+    <button data-d="-50">−50</button>
+    <button data-d="50">+50</button>
+    <button class="main" data-d="300">火力上げ +300</button>
+    <button data-d="-300">冷やし込み −300</button>
+    <button data-d="-150">熱風 −150</button>
+    <button data-set="1000">1000に戻す</button>
+  </div>
+  <div class="row" style="margin-top:10px">
+    <label>地金特性
+      <select id="trait">
+        <option value="none">なし・戻り</option>
+        <option value="shuchu">集中力変化</option>
+        <option value="tataki">たたき変化</option>
+        <option value="hikari">威力会心率上昇</option>
+      </select>
+    </label>
+    <label class="toggle" id="litWrap"><input type="checkbox" id="lit">光ったマス</label>
+    <label class="toggle"><input type="checkbox" id="first">1手目(特性なし)</label>
+  </div>
+  <details style="margin-top:6px">
+    <summary>職人レベル・ハンマー</summary>
+    <div class="row">
+      <label>職人Lv <input id="level" type="number" min="1" max="80" value="75" style="width:5em"></label>
+      <label>ハンマー
+        <select id="hammer"></select>
+      </label>
+      <label>できのよさ
+        <select id="star"><option value="0">★0</option><option value="1">★1</option><option value="2">★2</option><option value="3" selected>★3</option></select>
+      </label>
+    </div>
+    <div class="muted" id="toolCrit" style="margin-top:6px"></div>
+    <div class="chips" id="techPick" style="margin-top:8px"></div>
+  </details>
+</section>
+
+<section class="card">
+  <div class="grid" id="cards"></div>
+  <div class="muted" style="margin-top:8px">会心は伸びが2倍。途中に理想値があれば、そこでぴったり止まる。</div>
+</section>
+
+<section class="card">
+  <div class="row" style="justify-content:space-between">
+    <b>おすすめの打ち方</b>
+    <span class="muted">普通に出た時(会心なし)にゾーンに入る確率</span>
+  </div>
+  <div class="row" style="margin:8px 0">
+    <label>ゾーンの真ん中まで あと<input id="dist" type="number" inputmode="numeric" min="0" value="15" style="width:6em"></label>
+    <label>ゾーンの幅(数字の数)<input id="width" type="number" inputmode="numeric" min="1" value="7" style="width:5em"></label>
+  </div>
+  <div class="rec" id="rec"></div>
+  <details style="margin-top:8px">
+    <summary>この温度で「必ずゾーンに入る」残りの数</summary>
+    <div class="tbl"><table id="sure"></table></div>
+  </details>
+</section>
+
+<section class="card">
+  <div class="row" style="justify-content:space-between;align-items:center">
+    <b>温度ごとの一覧</b>
+    <div class="row">
+      <label>技<select id="listTech"></select></label>
+      <label>刻み<select id="step"><option>50</option><option selected>100</option><option>200</option><option>300</option></select></label>
+      <label>行数<select id="rows"><option>6</option><option selected>10</option><option>16</option><option>24</option></select></label>
+    </div>
+  </div>
+  <div class="tbl" style="margin-top:6px"><table id="list"></table></div>
+</section>
+
+<footer>
+  数字の計算式と仕組みは公開の攻略情報によるもので、ゲームの公式情報ではありません。光ったマスの会心率(+400%)は未検証の仮の値です。<br>
+  出典:
+  <a href="https://hoshizukuyo.hatenablog.com/entry/2020/12/22/180000" rel="noopener">ほしづくよのドラゴンクエストX日記(威力の式)</a> /
+  <a href="https://ドラクエ10.jp/dq10_kaji_1.html" rel="noopener">ドラクエ10.jp(温度別の数値の表)</a> /
+  <a href="https://dq10-blog.blogspot.com/2017/03/blog-post.html" rel="noopener">ひろぐ(会心率)</a> /
+  <a href="https://gameranbu.jp/dq10/3a60814d5c71527c7ce3" rel="noopener">ゲーム乱舞(技・地金特性)</a><br>
+  個人が作った非公式のツールです。株式会社スクウェア・エニックスとは関係ありません。
+</footer>
+</main>
+
+<script data-src="core.js">
+// 鍛冶ナビ 計算の核: 技・威力・会心率・地金特性。
+// 仕様と出典は docs/仕様.md。ブラウザでも Node でも動く(ブラウザでは window.KajiCore)。
+(function (root) {
+  'use strict';
+
+  // ---- 技 ---------------------------------------------------------------
+  // pow: 威力の倍率(y)。aim: ねらい系(会心ボーナス+600%)。dT: 温度の変化。
+  // area: 叩く範囲。'one' 1マス / 'col' 縦2 / 'row' 横2 / 'diag' 左下と右上 / 'sq' 2×2 / 'rand' ランダム4回 / null 叩かない
+  const TECHS = [
+    { id: 'tataku',   name: 'たたく',         lv: 1,  mp: 5,  pow: 1,   area: 'one',  dT: -50 },
+    { id: 'jouge',    name: '上下打ち',       lv: 2,  mp: 8,  pow: 1.2, area: 'col',  dT: -50 },
+    { id: 'tekagen',  name: 'てかげん打ち',   lv: 3,  mp: 10, pow: 0.5, area: 'one',  dT: -50 },
+    { id: 'nibai',    name: '2倍打ち',        lv: 5,  mp: 8,  pow: 2,   area: 'one',  dT: -50 },
+    { id: 'karyoku',  name: '火力上げ',       lv: 7,  mp: 10, pow: 0,   area: null,   dT: 300 },
+    { id: 'yonren',   name: '4連打ち',        lv: 11, mp: 12, pow: 1.2, area: 'sq',   dT: -50 },
+    { id: 'midare',   name: 'みだれ打ち',     lv: 13, mp: 7,  pow: 0.8, area: 'rand', dT: -50 },
+    { id: 'sanbai',   name: '3倍打ち',        lv: 16, mp: 11, pow: 3,   area: 'one',  dT: -50 },
+    { id: 'nerai',    name: 'ねらい打ち',     lv: 23, mp: 16, pow: 1,   area: 'one',  dT: -50, aim: true },
+    { id: 'chouyon',  name: '超4連打ち',      lv: 27, mp: 18, pow: 2,   area: 'sq',   dT: -50 },
+    { id: 'hiyashi',  name: '冷やし込み',     lv: 33, mp: 12, pow: 0,   area: null,   dT: -300 },
+    { id: 'naname',   name: 'ななめ打ち',     lv: 38, mp: 7,  pow: 1.2, area: 'diag', dT: -50 },
+    { id: 'neppuu',   name: '熱風おろし',     lv: 47, mp: 6,  pow: 2.5, area: 'one',  dT: -150 },
+    { id: 'jgnerai',  name: '上下ねらい打ち', lv: 52, mp: 25, pow: 1.2, area: 'col',  dT: -50, aim: true },
+    { id: 'jakunerai',name: '弱ねらい打ち',   lv: 75, mp: 20, pow: 0.5, area: 'one',  dT: -50, aim: true },
+    { id: 'sayuu',    name: '左右打ち',       lv: 80, mp: 8,  pow: 1.2, area: 'row',  dT: -50 },
+  ];
+  TECHS.forEach((t, i) => { t.ix = i; });
+  const TECH = Object.fromEntries(TECHS.map(t => [t.id, t]));
+
+  // ---- 威力 -------------------------------------------------------------
+  // 1000℃の「たたく」の7通り。
+  const N_LIST = [12, 13, 14, 15, 16, 17, 18];
+  const TEMP_CAP = 2000;
+
+  // ceil(n × y)。y は 0.5 / 0.8 / 1 / 1.2 / 2 / 2.5 / 3 なので、10倍した整数で計算して小数の誤差を避ける。
+  function basePower(n, pow) {
+    const y10 = Math.round(pow * 10);
+    let v = Math.ceil(n * y10 / 10);
+    // n=15 の倍率1.2 と 0.8 だけは、式(18・12)より1大きい19・13になる。
+    // 出典: ドラクエ10.jp「鍛冶職人の温度別数値」の表(全温度で一致。docs/仕様.md 4)。
+    if (n === 15 && (y10 === 12 || y10 === 8) && CORE.fix15) v += 1;
+    return v;
+  }
+  // 温度の係数 (0.5 + 0.0005x) = (1000 + x) / 2000。
+  function tempScale(v, temp) {
+    const x = Math.min(TEMP_CAP, Math.max(0, temp));
+    return Math.ceil(v * (1000 + x) / 2000);
+  }
+  // 1回の伸びの7通り(会心でない時)。mult はたたき変化・光ったマスの倍率(1 / 2 / 0.5)。
+  // 同じ(技・温度・倍率)の7通りは何度も聞かれるので、覚えておいて同じ配列を返す(メモ化)。返した配列は書き換えないこと
+  const ROLLS_MEMO = new Map();
+  function rolls(techId, temp, mult) {
+    const t = TECH[techId]; if (!t) return null;
+    const m = mult || 1, mc = m === 1 ? 0 : m === 2 ? 1 : m === 0.5 ? 2 : 3;
+    if (mc === 3) return rollsRaw(techId, temp, mult);
+    const key = ((t.ix * 8192 + temp) * 4 + mc) * 2 + (CORE.fix15 ? 1 : 0);      // 数の鍵(文字列を作らない)
+    let r = ROLLS_MEMO.get(key);
+    if (r === undefined) { r = rollsRaw(techId, temp, mult); if (ROLLS_MEMO.size > 20000) ROLLS_MEMO.clear(); ROLLS_MEMO.set(key, r); }
+    return r;
+  }
+  function rollsRaw(techId, temp, mult) {
+    const t = TECH[techId];
+    if (!t || !t.area) return null;
+    const m = mult || 1;
+    return N_LIST.map(n => {
+      const v = tempScale(basePower(n, t.pow), temp);
+      return m === 1 ? v : Math.ceil(v * m);
+    });
+  }
+
+  // ---- 地金特性 ---------------------------------------------------------
+  // 'none' なし / 'shuchu' 集中力変化 / 'tataki' たたき変化 / 'hikari' 威力会心率上昇 / 'modori' メーター減少
+  // first: 1手目(開始直後)は特性が乗らない。
+  function tempKind(temp) {
+    if (temp > 0 && temp % 400 === 0) return 400;
+    if (temp > 0 && temp % 200 === 0) return 200;
+    return 0;
+  }
+  // 威力の倍率(たたき変化・光ったマス)
+  function powerMult(trait, temp, lit, first) {
+    if (first) return 1;
+    const k = tempKind(temp);
+    if (trait === 'tataki') return k === 400 ? 2 : k === 200 ? 0.5 : 1;
+    if (trait === 'hikari' && lit && k) return 2;
+    return 1;
+  }
+  // 集中力の消費
+  function cost(techId, temp, trait, first) {
+    const t = TECH[techId];
+    if (!t) return 0;
+    if (trait !== 'shuchu' || first) return t.mp;
+    const k = tempKind(temp);
+    if (k === 400) return Math.max(1, Math.round(t.mp * 0.5));
+    if (k === 200) return Math.round(t.mp * 1.5);
+    return t.mp;
+  }
+
+  // ---- 会心率 -----------------------------------------------------------
+  const HAMMERS = {
+    dou:      { name: '銅',       base: 1.0 },
+    tetsu:    { name: '鉄',       base: 1.5 },
+    gin:      { name: '銀',       base: 2.0 },
+    platinum: { name: 'プラチナ', base: 2.5 },
+    chou:     { name: '超',       base: 3.0 },
+    kiseki:   { name: '奇跡',     base: 3.3 },
+    hikari:   { name: '光',       base: 3.6 },
+  };
+  const STAR_BONUS = [0, 0.1, 0.2, 1.0];
+  const KOTSU = 1.0;          // 「コツをつかんでいる」 [S5]「らしい」
+  const AIM_BONUS = 6;        // ねらい系 +600% [S5]
+  const TURN_BONUS = 4;       // 集中力変化の会心ターン +400% [S5]
+
+  function skillCrit(level) {
+    return (level >= 10 ? 0.1 : 0) + (level >= 20 ? 0.2 : 0) + (level >= 30 ? 0.3 : 0);
+  }
+  // 道具会心率(%)
+  function toolCrit(level, hammer, star) {
+    const h = HAMMERS[hammer];
+    return skillCrit(level) + KOTSU + (h ? h.base + STAR_BONUS[star | 0] : 0);
+  }
+  // 会心率(0〜1)
+  function critRate(techId, o) {
+    const t = TECH[techId];
+    if (!t || !t.area) return 0;
+    let bonus = 0;
+    if (t.aim) bonus += AIM_BONUS;
+    if (!o.first) {
+      const k = tempKind(o.temp);
+      if (o.trait === 'shuchu' && k === 200) bonus += TURN_BONUS;
+      if (o.trait === 'hikari' && o.lit && k) bonus += CORE.litBonus;
+    }
+    return Math.min(1, toolCrit(o.level, o.hammer, o.star) * (1 + bonus) / 100);
+  }
+
+  // ---- 1回叩いた結果 ----------------------------------------------------
+  // 今の値 v のマスを叩いた時に出うる値。理想値が分からないので、会心は「2倍」と「ゾーン内で止まる」の両方を出す。
+  function hitValues(v, rs, zone) {
+    const normal = [...new Set(rs.map(r => v + r))];
+    const crit = new Set();
+    for (const r of rs) {
+      const to = v + 2 * r;
+      if (to < zone[0] || v >= zone[1]) crit.add(to);         // ゾーンに届かない(または既に超えている)なら2倍
+      else for (let x = Math.max(v + 1, zone[0]); x <= Math.min(to, zone[1]); x++) crit.add(x);
+      if (to > zone[1] && v < zone[0]) { /* 理想値で必ず止まるので超えない */ }
+    }
+    return { normal, crit: [...crit].sort((a, b) => a - b) };
+  }
+
+  // ---- 誤差 -------------------------------------------------------------
+  function massError(v, ideal, zone) {
+    const d = Math.abs(v - ideal);
+    if (v >= zone[0] && v <= zone[1]) return Math.min(d, 4);
+    return Math.max(d, 9);
+  }
+  // 大成功の誤差合計(マス数から) [S3]
+  const GREAT_BY_MASSES = { 2: 0, 3: 2, 4: 3, 5: 5, 6: 7, 7: 9 };
+
+  // ---- 集中力の上限 -----------------------------------------------------
+  // ハンマーの集中度(開始時に足される)。
+  const HAMMER_FOCUS = { dou: 0, tetsu: 10, gin: 15, platinum: 25, chou: 35, kiseki: 50, hikari: 45 };
+
+  const CORE = {
+    TECHS, TECH, N_LIST, HAMMERS, STAR_BONUS, HAMMER_FOCUS, GREAT_BY_MASSES,
+    fix15: true,
+    litBonus: 4,
+    basePower, tempScale, rolls, tempKind, powerMult, cost,
+    skillCrit, toolCrit, critRate, hitValues, massError,
+  };
+  if (typeof module !== 'undefined' && module.exports) module.exports = CORE;
+  else root.KajiCore = CORE;
+})(typeof window !== 'undefined' ? window : globalThis);
+
+</script>
+<script>
+(function(){
+'use strict';
+const C = window.KajiCore;
+const $ = id => document.getElementById(id);
+const SAVE = 'kajiHayamiV1';
+const HIT = C.TECHS.filter(t => t.area && t.id !== 'midare');   // みだれ打ちは使わない(利用者)
+const DEFAULT_PICK = ['tataku','tekagen','nibai','sanbai','nerai','neppuu','jakunerai','jouge'];
+let pick = DEFAULT_PICK.slice();
+
+// 保存(この端末だけ)
+function load(){
+  try{
+    const s = JSON.parse(localStorage.getItem(SAVE) || 'null'); if(!s) return;
+    for(const k of ['level','hammer','star','trait','width','step','rows','listTech']) if(s[k] != null && $(k)) $(k).value = s[k];
+    if(Array.isArray(s.pick)) pick = s.pick;
+  }catch(e){}
+}
+function save(){
+  try{
+    const s = { pick };
+    for(const k of ['level','hammer','star','trait','width','step','rows','listTech']) s[k] = $(k).value;
+    localStorage.setItem(SAVE, JSON.stringify(s));
+  }catch(e){}
+}
+
+for(const [k,h] of Object.entries(C.HAMMERS)){
+  const o = document.createElement('option'); o.value = k; o.textContent = h.name + 'のハンマー'; $('hammer').appendChild(o);
+}
+$('hammer').value = 'hikari';
+for(const t of HIT){
+  const o = document.createElement('option'); o.value = t.id; o.textContent = t.name; $('listTech').appendChild(o);
+}
+load();
+
+function opts(temp){
+  return { level: +$('level').value || 1, hammer: $('hammer').value, star: +$('star').value,
+           trait: $('trait').value, temp, lit: $('lit').checked, first: $('first').checked };
+}
+function multOf(o){ return C.powerMult(o.trait, o.temp, o.lit, o.first); }
+const pct = p => (p*100).toFixed(p < 0.1 ? 1 : 0) + '%';
+
+function kindText(o){
+  const k = C.tempKind(o.temp);
+  if(o.first || !k) return '';
+  if(o.trait === 'shuchu') return k === 400 ? '消費半分' : '会心ターン(消費1.5倍)';
+  if(o.trait === 'tataki') return k === 400 ? '威力2倍' : '威力半分';
+  if(o.trait === 'hikari') return o.lit ? '光ったマス: 威力2倍' : '光る温度';
+  return '';
+}
+
+function renderPick(){
+  const lv = +$('level').value || 1;
+  $('techPick').innerHTML = '';
+  for(const t of HIT){
+    if(t.lv > lv) continue;
+    const l = document.createElement('label');
+    const c = document.createElement('input'); c.type = 'checkbox'; c.checked = pick.includes(t.id);
+    c.onchange = () => { pick = c.checked ? [...new Set([...pick, t.id])] : pick.filter(x => x !== t.id); save(); render(); };
+    l.append(c, t.name); $('techPick').appendChild(l);
+  }
+}
+
+function render(){
+  let temp = Math.round((+$('temp').value || 0) / 50) * 50;
+  const o = opts(temp), m = multOf(o), lv = o.level;
+  $('litWrap').style.display = o.trait === 'hikari' ? '' : 'none';
+  const kt = kindText(o); $('kind').textContent = kt || '特殊な温度ではない'; $('kind').classList.toggle('on', !!kt);
+  $('toolCrit').textContent = `道具会心率 ${C.toolCrit(lv, o.hammer, o.star).toFixed(1)}%(ねらい系はこの7倍)`;
+
+  // 技ごとのカード
+  const cards = $('cards'); cards.innerHTML = '';
+  if(temp <= 0){ cards.innerHTML = '<div class="muted">0℃以下では打てない。</div>'; }
+  else for(const t of HIT){
+    if(t.lv > lv || !pick.includes(t.id)) continue;
+    const r = C.rolls(t.id, temp, m), cr = C.critRate(t.id, o);
+    const d = document.createElement('div'); d.className = 'tc';
+    d.innerHTML = `<div class="nm">${t.name}<span>消費 ${C.cost(t.id, temp, o.trait, o.first)}</span></div>
+      <div class="big">${r[0]}<small>〜</small>${r[6]}</div>
+      <div class="vals">${r.join(' ')}</div>
+      <div style="margin-top:4px">会心 <span class="crit">${pct(cr)}</span> <span class="muted">→ ${r[0]*2}〜${r[6]*2}</span></div>`;
+    cards.appendChild(d);
+  }
+
+  // おすすめ
+  const dist = +$('dist').value || 0, w = Math.max(1, +$('width').value || 1);
+  const lo = dist - Math.floor((w - 1) / 2), hi = lo + w - 1;    // 叩いて伸びればゾーンに入る範囲
+  const rec = [];
+  for(const t of HIT){
+    if(t.lv > lv || t.area !== 'one') continue;
+    const r = C.rolls(t.id, temp, m), cr = C.critRate(t.id, o);
+    const inZ = r.filter(v => v >= lo && v <= hi).length / 7;
+    const over = r.filter(v => v > hi).length / 7;
+    rec.push({ t, inZ, over, cr, cost: C.cost(t.id, temp, o.trait, o.first), r });
+  }
+  rec.sort((a,b) => b.inZ - a.inZ || a.over - b.over || a.cost - b.cost);
+  $('rec').innerHTML = temp <= 0 ? '' : rec.slice(0, 4).map((x,i) => `<div class="ri ${i===0 && x.inZ>0 ? 'best' : ''}">
+     <div><b>${x.t.name}</b> <span class="muted">${x.r[0]}〜${x.r[6]}・会心 ${pct(x.cr)}</span></div>
+     <div class="pct">${pct(x.inZ)}${x.over ? ` <span class="muted">超え ${pct(x.over)}</span>` : ''}</div></div>`).join('')
+     + (rec[0] && rec[0].inZ === 0 ? `<div class="muted">どの技でも1回ではゾーンに届かないか超える。${dist > rec[0].r[6] ? '先に大きく伸ばす技で詰める。' : ''}</div>` : '');
+  // 必ずゾーンに入る残り
+  let rows = '<tr><th>技</th><th>伸び</th><th>必ず入る残り(真ん中まで)</th></tr>';
+  for(const x of rec.slice().sort((a,b)=>a.r[0]-b.r[0])){
+    const a = x.r[6] - (w - 1 - Math.floor((w-1)/2)), b = x.r[0] + Math.floor((w-1)/2);
+    rows += `<tr><td>${x.t.name}</td><td>${x.r[0]}〜${x.r[6]}</td><td>${a <= b ? (a === b ? a : a + '〜' + b) : '<span class="muted">なし(ぶれが幅より大きい)</span>'}</td></tr>`;
+  }
+  $('sure').innerHTML = rows;
+
+  // 温度ごとの一覧
+  const lt = $('listTech').value, step = +$('step').value, n = +$('rows').value;
+  let html = '<tr><th>温度</th><th>伸び</th><th>会心の時</th><th>会心率</th><th></th></tr>';
+  for(let i = 0, T = temp; i < n && T > 0; i++, T -= step){
+    const oo = opts(T), mm = multOf(oo), r = C.rolls(lt, T, mm);
+    const tag = kindText(oo);
+    html += `<tr class="${i===0?'now':''}"><td>${T}℃</td><td>${r[0]}〜${r[6]}</td><td class="crit">${r[0]*2}〜${r[6]*2}</td><td>${pct(C.critRate(lt, oo))}</td><td class="muted" style="text-align:left">${tag}</td></tr>`;
+  }
+  $('list').innerHTML = html;
+  save();
+}
+
+document.querySelectorAll('[data-d]').forEach(b => b.onclick = () => { $('temp').value = Math.max(0, (+$('temp').value || 0) + (+b.dataset.d)); $('first').checked = false; render(); });
+document.querySelector('[data-set]').onclick = () => { $('temp').value = 1000; render(); };
+for(const id of ['temp','trait','lit','first','hammer','star','dist','width','listTech','step','rows']) $(id).addEventListener('input', render);
+$('level').addEventListener('input', () => { renderPick(); render(); });
+renderPick(); render();
+})();
+</script>
+</body>
+</html>
