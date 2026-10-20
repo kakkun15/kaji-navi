@@ -8,9 +8,9 @@ with sync_playwright() as p:
     pg.goto('file://' + __import__('os').path.abspath(__import__('os').path.join(__import__('os').path.dirname(__file__), '..', 'dist', 'app.html'))); pg.wait_for_function('window.__navi && window.__navi.qs')
     techs = "[...new Set(__navi.G.acts.map(a=>a.t.id))].join(',')"
     print('前の保存(Lv76)から', pg.evaluate("JSON.stringify(__navi.cfg)"), 's.F', pg.evaluate("__navi.s.F"), '左右打ち', 'sayuu' in pg.evaluate(techs))
-    pg.click('#cfgB'); pg.fill('#cfF','253'); pg.click('#cfgOk'); pg.wait_for_timeout(300)
-    print('253 にした', pg.evaluate("JSON.stringify(__navi.cfg)"), 's.F', pg.evaluate("__navi.s.F"), '左右打ち', 'sayuu' in pg.evaluate(techs), pg.inner_text('#cfgNote'))
+    pg.click('#cfgB2'); pg.fill('#cfF','253'); pg.click('#cfgOk'); pg.wait_for_timeout(300)
+    print('253 にした', pg.evaluate("JSON.stringify(__navi.cfg)"), 's.F', pg.evaluate("__navi.s.F"), '左右打ち', 'sayuu' in pg.evaluate(techs), pg.inner_text('#cfgB2'))
     pg.reload(); pg.wait_for_function('window.__navi && window.__navi.qs')
     print('再読み込み後', pg.evaluate("JSON.stringify(__navi.cfg)"), 's.F', pg.evaluate("__navi.s.F"))
-    pg.click('#cfgB'); pg.screenshot(path='/tmp/focus_sheet.png')
+    pg.click('#cfgB2'); pg.screenshot(path='/tmp/focus_sheet.png')
     print('errors', errs); b.close()
