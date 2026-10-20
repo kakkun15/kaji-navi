@@ -4,6 +4,7 @@ url = sys.argv[1] if len(sys.argv)>1 else 'file://' + __import__('os').path.absp
 with sync_playwright() as p:
     b=p.chromium.launch(args=['--autoplay-policy=user-gesture-required']); errs=[]
     ctx=b.new_context(viewport={'width':390,'height':844}, device_scale_factor=2, has_touch=True, is_mobile=True)
+    ctx.add_init_script("if(!localStorage.getItem('kajiNaviCfgV2')) localStorage.setItem('kajiNaviCfgV2', JSON.stringify({focus:245}))")  # 前に使ったことがある人(初回の質問を出さない)
     pg=ctx.new_page(); pg.on('pageerror', lambda e: errs.append(str(e))); pg.on('console', lambda m: m.type=='error' and errs.append(m.text))
     pg.goto(url); pg.wait_for_function('window.__navi && window.__navi.qs'); pg.wait_for_timeout(800)
     print('触る前', pg.evaluate("JSON.stringify({log: __navi.vlog, how: __navi.vhow})"))

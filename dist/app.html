@@ -136,7 +136,7 @@ select{font:inherit;font-weight:700;padding:6px 10px;border:1px solid var(--line
   </div>
   <div class="stats">
     <button class="stat" id="stTemp"><small>温度</small><b id="temp">1000</b><span class="u">℃</span><span class="k" id="kind"></span></button>
-    <button class="stat" id="stFocus"><small>集中力</small><b id="focus">242</b></button>
+    <button class="stat" id="stFocus"><small id="focusLab">集中力</small><b id="focus">242</b><span class="k" id="focusHint">押して変える</span></button>
     <button class="stat vbtn" id="vB" aria-label="声のオン・オフ"><small>声</small><b id="vBt">オン</b></button>
   </div>
   <button class="hsb" id="hsB" aria-label="必殺(ヘパイトスの炎)の状態"><small>必殺</small><b id="hsBt">なし</b><span id="hsBn">たまったら押す</span></button>
@@ -169,7 +169,7 @@ select{font:inherit;font-weight:700;padding:6px 10px;border:1px solid var(--line
 <div class="modal" id="cfgM"><div class="sheet" onclick="event.stopPropagation()">
   <h2>開始の集中力</h2>
   <div class="num"><input id="cfF" type="number" inputmode="numeric" min="1" max="999" aria-label="開始の集中力"></div>
-  <div class="hint" style="font-size:12px;color:var(--sub);margin:-4px 2px 12px">ゲームで打ち始める前に出ている集中力の数字。光の鍛冶ハンマー★3 で計算する。</div>
+  <div class="hint" style="font-size:12px;color:var(--sub);margin:-4px 2px 12px">ゲームで打ち始める前に出ている集中力の数字(職人レベルとハンマーで変わる)。一度決めれば次からも使う。あとで変える時は、打つ前に上の「開始の集中力」を押す。光の鍛冶ハンマー★3 で計算する。</div>
   <div class="row2"><button id="cfgCancel">やめる</button><button class="main" id="cfgOk">決める</button></div>
 </div></div>
 
@@ -1397,16 +1397,16 @@ const STORE = 'kajiNaviV1', CFG_STORE = 'kajiNaviCfgV1';
 // 条件は「開始の集中力」だけ。ハンマーは光の鍛冶ハンマー★3 で決め打ち。
 // 打てる技は集中力から決める: 253 以上(光★3 の Lv80)なら左右打ちまで、それより下は弱ねらい打ちまで
 const CFG_STORE2 = 'kajiNaviCfgV2';
-let cfg = { focus: 245 };
+let cfg = { focus: 245 }, cfgSaved = false;     // cfgSaved: 開始の集中力を一度でも決めたか(初めての人には最初に聞く)
 try{
   const j2 = JSON.parse(localStorage.getItem(CFG_STORE2) || 'null');
-  if(j2 && j2.focus >= 1) cfg.focus = j2.focus | 0;
+  if(j2 && j2.focus >= 1){ cfg.focus = j2.focus | 0; cfgSaved = true; }
   else {      // 前の版の保存(職人Lv・ハンマー)から引き継ぐ
     const j = JSON.parse(localStorage.getItem(CFG_STORE) || 'null');
-    if(j && j.level >= 75) cfg.focus = 243 + 2 * (j.level - 75) + (j.fadj | 0);
+    if(j && j.level >= 75){ cfg.focus = 243 + 2 * (j.level - 75) + (j.fadj | 0); cfgSaved = true; }
   }
 }catch(e){}
-function saveCfg(){ try{ localStorage.setItem(CFG_STORE2, JSON.stringify({ focus: cfg.focus })); }catch(e){} }
+function saveCfg(){ cfgSaved = true; try{ localStorage.setItem(CFG_STORE2, JSON.stringify({ focus: cfg.focus })); }catch(e){} }
 function mkG(key){ return GM.setup({ item: key, level: cfg.focus >= 253 ? 80 : 79, hammer: 'hikari', star: 3, focus: cfg.focus }); }
 
 let item = 'lamp', G = null, net = null, s = null, hist = [];
@@ -1445,7 +1445,14 @@ const KIND = { shuchu: { 400: '消費半分', 200: '会心ターン' }, tataki: 
 const HS_LABEL = ['なし', 'たまった', '効果中'];
 const HS_NOTE = ['たまったら押す', '使ったら押す', '叩いたら自動で なし'];
 function renderHs(){ const h = s.hs | 0; $('hsBt').textContent = HS_LABEL[h]; $('hsBn').textContent = HS_NOTE[h]; $('hsB').className = 'hsb' + (h ? ' hs' + h : ''); }
-function renderCfg(){ $('cfgNote').innerHTML = `<b>開始の集中力 ${cfg.focus}</b>(光の鍛冶ハンマー★3)`; }
+function atStart(){ return !hist.length && s && s.first && !pend; }
+function renderCfg(){
+  $('cfgNote').innerHTML = `<b>開始の集中力 ${cfg.focus}</b>(光の鍛冶ハンマー★3)`;
+  const st = atStart();
+  $('focusLab').textContent = st ? '開始の集中力' : '集中力';
+  $('focusHint').style.display = st ? '' : 'none';
+  $('stFocus').setAttribute('aria-label', st ? '開始の集中力を変える' : '集中力を直す');
+}
 function render(){
   renderCfg(); renderHs();
   $('temp').textContent = s.temp; $('focus').textContent = s.F;
@@ -1805,7 +1812,7 @@ $('board').addEventListener('click', e => {
 $('stTemp').onclick = () => askNum('温度(℃)', s.temp, v => { snap(); s.temp = Math.round(v / 50) * 50; s.first = s.first && s.temp === 1000; s.lit = null;
   if(G.trait === 'hikari' && !s.first && s.temp % 200 === 0){ const c = G.active.filter(i => s.v[i] < G.cells[i][0]); if(c.length) s.lit = c; }
   save(); recalc(); });
-$('stFocus').onclick = () => askNum('集中力', s.F, v => { snap(); s.F = v; save(); recalc(); });
+$('stFocus').onclick = () => { if(atStart()) openCfg(); else askNum('集中力', s.F, v => { snap(); s.F = v; save(); recalc(); }); };
 let numCb = null;
 function askNum(t, v, cb){ $('numT').textContent = t; $('numI').value = v; numCb = cb; $('numM').classList.add('show'); setTimeout(() => $('numI').select(), 50); }
 $('numOk').onclick = () => { const v = parseInt($('numI').value, 10); $('numM').classList.remove('show'); if(Number.isFinite(v) && v >= 0 && numCb) numCb(v); numCb = null; };
@@ -1816,8 +1823,9 @@ $('reelCancel').onclick = closeReels;
 $('reelM').onclick = closeReels;
 
 // ---- 自分の条件 ----
-$('cfgB').onclick = () => { $('cfF').value = cfg.focus; $('cfgM').classList.add('show'); setTimeout(() => $('cfF').select(), 50); };
-$('cfgCancel').onclick = () => $('cfgM').classList.remove('show');
+function openCfg(){ $('cfF').value = cfg.focus; $('cfgM').classList.add('show'); setTimeout(() => $('cfF').select(), 50); }
+$('cfgB').onclick = openCfg;
+$('cfgCancel').onclick = () => { $('cfgM').classList.remove('show'); if(!cfgSaved) saveCfg(); };   // 初めての時にやめたら、今の値のまま次から聞かない
 $('cfgM').onclick = $('cfgCancel').onclick;
 $('cfgOk').onclick = () => {
   const f = parseInt($('cfF').value, 10);
@@ -1859,6 +1867,8 @@ $('item').onchange = e => setItem(e.target.value, false);
 
 if(restore()){ $('item').value = item; recalc(); }
 else { $('item').value = item; setItem(item, false); }
+// 初めて開いた人には、最初に開始の集中力を聞く(画面読み取りつきの版は読み取りで入るので聞かない)
+if(!cfgSaved && !$('rdStart')) openCfg();
 window.__navi = { get s(){ return s; }, get qs(){ return qs; }, get G(){ return G; }, get cfg(){ return cfg; }, get item(){ return item; }, get net(){ return net; },
   get hist(){ return hist; }, get busy(){ return busy; }, startAct, commitReels, get pend(){ return pend; },
   // 外から局面を書き換える(戻すで戻せる)。fn(s) の中で s を直接いじる
