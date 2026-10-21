@@ -135,6 +135,7 @@ function trainOn(X, Y, epochs, lr) {
       }
     }
   }
+  net._wz = undefined; // 速い版(wasm)は重みの写しを持つので、変えたら作り直させる
   return lossSum / cnt;
 }
 
