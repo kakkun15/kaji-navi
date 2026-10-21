@@ -1,12 +1,12 @@
 // 学んだ見積もりで打った成績。node compare.js <商材> <重み> <局数> <種> [1|2(先読みの深さ)]
-// 環境変数 OVERPEN(超える罰。既定0 = ネットだけの強さ。鍛冶ナビと同じに打たせるなら 1)
+// 環境変数 OVERPEN(超える罰。既定0 = ネットだけの強さ。鍛冶ナビと同じに打たせるなら ひだね 0.6・ほか 1)、LEVEL・FOCUS(既定 75・242)
 'use strict';
 const fs = require('fs');
 const GAME = require('../src/game.js'), V = require('../src/value.js');
 const { seeded } = require('./scripted.js');
 const [item, wfile, N = 500, SEED = 500, DEPTH = 1] = process.argv.slice(2).map((x, i) => i < 2 ? x : +x);
 const j = JSON.parse(fs.readFileSync(wfile));
-const G = GAME.setup({ item, level: 75, hammer: 'hikari', star: 3, focus: 242 });
+const G = GAME.setup({ item, level: +(process.env.LEVEL || 75), hammer: 'hikari', star: 3, focus: +(process.env.FOCUS || 242) });
 const net = { sizes: j.sizes, L: j.L.map(l => ({ n: l.n, m: l.m, W: Float32Array.from(l.W), b: Float32Array.from(l.b) })) };
 net.ver = j.sizes[0] === V.featLen(G, 1) ? 1 : j.sizes[0] === V.featLen(G, 3) ? 3 : 2;
 const st = { great: 0, over: 0, under: 0, errfail: 0 }; const res = [];
