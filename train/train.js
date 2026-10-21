@@ -1,6 +1,7 @@
 // 局面の見積もり(value.js のネット)を自己対戦で学ばせる。Node 専用。
 // node train.js <商材> <回数> [自己対戦の局数] [ばらまく局面の数] [種] [前の重み]
 // 1回ごとに: 今のネットで1手先読みして打つ → 各局面の「一番良い手の値」を目標に学ぶ(価値反復)。
+// 環境変数 LEVEL・FOCUS(学ぶ条件。既定 75・242)、LR(学習率の倍率。既定1。続きから学ぶ時は小さくする)
 'use strict';
 const fs = require('fs');
 const GAME = require('../src/game.js'), V = require('../src/value.js');
@@ -8,7 +9,8 @@ function seeded(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t 
   t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
 
 const [item, ITERS = 30, GAMES = 400, SAMPLED = 3000, SEED = 1, INIT] = process.argv.slice(2).map((x, i) => i === 0 || i === 5 ? x : +x);
-const CFG = { item, level: 75, hammer: 'hikari', star: 3, focus: 242 };
+const CFG = { item, level: +(process.env.LEVEL || 75), hammer: 'hikari', star: 3, focus: +(process.env.FOCUS || 242) };
+const LR_MUL = +(process.env.LR || 1);
 const G = GAME.setup(CFG);
 const rnd = seeded(SEED * 7919 + 1);
 let net = INIT ? load(INIT) : V.makeNet([V.featLen(G, +(process.env.FVER || 2)), +(process.env.HID || 64), +(process.env.HID || 64), 1], rnd);
@@ -209,7 +211,7 @@ for (let it = 1; it <= ITERS; it++) {
   bufX.push(X); bufY.push(Y);
   if (bufX.length > 3) { bufX.shift(); bufY.shift(); }
   const AX = [].concat(...bufX), AY = [].concat(...bufY);
-  const loss = trainOn(AX, AY, 3, it < 5 ? 2e-3 : 1e-3);
+  const loss = trainOn(AX, AY, 3, (it < 5 ? 2e-3 : 1e-3) * LR_MUL);
   save(net, OUT);
   let ev = '';
   if (it % 3 === 0 || it === ITERS) {
