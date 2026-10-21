@@ -326,7 +326,7 @@ let chainN = 0;
 function calcChain(a){
   let t = GM.cloneState(s), k = 0;
   const rule = useRule();
-  const opt = rule ? null : { K: 8, overPen: OVER_PEN, rnd: seeded(777), buf: new Float32Array(V.featLen(G, net.ver)) };
+  const opt = rule ? null : { K: 8, overPen: overPen(), rnd: seeded(777), buf: new Float32Array(V.featLen(G, net.ver)) };
   while(k < 6){
     GM.afterAct(G, t, a, null); k++;
     if(Array.isArray(t.lit) || t.F < GM.costOf(G, t, a.t)) break;
@@ -357,10 +357,18 @@ try{ if(localStorage.getItem(POWER_KEY) === 'max') power = 'max'; }catch(e){}
 // 超える確率の罰(value.js の overPen)。1 で、同じ局どうしの比べで 大成功はそのまま・超えて失敗が
 // ランプ 11.7→0.0%(600局)、ひだね 7.7→0.3%(300局)。ゾーンの外で終わる局(超え+届かず)も減った
 const OVER_PEN = 1;
+// 商材ごとの罰。ひだねは 0.6: 1手読み・同じ局 2000局(種960・961)で 罰1 72.45% / 0.6 73.3%
+// (片方だけ大成功 8局 / 25局)。超えて失敗は 0.5% → 0.8% と少しだけ増える
+const OVER_PEN_MAP = { hidane: 0.6 };
+function overPen(){ return OVER_PEN_MAP[item] ?? OVER_PEN; }
+// 開幕の決め打ち: 全マス0でこの温度の時は、計算(最強)を待たずに火力上げを先頭に出す。
+// ひだねは 1000・1300・1900(マスが光らない温度)。1600 は光ったマスで答えが変わるので計算する
+// (最強の2手読みで、右下が光ったら熱風おろし(右下)、左の列なら3倍打ち、右上・右中なら火力上げ)
+const OPEN_BOOK = { hidane: [1000, 1300, 1900] };
 // 最強を使わない商材。ランプは利用者の PC の性能テスト(300局・種700)で ふつう(軽い2手読み)69.3% / 最強 71.0%、
 // 片方だけ大成功 48局 / 53局(差なし)・超えて失敗 3局 / 10局。最強にしても上がらないので、ふつうの読みのまま
 const MAX_SKIP = { lamp: true };
-const MAXOPT = { K: 12, Ki: 12, N2: 12, K2: 24, overPen: OVER_PEN, seed: 12345 };
+const MAXOPT = { K: 12, Ki: 12, N2: 12, K2: 24, seed: 12345 };
 let lastCalc = null;      // { ms, threads }
 function playRate(){ return Math.max(0.5, Math.min(2.5, voiceRate / ((typeof AR_CLIP_INFO !== 'undefined' && AR_CLIP_INFO.speed) || CLIP_BASE))); }
 function setVoiceRate(r){ if(!(r >= 0.6 && r <= 2.5)) return; voiceRate = r; try{ localStorage.setItem(RATE_KEY, String(r)); }catch(e){} const el = $('vRate'); if(el) el.value = String(r); }
@@ -489,13 +497,18 @@ function recalc(){
       lastCalc = null; finishCalc(id, res); return;
     }
     const sp = SEARCH[item] || { depth: 1 };
-    const opt = { K: sp.K || 12, N2: sp.N2, K2: sp.K2, overPen: OVER_PEN, rnd: seeded(12345), buf: new Float32Array(V.featLen(G, net.ver)) };
+    const opt = { K: sp.K || 12, N2: sp.N2, K2: sp.K2, overPen: overPen(), rnd: seeded(12345), buf: new Float32Array(V.featLen(G, net.ver)) };
     let res;
+    if(!s.hs && OPEN_BOOK[item] && OPEN_BOOK[item].includes(s.temp) && G.active.every(i => s.v[i] === 0)){
+      res = V.evalActs(net, G, s, opt); res.sort((a, b) => b.q - a.q);
+      const k = res.find(x => x.a && x.a.t.id === 'karyoku');
+      if(k){ res.splice(res.indexOf(k), 1); res.unshift(k); lastCalc = null; finishCalc(id, res); return; }
+    }
     if(power === 'max' && !MAX_SKIP[item] && !s.hs && window.KajiPool && KajiPool.start()){
       // 最強: Worker に手分けして読ませる(待っている間も画面は動く)
       const t0 = performance.now(), cfgW = { item, level: G.level, hammer: G.hammer, star: G.star, focus: G.focus };
       KajiPool.setNet(item, W[item]);
-      KajiPool.evalMax(cfgW, s, MAXOPT).then(r => {
+      KajiPool.evalMax(cfgW, s, Object.assign({}, MAXOPT, { overPen: overPen() })).then(r => {
         if(id !== calcId) return;
         r.sort((a, b) => b.q2 - a.q2);
         lastCalc = { ms: performance.now() - t0, threads: KajiPool.size };
@@ -517,7 +530,7 @@ function finishCalc(id, res){
     const qv = x => x.q2 !== undefined ? x.q2 : x.q, stop = res.find(x => !x.a);
     if(stop && res[0] !== stop && res[0].a && !res[0].a.t.area && qv(stop) >= qv(res[0]) - 1e-6){ res.splice(res.indexOf(stop), 1); res.unshift(stop); }
     // 余った集中力で火力上げ・冷やし込みを打つだけで、結局どこも叩かずに終わるなら、ここで仕上げる
-    else if(net && !s.hs) res = V.trimIdle(net, G, s, res, { overPen: OVER_PEN, buf: new Float32Array(V.featLen(G, net.ver)) });
+    else if(net && !s.hs) res = V.trimIdle(net, G, s, res, { overPen: overPen(), buf: new Float32Array(V.featLen(G, net.ver)) });
     qs = res; busy = false; chainN = 0; render();
     if(window.__naviOnCalc) try{ window.__naviOnCalc(); }catch(e){}
     const b = res[0] && res[0].a;
