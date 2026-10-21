@@ -37,8 +37,8 @@
       }
       if (m.type === 'game') {          // 性能テスト: 1局まるごと打つ(bench.html)
         const G = GAME.setup(m.cfg);
-        const N = nets[m.cfg.item]; if (!N.n) N.n = toNet(N.j, V.featLen, G);
-        const res = playGame(GAME, V, N.n, G, m);
+        const N = nets[m.cfg.item]; if (N && !N.n) N.n = toNet(N.j, V.featLen, G);
+        const res = playGame(GAME, V, N ? N.n : null, G, m);
         self.postMessage({ id: m.id, res });
       }
     };
@@ -46,12 +46,13 @@
     function playGame(GAME, V, net, G, m) {
       const r = seeded(m.seed * 100003 + m.g), rc = seeded(m.seed * 31 + m.g);
       const s = GAME.newState(G), ideal = G.cells.map(z => z ? z[0] + Math.floor(r() * (z[1] - z[0] + 1)) : null);
-      const sp = m.search, opt = Object.assign({}, sp, { rnd: seeded(m.seed * 7 + m.g), buf: new Float32Array(V.featLen(G, net.ver)) });
+      const sp = m.search, opt = Object.assign({}, sp, { rnd: seeded(m.seed * 7 + m.g), buf: net ? new Float32Array(V.featLen(G, net.ver)) : null });
       let charged = false, moves = 0; const t0 = Date.now();
       if (m.hs === 'start') { s.hs = 1; charged = true; }
       for (let k = 0; k < 80 && !s.dead; k++) {
         let best;
-        if (s.hs) best = V.evalActsHS(net, G, s, opt)[0];
+        if (sp.rule) best = { a: self.KajiRule0.policy(G, s) };          // 許容誤差0の商材の仮の打ち方(rule0.js)
+        else if (s.hs) best = V.evalActsHS(net, G, s, opt)[0];
         else if (sp.depth === 3) { const qs = V.evalActs3(net, G, s, opt); best = qs.reduce((a, b) => b.q2 > a.q2 ? b : a); }
         else if (sp.depth === 2) { const qs = V.evalActs2(net, G, s, opt); best = qs.reduce((a, b) => b.q2 > a.q2 ? b : a); }
         else { const qs = V.evalActs(net, G, s, opt); best = qs.reduce((a, b) => b.q > a.q ? b : a); }
@@ -72,7 +73,8 @@
   function workerSource() {
     const get = n => { const el = document.querySelector(`script[data-src="${n}"]`); return el ? el.textContent : null; };
     const parts = ['core.js', 'game.js', 'value.js', 'pool.js'].map(get);
-    return parts.every(x => x) ? parts.join('\n;\n') : null;
+    const r0 = get('rule0.js');                         // 無いページ(古い build)でも動くように、これだけは任意
+    return parts.every(x => x) ? parts.concat(r0 ? [r0] : []).join('\n;\n') : null;
   }
   const Pool = {
     workers: [], ready: false, size: 0, sentNet: {}, seq: 0, wait: new Map(), queue: [], idle: [],

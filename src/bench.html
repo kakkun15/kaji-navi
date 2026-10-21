@@ -32,14 +32,14 @@ th{color:var(--sub);font-size:13px}
   <h1>鍛冶ナビ 性能テスト</h1>
   <p class="sub">「ふつう」と「最強」に、同じ局(理想値・伸び・会心の乱数が同じ)を打たせて比べる。PC のスレッドを全部使う。開いたまま放っておけばよい。</p>
   <div class="row">
-    <label>商材 <select id="item"><option value="hidane">超ようせいのひだね</option><option value="lamp">まおうの錬金ランプ</option><option value="hammer">光の鍛冶ハンマー</option><option value="pan">光のフライパン</option></select></label>
+    <label>商材 <select id="item"><option value="hidane">超ようせいのひだね</option><option value="lamp">まおうの錬金ランプ</option><option value="hammer">光の鍛冶ハンマー</option><option value="pan">光のフライパン</option><option value="needle">光のさいほう針</option></select></label>
     <label>局数 <input id="n" type="number" min="10" max="5000" value="300"></label>
     <label>種 <input id="seed" type="number" value="700"></label>
     <label>開始の集中力 <input id="focus" type="number" value="245"></label>
     <label>必殺 <select id="hs"><option value="">なし</option><option value="start">打ち始めにチャージ</option><option value="mid">叩いた後に10%でチャージ</option></select></label>
     <label>スレッド <input id="thr" type="number" min="1" max="32"></label>
-    <label>比べる <select id="ma"><option value="normal">ふつう</option><option value="max">最強</option><option value="wide">超最強(広く)</option><option value="deep">超最強(3手)</option></select>
-      と <select id="mb"><option value="max">最強</option><option value="normal">ふつう</option><option value="wide">超最強(広く)</option><option value="deep">超最強(3手)</option></select></label>
+    <label>比べる <select id="ma"><option value="normal">ふつう</option><option value="max">最強</option><option value="wide">超最強(広く)</option><option value="deep">超最強(3手)</option><option value="rule">仮の打ち方</option></select>
+      と <select id="mb"><option value="max">最強</option><option value="normal">ふつう</option><option value="wide">超最強(広く)</option><option value="deep">超最強(3手)</option><option value="rule">仮の打ち方</option></select></label>
     <button id="go">始める</button><button class="sec" id="stop" disabled>止める</button>
   </div>
   <div class="bar"><span id="bar"></span></div>
@@ -64,6 +64,7 @@ th{color:var(--sub);font-size:13px}
 <script src="game.js"></script>
 <script src="value.js"></script>
 <script src="pool.js"></script>
+<script src="rule0.js"></script>
 <script src="weights.js"></script>
 <script>
 (function(){
@@ -74,6 +75,7 @@ const MODES = {
   max:    { name: '最強',   search: () => ({ depth: 2, K: 12, N2: 12, K2: 24, overPen: 1 }) },
   wide:   { name: '超最強(広く)', search: () => ({ depth: 2, K: 16, N2: 24, K2: 48, overPen: 1 }) },
   deep:   { name: '超最強(3手)', search: () => ({ depth: 3, K: 12, N3: 3, K3: 4, overPen: 1, c: { K: 8, N2: 3, K2: 4 } }) },
+  rule:   { name: '仮の打ち方', search: () => ({ rule: true }), noNet: true },
 };
 $('thr').value = Math.max(1, Math.min(24, (navigator.hardwareConcurrency || 4) - 2));
 let run = null;
@@ -104,9 +106,9 @@ function render(){
 }
 $('go').onclick = async () => {
   const item = $('item').value, N = Math.max(1, +$('n').value | 0), seed = +$('seed').value | 0, focus = +$('focus').value | 0, hs = $('hs').value, thr = Math.max(1, +$('thr').value | 0);
-  if(!W[item]){ $('prog').textContent = 'この商材の重みが無い'; return; }
+  if(!W[item] && !(MODES[$('ma').value].noNet && MODES[$('mb').value].noNet)){ $('prog').textContent = 'この商材の重みが無い(仮の打ち方どうしなら比べられる)'; return; }
   KajiPool.stop(); if(!KajiPool.start(thr)){ $('prog').textContent = 'Worker を立てられなかった(PC の Chrome / Edge で開く)'; return; }
-  KajiPool.setNet(item, W[item]);
+  if(W[item]) KajiPool.setNet(item, W[item]);
   const cfg = { item, level: focus >= 253 ? 80 : 79, hammer: 'hikari', star: 3, focus };
   const modes = { normal: $('ma').value, max: $('mb').value };
   run = { modes, item, N, seed, focus, hs, thr, t0: performance.now(), res: { normal: blank(), max: blank() }, byG: { normal: [], max: [] }, stopped: false };
