@@ -33,6 +33,7 @@ parts = {
     'game.js': (src / 'game.js').read_text(),
     'value.js': (src / 'value.js').read_text(),
     'pool.js': (src / 'pool.js').read_text(),       # PC 向けの並列の読み(Worker)
+    'rule0.js': (src / 'rule0.js').read_text(),     # 許容誤差0の商材の仮の打ち方(光のさいほう針)
     'voice.js': (src / 'voice.js').read_text(),     # ずんだもんの声(VOICEVOX:ずんだもん)
 }
 wjs = None

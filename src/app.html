@@ -185,13 +185,14 @@ select{font:inherit;font-weight:700;padding:6px 10px;border:1px solid var(--line
 <script src="game.js"></script>
 <script src="value.js"></script>
 <script src="pool.js"></script>
+<script src="rule0.js"></script>
 <script src="weights.js"></script>
 <script src="voice.js"></script>
 <script>
 (function(){
 'use strict';
 const C = KajiCore, GM = KajiGame, V = KajiValue, W = window.KAJI_WEIGHTS || {};
-const ITEM_ORDER = ['lamp', 'hidane', 'hammer', 'pan'];
+const ITEM_ORDER = ['lamp', 'hidane', 'hammer', 'pan', 'needle'];
 const SEARCH = { lamp: { depth: 2, K: 6, N2: 3, K2: 4 } };       // ランプだけ軽い2手読み(1000局で +4pt)
 const $ = id => document.getElementById(id);
 const STORE = 'kajiNaviV1', CFG_STORE = 'kajiNaviCfgV1';
@@ -324,10 +325,12 @@ function renderFoot(){
 let chainN = 0;
 function calcChain(a){
   let t = GM.cloneState(s), k = 0;
-  const opt = { K: 8, overPen: OVER_PEN, rnd: seeded(777), buf: new Float32Array(V.featLen(G, net.ver)) };
+  const rule = useRule();
+  const opt = rule ? null : { K: 8, overPen: OVER_PEN, rnd: seeded(777), buf: new Float32Array(V.featLen(G, net.ver)) };
   while(k < 6){
     GM.afterAct(G, t, a, null); k++;
     if(Array.isArray(t.lit) || t.F < GM.costOf(G, t, a.t)) break;
+    if(rule){ const b = KajiRule0.policy(G, t); if(!b || b.t.id !== a.t.id) break; continue; }
     const r = V.evalActs(net, G, t, opt); r.sort((x, y) => y.q - x.q);
     if(!r[0].a || r[0].a.t.id !== a.t.id) break;
   }
@@ -472,12 +475,19 @@ function announce(force){
 function renderVoice(){ $('vBt').textContent = voiceOn ? 'オン' : 'オフ'; $('vB').className = 'stat vbtn ' + (voiceOn ? 'on' : 'off'); }
 
 // ---- 推奨手 ----
+// 学習した見積もりが無い、許容誤差0の商材(光のさいほう針)は、仮の打ち方(rule0.js)で何回も打ってためして推奨を出す
+function useRule(){ return !net && G && G.T === 0 && !!window.KajiRule0; }
 function recalc(){
   qs = null; render();
-  if(s.dead || Array.isArray(s.lit) || !net) { if(!net) $('msg').textContent = 'この商材の計算はまだ無い'; if(Array.isArray(s.lit)) announce(false); return; }
+  if(s.dead || Array.isArray(s.lit) || (!net && !useRule())) { if(!net && !useRule()) $('msg').textContent = 'この商材の計算はまだ無い'; if(Array.isArray(s.lit)) announce(false); return; }
   busy = true; const id = ++calcId;
   setTimeout(() => {
     if(id !== calcId) return;
+    if(useRule()){
+      const res = KajiRule0.recommend(G, s, { n: 80, rnd: seeded(12345) });
+      if(id !== calcId) return;
+      lastCalc = null; finishCalc(id, res); return;
+    }
     const sp = SEARCH[item] || { depth: 1 };
     const opt = { K: sp.K || 12, N2: sp.N2, K2: sp.K2, overPen: OVER_PEN, rnd: seeded(12345), buf: new Float32Array(V.featLen(G, net.ver)) };
     let res;
@@ -603,7 +613,7 @@ $('board').addEventListener('click', e => {
   if(Array.isArray(s.lit)){ if(s.lit.includes(i)){ s.lit = i; save(); recalc(); } return; }
   askNum(`${posName(i)}の値`, s.v[i], v => { snap(); s.v[i] = v; s.dead = v > G.cells[i][1]; s.first = false; save(); recalc(); });
 });
-$('stTemp').onclick = () => askNum('温度(℃)', s.temp, v => { snap(); s.temp = Math.round(v / 50) * 50; s.first = s.first && s.temp === 1000; s.lit = null;
+$('stTemp').onclick = () => askNum('温度(℃)', s.temp, v => { snap(); s.temp = Math.round(v / 50) * 50; s.first = s.first && s.temp === 1000; s.lit = null; s.last = null;
   if(G.trait === 'hikari' && !s.first && s.temp % 200 === 0){ const c = G.active.filter(i => s.v[i] < G.cells[i][0]); if(c.length) s.lit = c; }
   save(); recalc(); });
 $('stFocus').onclick = () => askNum('今の集中力', s.F, v => { snap(); s.F = v; save(); recalc(); });
@@ -656,7 +666,7 @@ $('hsB').onclick = () => { if(pend) return; snap(); s.hs = ((s.hs | 0) + 1) % 3;
 function doReset(){ s = GM.newState(G); hist = []; pend = null; save(); recalc(); }
 $('reset').onclick = doReset;
 $('undo').onclick = () => { if(!hist.length) return; s = hist.pop(); pend = null; save(); recalc(); };
-$('item').innerHTML = ITEM_ORDER.filter(k => GM.ITEMS[k]).map(k => `<option value="${k}">${GM.ITEMS[k].name}${W[k] ? '' : '(準備中)'}</option>`).join('');
+$('item').innerHTML = ITEM_ORDER.filter(k => GM.ITEMS[k]).map(k => `<option value="${k}">${GM.ITEMS[k].name}${W[k] ? '' : GM.ITEMS[k].T === 0 ? '(仮の計算)' : '(準備中)'}</option>`).join('');
 $('item').onchange = e => setItem(e.target.value, false);
 
 if(restore()){ $('item').value = item; recalc(); }

@@ -253,6 +253,10 @@ th{color:var(--sub);font-size:13px}
               cells: [[120, 126], [180, 186], [236, 245], [140, 149], [160, 170], null] },
     pan:    { name: '光のフライパン', trait: 'hikari', T: 9,
               cells: [[92, 102], [110, 120], [134, 146], [158, 164], [158, 164], [92, 102], [92, 102], null] },
+    // 光のさいほう針: 左の列の2マス。ゾーンは利用者が確かめた値(上 460〜474・下 376〜382、2026-10-21)。
+    // 地金特性は倍半(たたき変化。meluce.jp)。許容誤差 0(2マスとも理想値ぴったりで大成功。さいほう針の値。docs/仕様.md)
+    needle: { name: '光のさいほう針', trait: 'tataki', T: 0,
+              cells: [[460, 474], null, [376, 382], null] },
   };
 
   const START_TEMP = 1000;
@@ -311,11 +315,12 @@ th{color:var(--sub);font-size:13px}
       lit: null,                                    // 光っているマス(威力会心率上昇)
       dead: false,                                  // どこかのマスがゾーンを超えた
       hs: 0,                                        // 必殺(ヘパイトスの炎): 0 なし / 1 チャージ済み / 2 使った後(次に叩く技は必ず会心)
+      last: null,                                   // 直前に打った技の id(火力上げ → 冷やし込み のような行って戻るだけの手を外すため)
     };
   }
   function cloneState(s) {
     return { v: s.v.slice(), bel: s.bel.map(b => b && b.slice()), temp: s.temp, F: s.F,
-             first: s.first, lit: s.lit, dead: s.dead, hs: s.hs | 0 };
+             first: s.first, lit: s.lit, dead: s.dead, hs: s.hs | 0, last: s.last || null };
   }
 
   // ---- 必殺(ヘパイトスの炎) ---------------------------------------------
@@ -327,10 +332,14 @@ th{color:var(--sub);font-size:13px}
 
   // ---- 手 ---------------------------------------------------------------
   function costOf(G, s, t) { return t.hs ? 0 : CORE.cost(t.id, s.temp, G.trait, s.first); }
+  // 火力上げ(+300)の直後の冷やし込み(−300)、冷やし込みの直後の火力上げは、温度が元に戻って集中力を使うだけなので打たない
+  // (温度の上限 2200 を越える火力上げは打てないので、この2つを続けると必ず同じ温度に戻る)
+  const UNDO = { karyoku: 'hiyashi', hiyashi: 'karyoku' };
   function legalActs(G, s) {
     if (s.dead) return [];
-    const out = [];
+    const out = [], ban = s.last && UNDO[s.last];
     for (const a of G.acts) {
+      if (ban && a.t.id === ban) continue;
       const c = costOf(G, s, a.t);
       if (c > s.F) continue;
       const nt = s.temp + a.t.dT;
@@ -344,7 +353,9 @@ th{color:var(--sub);font-size:13px}
   function hasLegal(G, s) {
     if (s.dead) return false;
     if (s.hs === 1 && s.temp - 50 > 0) return true;
+    const ban = s.last && UNDO[s.last];
     for (const a of G.acts) {
+      if (ban && a.t.id === ban) continue;
       if (costOf(G, s, a.t) > s.F) continue;
       const nt = s.temp + a.t.dT;
       if (nt <= 0 || nt > TEMP_MAX) continue;
@@ -410,6 +421,7 @@ th{color:var(--sub);font-size:13px}
   // 手を打った後の温度・集中力・光ったマスの決め方(叩いた結果を盤面に入れた後に呼ぶ)
   function afterAct(G, s, a, rnd) {
     s.F -= costOf(G, s, a.t);
+    s.last = a.t.id;
     s.temp += a.t.dT;
     if (a.t.hs) s.hs = 2;
     else if (s.hs === 2 && a.t.area) s.hs = 0;
