@@ -54,6 +54,7 @@ function epoch(lr) {
       for (let k = 0; k < L[l].b.length; k++) { const g = gb[l][k] / bs; A.mb[k] = b1 * A.mb[k] + (1 - b1) * g; A.vb[k] = b2 * A.vb[k] + (1 - b2) * g * g; L[l].b[k] -= lr * (A.mb[k] / c1) / (Math.sqrt(A.vb[k] / c2) + 1e-8); }
     }
   }
+  net._wz = undefined; // 速い版(wasm)は重みの写しを持つので、変えたら作り直させる
 }
 const save = f => fs.writeFileSync(f, JSON.stringify({ sizes: net.sizes, src: 'distill', L: net.L.map(l => ({ n: l.n, m: l.m, W: Array.from(l.W, x => +x.toPrecision(5)), b: Array.from(l.b, x => +x.toPrecision(5)) })) }));
 
