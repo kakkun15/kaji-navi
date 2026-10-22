@@ -967,6 +967,17 @@ function featLen(G, ver) { return ver === 1 ? G.active.length * 12 + 14 : G.acti
       sc -= 0.5 * c;
       if (sc > bv) { bv = sc; best = a; }
     }
+    // 火力上げ: 温度を上げると使った後の超4連打ちの伸びが大きくなり、寄せる残りが減る(叩かずに届くマスも出る)。
+    // 叩く手と同じ物差し(使う時の温度での残りの減り − 0.5×消費)で比べる。opt.hsHeat === false で前の動き
+    const kar = opt.hsHeat === false ? null : GAME.legalActs(G, s).find(a => a.t.id === 'karyoku');
+    if (kar) {
+      const c = GAME.costOf(G, s, kar.t), T2 = s.temp + kar.t.dT - 50;
+      if (s.F - c - GAME.costOf(G, Object.assign({}, s, { temp: T2, first: false }), sq) >= reserve) {
+        const gap = T => { let g = 0; for (const i of notReady) g += Math.max(0, hsLow(G, s, sq, i, T) - s.v[i]); return g; };
+        const sc = gap(Tf) - gap(T2) - 0.5 * c;
+        if (sc > bv) { bv = sc; best = kar; }
+      }
+    }
     return best;                   // 寄せる手が無ければ、ふつうに比べる(使う手も候補に入っている)
   }
 
@@ -992,6 +1003,11 @@ function featLen(G, ver) { return ver === 1 ? G.active.length * 12 + 14 : G.acti
     if (pick && pick !== res[0]) {
       if (!(pick.a && pick.a.t.area)) {} else pick.q = Math.max(pick.q, actValue(net, G, s, pick.a, deep));
       res.splice(res.indexOf(pick), 1); res.unshift(pick); pick.hsPick = true;
+    }
+    // 使った後(−50℃)に叩けない温度で使うことになったら、先に火力上げ(使ってから火力上げするのと集中力は同じ。順番が分かりやすい)
+    if (opt.hsHeat !== false && res[0] && res[0].a && res[0].a.t.hs && s.temp - 100 <= 0) {
+      const k = res.find(x => x.a && x.a.t.id === 'karyoku');
+      if (k) { k.q = Math.max(k.q, res[0].q); res.splice(res.indexOf(k), 1); res.unshift(k); k.hsPick = true; }
     }
     return res;
   }
