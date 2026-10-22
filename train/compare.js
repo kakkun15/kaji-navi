@@ -29,4 +29,4 @@ for (let g = +(process.env.START || 0); g < +(process.env.START || 0) + N; g++) 
 }
 for (const k in st) st[k] = +(st[k] / N).toFixed(3);
 console.log(JSON.stringify({ item, wfile, N, SEED, DEPTH, ...st, sec: ((Date.now() - t0) / N / 1000).toFixed(2) }));
-fs.writeFileSync(`${__dirname}/res_${item}_${require('path').basename(wfile)}_${SEED}_${DEPTH}${process.env.OVERPEN ? '_p' + process.env.OVERPEN : ''}.txt`, res.join(''));
+fs.writeFileSync(`${__dirname}/res_${item}_${require('path').basename(wfile)}_${SEED}_${DEPTH}${process.env.OVERPEN ? '_p' + process.env.OVERPEN : ''}${process.env.START ? '_s' + process.env.START : ''}.txt`, res.join(''));
