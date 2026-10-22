@@ -53,6 +53,19 @@
 - 叩いた後10%でたまる設定・同じ200局(`node train/sim_hs.js hidane <重み> 200 300 mid`、Lv80・罰0.6): 必殺なし 78.5% / たまると 96%。
   上の直しの前後で 96.0% / 95.5%(差は1局)。
 
+## 今の状況(2026-10-22 時点。次のチャットはここから)
+- 作業はブランチ `claude/friendly-pascal-189t8s`。`main` へのプルリクエスト kakkun15/kaji-navi#1 は**まだマージされていない**
+  (利用者がマージする。マージすれば GitHub Pages が新しくなる)。
+- 利用者の PC の自分用(画面読み取りつき)は `tools/kaji-update.bat` で新しい版にした(2026-10-22、動いた)。
+  PC には Python が無い。bat は GitHub のブランチの zip を落として `kaji-open\src`・重みを上書きし、
+  zip の `dist/app.html` の `<!--SELF-PANEL-->`・`<!--SELF-SCRIPTS-->` に PC の `unzipped_code\kaji\reader.js`・`kaji-self\read.js`
+  と `kaji-self\build.py` の PANEL・CSS を差し込んで `kaji-handover\kaji-navi-self.html` を作る。
+  中身の PowerShell は `tools/selfbuild.ps1`(bat には -EncodedCommand で埋め込んである。直したら埋め込み直す)。
+  落とす zip はブランチの物。`main` にマージした後は URL を main に変えてよい。
+- 利用者に頼んでいること: 実機の大成功率(大成功・成功・ゾーン外が何回中何回か)。計算と実機のずれを見る。
+- 計算側の手(学習・罰・蒸留・読みの深さ)はほぼやり尽くした(下の「試してだめだったこと」)。次は実機の結果を見てから。
+- 自分用の `read.js`(PC にだけある)の罰はまだ 1 のまま(火力上げの回数の読み上げだけに効く)。
+
 ## コマンド(すべてリポジトリの直下から)
 - 作り直す: `python3 build.py` → 試験: `node tests/core.test.js`(ALL OK)。
 - ブラウザの試験: `tests/t_focus.py`・`tests/t_voice_sp.py`。Playwright は `pip install playwright` し、
