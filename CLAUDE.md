@@ -62,8 +62,8 @@
 - ブラウザの試験: `tests/t_focus.py`・`tests/t_voice_sp.py`。Playwright は `pip install playwright` し、
   `p.chromium.launch(executable_path='/opt/pw-browsers/chromium')` にする(`playwright install` はしない)。
 - 成績: `OVERPEN=0.6 LEVEL=80 FOCUS=253 node train/compare.js hidane <重み> 1000 <種> [1|2]`
-  最強と同じ2手読みは `N2=12 K2=24` も付ける(付けないと読みが狭い。1局 約95秒、4本並べた時)。PC の局は `LEVEL=79 FOCUS=245`・種700・`START` で分ける。
   (`train/res_*.txt` に局ごとの結果を書く。種 960・961 を並べて 2000局にする)。
+  最強と同じ2手読みは `N2=12 K2=24` も付ける(付けないと読みが狭い。1局 約95秒、4本並べた時)。PC の局は `LEVEL=79 FOCUS=245`・種700・`START` で分ける。
 - 同じ局どうしの比べ: `node train/pair.js <Aの res...> -- <Bの res...>`(|z|>2 ではっきりした差)。
 - 負け方の集計: `node train/loss.js hidane <重み> 1000 <種>`(既定 Lv80・集中力253・罰0.6)。
 - 学習(続きから): `TAG=ft1 LEVEL=80 FOCUS=253 LR=0.3 node train/train.js hidane 24 400 3000 <種> <前の重み>`
