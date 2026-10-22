@@ -1,5 +1,6 @@
 // 学んだ見積もりで打った成績。node compare.js <商材> <重み> <局数> <種> [1|2(先読みの深さ)]
-// 環境変数 OVERPEN(超える罰。既定0 = ネットだけの強さ。鍛冶ナビと同じに打たせるなら ひだね 0.6・ほか 1)、LEVEL・FOCUS(既定 75・242)
+// 環境変数 OVERPEN(超える罰。既定0 = ネットだけの強さ。鍛冶ナビと同じに打たせるなら ひだね 0.6・ほか 1)、LEVEL・FOCUS(既定 75・242)、
+// START(何局目から打つか。既定0。同じ種の局を何本かに分けて並べて回す時に)
 'use strict';
 const fs = require('fs');
 const GAME = require('../src/game.js'), V = require('../src/value.js');
@@ -11,7 +12,7 @@ const net = { sizes: j.sizes, L: j.L.map(l => ({ n: l.n, m: l.m, W: Float32Array
 net.ver = j.sizes[0] === V.featLen(G, 1) ? 1 : j.sizes[0] === V.featLen(G, 3) ? 3 : 2;
 const st = { great: 0, over: 0, under: 0, errfail: 0 }; const res = [];
 const t0 = Date.now();
-for (let g = 0; g < N; g++) {
+for (let g = +(process.env.START || 0); g < +(process.env.START || 0) + N; g++) {
   const r = seeded(SEED * 100003 + g);
   const s = GAME.newState(G), ideal = G.cells.map(z => z ? z[0] + Math.floor(r() * (z[1] - z[0] + 1)) : null);
   const opt = { K: +(process.env.K || 12), N2: +(process.env.N2 || 4), K2: +(process.env.K2 || 8), overPen: +(process.env.OVERPEN || 0), rnd: seeded(SEED * 7 + g), buf: new Float32Array(V.featLen(G, net.ver)) };
