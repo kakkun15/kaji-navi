@@ -2,6 +2,12 @@
 
 ドラゴンクエストX の道具鍛冶で、次に打つ手をすすめる計算機。ブラウザだけで動く(インストール不要)。
 
+## 開く
+- [鍛冶ナビを開く](https://kakkun15.github.io/kaji-navi/dist/app.html)
+- [鍛冶の早見](https://kakkun15.github.io/kaji-navi/dist/hayami.html)
+- [性能テスト(PC 向け)](https://kakkun15.github.io/kaji-navi/dist/bench.html)
+
+
 - **鍛冶ナビ** `dist/app.html` … 盤面の数字を手で入れると、次に打つ手と大成功の見込み(%)を出す。声で読み上げもする。
 - **鍛冶の早見** `dist/hayami.html` … 温度ごとの伸びと会心率の早見。
 - **性能テスト** `dist/bench.html` … 計算の強さ(ふつう/最強など)を同じ局で比べる。PC 向け。
