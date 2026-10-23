@@ -2,7 +2,7 @@ from playwright.sync_api import sync_playwright
 import sys
 url = sys.argv[1] if len(sys.argv)>1 else 'file://' + __import__('os').path.abspath(__import__('os').path.join(__import__('os').path.dirname(__file__), '..', 'dist', 'app.html'))
 with sync_playwright() as p:
-    b=p.chromium.launch(args=['--autoplay-policy=user-gesture-required']); errs=[]
+    b=p.chromium.launch(executable_path='/opt/pw-browsers/chromium', args=['--autoplay-policy=user-gesture-required']); errs=[]
     ctx=b.new_context(viewport={'width':390,'height':844}, device_scale_factor=2, has_touch=True, is_mobile=True)
     ctx.add_init_script("if(!localStorage.getItem('kajiNaviCfgV2')) localStorage.setItem('kajiNaviCfgV2', JSON.stringify({focus:245}))")  # 前に使ったことがある人(初回の質問を出さない)
     pg=ctx.new_page(); pg.on('pageerror', lambda e: errs.append(str(e))); pg.on('console', lambda m: m.type=='error' and errs.append(m.text))
