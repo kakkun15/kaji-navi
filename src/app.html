@@ -139,6 +139,7 @@ select{font:inherit;font-weight:700;padding:6px 10px;border:1px solid var(--line
 <main>
   <div class="top">
     <select id="item" aria-label="商材"></select>
+    <button id="pipB" hidden aria-label="いつも最前面に出る小窓を開く">小窓</button>
     <button id="undo" aria-label="1手戻す">戻す</button>
     <button id="reset">最初から</button>
   </div>
@@ -334,7 +335,7 @@ function renderFoot(){
   msg.className = 'msg'; msg.textContent = '';
   $('chainB').hidden = true;
   $('alts').innerHTML = '';
-  requestAnimationFrame(fitFoot);
+  requestAnimationFrame(fitFoot); queueMicrotask(renderPip);
   if(Array.isArray(s.lit)){
     $('rec').innerHTML = '<span class="nm">光ったマスを押す</span>';
     go.textContent = '盤面の点滅しているマスから選ぶ'; go.disabled = true; return;
@@ -384,6 +385,56 @@ function applyChain(a, n){
   snap();
   for(let k = 0; k < n && !Array.isArray(s.lit); k++){ if(GM.costOf(G, s, a.t) > s.F) break; GM.afterAct(G, s, a, null); }
   save(); recalc();
+}
+
+// ---- 小窓(PC の Chrome・Edge。いつも最前面に出る。ゲームの上に重ねて、どの技でどこを打つかを見る) ----
+let pipW = null;
+const PIP_CSS = `body{margin:0;background:#0f1115;color:#f4f6f9;font:15px/1.4 system-ui,"Hiragino Sans","Yu Gothic UI",sans-serif;padding:8px;user-select:none}
+.nm{font-size:26px;font-weight:800;color:#ff9447;line-height:1.15}.tg{font-size:19px;font-weight:800;margin-left:6px}
+.st{font-size:12px;color:#adb6c5;font-weight:700;margin:2px 0 6px}.st b{color:#f4f6f9}
+.bd{display:grid;gap:5px;margin-bottom:6px}.c{border:2px solid #566074;border-radius:8px;background:#20242c;text-align:center;padding:2px 0;min-height:40px}
+.c .v{font-size:20px;font-weight:800;font-variant-numeric:tabular-nums}.c .l{font-size:10px;color:#adb6c5;font-weight:700}
+.c.in{border-color:#3fd98b}.c.in .v{color:#3fd98b}.c.ov{border-color:#ff6b6b}
+.c.hit{border-color:#ff7a14;background:#5a2a08;box-shadow:0 0 0 2px #ff7a14}.c.hit .l{color:#ffb070}
+.c.lit{outline:2px solid #ffcf5c}.c.pick{cursor:pointer;outline:3px dashed #ffcf5c}.c.gap{visibility:hidden}
+.why{font-size:12px;color:#adb6c5;font-weight:700;margin-bottom:6px}
+button{font:inherit;font-weight:800;width:100%;min-height:40px;border-radius:8px;border:1px solid #b84d00;background:#ff7a14;color:#fff;cursor:pointer}
+.row{display:flex;gap:6px}.row button+button{flex:none;width:auto;padding:0 10px}`;
+async function openPip(){
+  if(pipW){ pipW.focus(); return; }
+  try{ pipW = await documentPictureInPicture.requestWindow({ width: 240, height: 330 }); }catch(e){ return; }
+  const st = pipW.document.createElement('style'); st.textContent = PIP_CSS; pipW.document.head.appendChild(st);
+  pipW.document.title = '鍛冶ナビ';
+  pipW.addEventListener('pagehide', () => { pipW = null; });
+  renderPip();
+}
+function renderPip(){
+  if(!pipW || !G || !s) return;
+  const d = pipW.document, a = qs && qs[0] && qs[0].a, picking = Array.isArray(s.lit);
+  const tg = a && a.t.area && !picking ? a.tg : [];
+  let head;
+  if(picking) head = '<div class="nm">光ったマスを選ぶ</div>';
+  else if(s.dead) head = '<div class="nm" style="color:#ff6b6b">ゾーンを超えた</div>';
+  else if(busy || !qs) head = '<div class="nm" style="color:#adb6c5">計算中…</div>';
+  else if(!a) head = '<div class="nm">仕上げる</div>';
+  else head = `<div><span class="nm">${a.t.name}</span><span class="tg">${tgName(a)}</span></div>`;
+  const cols = [0, 1].filter(c => G.cells.some((z, i) => z && i % 2 === c));
+  let h = `<div class="bd" style="grid-template-columns:repeat(${cols.length},1fr)">`;
+  for(const r of rowList()) for(const c of cols){
+    const i = 2*r + c, z = G.cells[i];
+    if(!z){ h += '<div class="c gap"></div>'; continue; }
+    const v = s.v[i], cls = ['c', v > z[1] ? 'ov' : v >= z[0] ? 'in' : '', tg.includes(i) ? 'hit' : '', s.lit === i ? 'lit' : '', picking && s.lit.includes(i) ? 'pick' : ''].join(' ');
+    h += `<div class="${cls}" data-i="${i}"><div class="l">${posName(i)}${tg.includes(i) ? ' ◀叩く' : ''}</div><div class="v">${v}</div></div>`;
+  }
+  h += '</div>';
+  const why = a && !picking && !s.dead && qs ? whyText(a) : '';
+  let btn = '';
+  if(a && !a.t.area && !picking && !busy && qs) btn = `<div class="row"><button id="pGo">打った</button>${chainN > 1 ? `<button id="pChain">×${chainN}</button>` : ''}</div>`;
+  else if(a && a.t.area && !picking && qs) btn = '<div class="why">結果は元の画面で入れる</div>';
+  d.body.innerHTML = head + `<div class="st">温度 <b>${s.temp}</b>℃ ・ 集中力 <b>${s.F}</b></div>` + h + (why ? `<div class="why">${why}</div>` : '') + btn;
+  const go = d.getElementById('pGo'); if(go) go.onclick = () => startAct(a);
+  const ch = d.getElementById('pChain'); if(ch) ch.onclick = () => applyChain(a, chainN);
+  if(picking) d.querySelectorAll('.c.pick').forEach(e => e.onclick = () => { s.lit = +e.dataset.i; save(); recalc(); });
 }
 
 // ---- 声(ずんだもん・VOICEVOX)。推奨手を読み上げる ----
@@ -727,6 +778,7 @@ $('hsB').onclick = () => { if(pend) return; snap(); s.hs = ((s.hs | 0) + 1) % 3;
 
 function doReset(){ s = GM.newState(G); hist = []; pend = null; save(); recalc(); }
 $('reset').onclick = doReset;
+if('documentPictureInPicture' in window){ $('pipB').hidden = false; $('pipB').onclick = openPip; }
 $('undo').onclick = () => { if(!hist.length) return; s = hist.pop(); pend = null; save(); recalc(); };
 $('item').innerHTML = ITEM_ORDER.filter(k => GM.ITEMS[k]).map(k => `<option value="${k}">${GM.ITEMS[k].name}${W[k] ? '' : GM.ITEMS[k].T === 0 ? '(仮の計算)' : '(準備中)'}</option>`).join('');
 $('item').onchange = e => setItem(e.target.value, false);
