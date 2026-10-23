@@ -5,3 +5,4 @@ tests/power-table-dq10jp.json
 train/log_*.txt
 train/res_*.txt
 train/w_*ft*.json
+train/w_hammera4*.json
