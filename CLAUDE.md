@@ -25,7 +25,7 @@
 - 声は VOICEVOX で前もって録った 112本(`src/voice.js`)。このコンテナでは VOICEVOX を動かせないので、新しい文は利用者の PC で録る。
 
 ## 途中の話(2026-10-24 時点)
-- **小窓**(Document Picture-in-Picture。いつも最前面): 利用者が Cowork で作る。こちらの版はブランチ `claude/pip-mini`(main に入れていない)。
+- **小窓**(Document Picture-in-Picture。いつも最前面): main に入れた(src/app.html の openPip・renderPip)。Chrome・Edge だけでボタンが出る。
 - **自分用の画面読み取り**: PC の「ダウンロード」の `kaji-handover\kaji-navi-self.html` に、読み取りの欄(`section.rd`)・本体(`<script id="reader-src">`、
   ページでも Worker でも読む)・つなぎ(read.js、`window.NR`)が入っている。つなぎが使う `__navi` の関数(mut・reset・setStartFocus・say など)は公開版にもある。
   「公開ページで自分用の html を選ぶと、その部品をブラウザに覚えさせて読み込む」案は、選んだファイルのコードを動かす入口になるため、
