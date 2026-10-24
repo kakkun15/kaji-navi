@@ -6,3 +6,5 @@ train/log_*.txt
 train/res_*.txt
 train/w_*ft*.json
 train/w_hammera4*.json
+train/w_hammerx4*.json
+train/w_hammerc4*.json
