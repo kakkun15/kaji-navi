@@ -87,6 +87,12 @@ select{font:inherit;font-weight:700;padding:6px 10px;border:1px solid var(--line
 .mm i.gap{visibility:hidden}
 .acts{display:flex;gap:8px}
 .acts .main{flex:1;min-height:56px;font-size:19px}
+.acts .undo{flex:none;min-height:56px;min-width:64px;font-size:16px;font-weight:800;padding:6px 10px}
+.relit{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:700;color:var(--sub);margin:0 2px 8px}.relit b{color:#ffcf5c}
+.relit[hidden]{display:none}
+.relit button{margin-left:auto;min-height:40px;padding:4px 12px;font-weight:800}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(var(--footH,140px) + 10px);background:#2b313c;color:#f4f6f9;border:1px solid var(--line);border-radius:10px;padding:8px 14px;font-weight:800;font-size:15px;opacity:0;pointer-events:none;transition:opacity .2s;z-index:30;white-space:nowrap}
+.toast.show{opacity:1}
 .acts .chain{flex:none;min-height:56px;font-size:15px;padding:6px 12px;line-height:1.2}
 .alts{display:flex;gap:6px;margin:-2px 0 8px;overflow-x:auto;scrollbar-width:none;overscroll-behavior-x:contain}
 .alts::-webkit-scrollbar{display:none}
@@ -140,7 +146,6 @@ select{font:inherit;font-weight:700;padding:6px 10px;border:1px solid var(--line
   <div class="top">
     <select id="item" aria-label="商材"></select>
     <button id="pipB" hidden aria-label="いつも最前面に出る小窓を開く">小窓</button>
-    <button id="undo" aria-label="1手戻す">戻す</button>
     <button id="reset">最初から</button>
   </div>
   <div class="stats">
@@ -167,8 +172,10 @@ select{font:inherit;font-weight:700;padding:6px 10px;border:1px solid var(--line
 <div class="foot"><div class="in">
   <div class="rec" id="rec"></div>
   <div class="alts" id="alts"></div>
-  <div class="acts"><button class="main" id="go">計算中…</button><button class="chain" id="chainB" hidden></button></div>
+  <div class="relit" id="relit" hidden></div>
+  <div class="acts"><button class="undo" id="undo" aria-label="1手戻す">戻す</button><button class="main" id="go">計算中…</button><button class="chain" id="chainB" hidden></button></div>
 </div></div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <div class="modal" id="reelM"><div class="sheet" onclick="event.stopPropagation()">
   <h2>ゲームと同じ位置のマスを合わせて「決定」</h2>
@@ -248,7 +255,11 @@ function restore(){
   }catch(e){}
   return false;
 }
-function snap(){ hist.push(JSON.parse(JSON.stringify(s))); if(hist.length > 60) hist.shift(); }
+// 戻る地点を残す。label は「戻す」を押した時に出す名前。光ったマスの選び直しは次の手を入れるまで(litCand)
+function snap(label){ const c = JSON.parse(JSON.stringify(s)); c._u = label || '1手'; hist.push(c); if(hist.length > 60) hist.shift(); s.litCand = null; }
+function pickLit(i){ const c = s.lit; snap('光ったマスの選択'); s.litCand = c; s.lit = i; save(); recalc(); }
+let toastT = null;
+function toast(t){ const e = $('toast'); e.textContent = t; e.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => e.classList.remove('show'), 2000); }
 
 // ---- 表示 ----
 const KIND = { shuchu: { 400: '消費半分', 200: '会心ターン' }, tataki: { 400: '威力2倍', 200: '威力半分' }, hikari: { 400: '光る', 200: '光る' }, none: {} };
@@ -335,6 +346,12 @@ function renderFoot(){
   msg.className = 'msg'; msg.textContent = '';
   $('chainB').hidden = true;
   $('alts').innerHTML = '';
+  const rl = $('relit');
+  rl.hidden = !(s.litCand && !Array.isArray(s.lit) && !s.dead && !pend);
+  if(!rl.hidden){
+    rl.innerHTML = `光ったマス: <b>${posName(s.lit)}</b><button id="relitB">選び直す</button>`;
+    $('relitB').onclick = () => { const c = s.litCand; snap('光ったマスの選び直し'); s.lit = c; save(); recalc(); };
+  }
   requestAnimationFrame(fitFoot); queueMicrotask(renderPip);
   if(Array.isArray(s.lit)){
     $('rec').innerHTML = '<span class="nm">光ったマスを押す</span>';
@@ -434,7 +451,7 @@ function renderPip(){
   d.body.innerHTML = head + `<div class="st">温度 <b>${s.temp}</b>℃ ・ 集中力 <b>${s.F}</b></div>` + h + (why ? `<div class="why">${why}</div>` : '') + btn;
   const go = d.getElementById('pGo'); if(go) go.onclick = () => startAct(a);
   const ch = d.getElementById('pChain'); if(ch) ch.onclick = () => applyChain(a, chainN);
-  if(picking) d.querySelectorAll('.c.pick').forEach(e => e.onclick = () => { s.lit = +e.dataset.i; save(); recalc(); });
+  if(picking) d.querySelectorAll('.c.pick').forEach(e => e.onclick = () => pickLit(+e.dataset.i));
 }
 
 // ---- 声(ずんだもん・VOICEVOX)。推奨手を読み上げる ----
@@ -639,7 +656,7 @@ function finishCalc(id, res){
 function startAct(a){
   if(!a) return;
   if(!a.t.area){            // 火力上げ・冷やし込み: 結果は決まっている
-    snap(); GM.afterAct(G, s, a, null); save(); recalc(); return;
+    snap(a.t.name); GM.afterAct(G, s, a, null); save(); recalc(); return;
   }
   prepAct(a);
   openReels();
@@ -653,7 +670,7 @@ function prepAct(a){
   pend = { a, per, sel: {} };
 }
 // 下の固定欄の高さに合わせて、盤面が隠れないよう余白を取る
-function fitFoot(){ const f = document.querySelector('.foot'); if(f) document.querySelector('main').style.paddingBottom = (f.offsetHeight + 16) + 'px'; }
+function fitFoot(){ const f = document.querySelector('.foot'); if(f){ document.querySelector('main').style.paddingBottom = (f.offsetHeight + 16) + 'px'; document.documentElement.style.setProperty('--footH', f.offsetHeight + 'px'); } }
 function reelItems(outs, z){
   const m = new Map();
   for(const o of outs){ const x = m.get(o.w) || { w: o.w, n: 0, c: 0 }; if(o.crit) x.c += o.p; else x.n += o.p; m.set(o.w, x); }
@@ -703,7 +720,7 @@ function mark(j){
 function closeReels(){ $('reelM').classList.remove('show'); pend = null; }
 function commitReels(){
   if(!pend) return;
-  snap();
+  snap(pend.a.t.name + 'の結果');
   const a = pend.a;
   for(const p of pend.per){
     const w = p.its[pend.sel[p.j]].w, z = G.cells[p.j];
@@ -723,13 +740,13 @@ function commitReels(){
 $('board').addEventListener('click', e => {
   const c = e.target.closest('.cell'); if(!c || c.classList.contains('gap')) return;
   const i = +c.dataset.i;
-  if(Array.isArray(s.lit)){ if(s.lit.includes(i)){ s.lit = i; save(); recalc(); } return; }
-  askNum(`${posName(i)}の値`, s.v[i], v => { snap(); s.v[i] = v; s.dead = v > G.cells[i][1]; s.first = false; save(); recalc(); });
+  if(Array.isArray(s.lit)){ if(s.lit.includes(i)) pickLit(i); return; }
+  askNum(`${posName(i)}の値`, s.v[i], v => { snap(`${posName(i)}の値の手直し`); s.v[i] = v; s.dead = v > G.cells[i][1]; s.first = false; save(); recalc(); });
 });
-$('stTemp').onclick = () => askNum('温度(℃)', s.temp, v => { snap(); s.temp = Math.round(v / 50) * 50; s.first = s.first && s.temp === 1000; s.lit = null; s.last = null;
+$('stTemp').onclick = () => askNum('温度(℃)', s.temp, v => { snap('温度の手直し'); s.temp = Math.round(v / 50) * 50; s.first = s.first && s.temp === 1000; s.lit = null; s.last = null;
   if(G.trait === 'hikari' && !s.first && s.temp % 200 === 0){ const c = G.active.filter(i => s.v[i] < G.cells[i][0]); if(c.length) s.lit = c; }
   save(); recalc(); });
-$('stFocus').onclick = () => askNum('今の集中力', s.F, v => { snap(); s.F = v; save(); recalc(); });
+$('stFocus').onclick = () => askNum('今の集中力', s.F, v => { snap('集中力の手直し'); s.F = v; save(); recalc(); });
 let numCb = null;
 function askNum(t, v, cb){ $('numT').textContent = t; $('numI').value = v; numCb = cb; $('numM').classList.add('show'); setTimeout(() => $('numI').select(), 50); }
 $('numOk').onclick = () => { const v = parseInt($('numI').value, 10); $('numM').classList.remove('show'); if(Number.isFinite(v) && v >= 0 && numCb) numCb(v); numCb = null; };
@@ -779,7 +796,7 @@ $('hsB').onclick = () => { if(pend) return; snap(); s.hs = ((s.hs | 0) + 1) % 3;
 function doReset(){ s = GM.newState(G); hist = []; pend = null; save(); recalc(); }
 $('reset').onclick = doReset;
 if('documentPictureInPicture' in window){ $('pipB').hidden = false; $('pipB').onclick = openPip; }
-$('undo').onclick = () => { if(!hist.length) return; s = hist.pop(); pend = null; save(); recalc(); };
+$('undo').onclick = () => { if(!hist.length){ toast('これ以上は戻せない'); return; } s = hist.pop(); const u = s._u; delete s._u; pend = null; save(); recalc(); toast('戻した: ' + u); };
 $('item').innerHTML = ITEM_ORDER.filter(k => GM.ITEMS[k]).map(k => `<option value="${k}">${GM.ITEMS[k].name}${W[k] ? '' : GM.ITEMS[k].T === 0 ? '(仮の計算)' : '(準備中)'}</option>`).join('');
 $('item').onchange = e => setItem(e.target.value, false);
 
