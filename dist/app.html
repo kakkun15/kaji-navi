@@ -2120,7 +2120,13 @@ function commitReels(){
 }
 
 // ---- 光ったマス・手直し ----
+// 誤タップよけ: 指が10px以上動いた時・スクロールが止まって0.3秒以内は、マスを押したことにしない
+let tapX = 0, tapY = 0, tapMoved = false, lastScroll = 0;
+$('board').addEventListener('pointerdown', e => { tapX = e.clientX; tapY = e.clientY; tapMoved = false; }, { passive: true });
+$('board').addEventListener('pointermove', e => { if(Math.hypot(e.clientX - tapX, e.clientY - tapY) > 10) tapMoved = true; }, { passive: true });
+addEventListener('scroll', () => { lastScroll = Date.now(); }, { passive: true });
 $('board').addEventListener('click', e => {
+  if(tapMoved || Date.now() - lastScroll < 300) return;
   const c = e.target.closest('.cell'); if(!c || c.classList.contains('gap')) return;
   const i = +c.dataset.i;
   if(Array.isArray(s.lit)){ if(s.lit.includes(i)) pickLit(i); return; }
