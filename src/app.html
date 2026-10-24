@@ -159,7 +159,7 @@ select{font:inherit;font-weight:700;padding:6px 10px;border:1px solid var(--line
   <div class="msg" id="msg"></div>
   <!--SELF-PANEL-->
   <div class="note">
-    <label class="vrate">計算の強さ <select id="power"><option value="normal">ふつう</option><option value="max">最強(PC・全スレッド)</option></select></label>
+    <label class="vrate">計算の強さ <select id="power"><option value="normal">ふつう</option><option value="max">最強(全スレッド)</option></select></label>
     <label class="vrate">声の速さ <select id="vRate"><option value="0.9">ゆっくり</option><option value="1">ややゆっくり</option><option value="1.15">ふつう</option><option value="1.35">はやい</option><option value="1.6">とてもはやい</option><option value="1.9">さらにはやい</option></select></label><br>
     盤面のマス・温度・集中力は押すと手で直せる。<br>
     必殺がたまったら(ゲームのメニューに「ひっさつ」が出たら)「必殺」を押して「たまった」にする。押すたびに なし → たまった → 効果中 と変わる。<br>
@@ -481,6 +481,10 @@ const OPEN_BOOK = { hidane: [1000, 1300, 1900] };
 // 片方だけ大成功 48局 / 53局(差なし)・超えて失敗 3局 / 10局。最強にしても上がらないので、ふつうの読みのまま
 const MAX_SKIP = { lamp: true };
 const MAXOPT = { K: 12, Ki: 12, N2: 12, K2: 24, seed: 12345 };
+// スマホ(指で触る画面)だけ軽い最強: 1手読みの1位から5%より下の手は2手読みせず、2手目は12通り。
+// 322局面で今の最強と比べて、それぞれ 一致 99.7%・損 0.000pt / 一致 97.8%・損 0.003pt(1手あたり)。PC は劣化させない
+const IS_PHONE = (() => { try{ return matchMedia('(pointer: coarse)').matches || /Android|iPhone|iPad|Mobile/.test(navigator.userAgent); }catch(e){ return false; } })();
+if(IS_PHONE) Object.assign(MAXOPT, { margin: 0.05, K2: 12 });
 let lastCalc = null;      // { ms, threads }
 function playRate(){ return Math.max(0.5, Math.min(2.5, voiceRate / ((typeof AR_CLIP_INFO !== 'undefined' && AR_CLIP_INFO.speed) || CLIP_BASE))); }
 function setVoiceRate(r){ if(!(r >= 0.6 && r <= 2.5)) return; voiceRate = r; try{ localStorage.setItem(RATE_KEY, String(r)); }catch(e){} const el = $('vRate'); if(el) el.value = String(r); }

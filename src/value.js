@@ -17,6 +17,17 @@ function featLen(G, ver) { return ver === 1 ? G.active.length * 12 + 14 : G.acti
     const f = out || new Float32Array(featLen(G, ver));
     let k = 0, needSum = 0, open = 0;
     const tScale = (1000 + Math.min(2000, s.temp)) / 2000;      // 威力の温度係数
+    // ver 3 のねらい系の伸びと会心率はマスに関係ないので、マスのループの前に1回だけ求める
+    let V3 = null;
+    if (ver >= 3) {
+      const tNext = s.temp % 200 === 0 && !s.first ? s.temp : s.temp - (s.temp % 200);
+      V3 = ['nerai', 'jakunerai'].map(id => {
+        if (!(tNext > 0 && G.def && CORE.TECH[id] && G.level >= CORE.TECH[id].lv)) return null;
+        const lit = G.trait === 'hikari';
+        return { rs: CORE.rolls(id, tNext, CORE.powerMult(G.trait, tNext, lit, false)),
+                 cr: CORE.critRate(id, { temp: tNext, trait: G.trait, lit, first: false, level: G.level, hammer: G.hammer, star: G.star }) };
+      });
+    }
     for (const i of G.active) {
       const z = G.cells[i], v = s.v[i], b = s.bel[i], w = z[1] - z[0] + 1;
       const need = Math.max(0, z[0] - v);
@@ -64,17 +75,15 @@ function featLen(G, ver) { return ver === 1 ? G.active.length * 12 + 14 : G.acti
       // ver 3: 次の200℃の倍数(打つたびに50℃下がる)で、このマスが光った時に ねらい打ち・弱ねらい打ち で
       // ぴったり止まる確率と、会心でなくても超えない確率。光らない地金では、その温度の会心ターンの見込みとして使う
       if (ver >= 3) {
-        const tNext = s.temp % 200 === 0 && !s.first ? s.temp : s.temp - (s.temp % 200);
-        for (const id of ['nerai', 'jakunerai']) {
+        for (const x of V3) {
           let ex = 0, safe = 0;
-          if (tNext > 0 && G.def && CORE.TECH[id] && G.level >= CORE.TECH[id].lv) {
-            const lit = G.trait === 'hikari';
-            const rs = CORE.rolls(id, tNext, CORE.powerMult(G.trait, tNext, lit, false));
-            const cr = CORE.critRate(id, { temp: tNext, trait: G.trait, lit, first: false, level: G.level, hammer: G.hammer, star: G.star });
+          if (x) {
+            const rs = x.rs, lo = Math.max(0, v - z[0] + 1), top = b.length - 1;
+            // 理想値が (v, v+2r] にある確率 = 累積和の引き算
             for (const r of rs) {
               if (v + r <= z[1]) safe++;
-              let e = 0; for (let q = 0; q < b.length; q++) { const I = z[0] + q; if (I > v && I <= v + 2 * r) e += b[q]; }
-              ex += cr * e;
+              const hi = Math.min(top, v + 2 * r - z[0]);
+              if (hi >= lo) ex += x.cr * (cum[hi + 1] - cum[lo]);
             }
             ex /= rs.length; safe /= rs.length;
           }
@@ -267,6 +276,8 @@ function featLen(G, ver) { return ver === 1 ? G.active.length * 12 + 14 : G.acti
     // 置き換え表(トランスポジションテーブル): 同じ局面の1手読みは1回だけ計算して使い回す。
     // 2手読みでは、打った後の局面が同じになることが1〜2割ある(同じ結果を引いた時・会心でない伸びが同じ時など)
     const tt = opt.tt || (opt.tt = new Map());
+    // 葉(2手目)の1手読みだけ軽くできる: leafK(複数マスの手の引く数)・leafPen(超える罰。葉は手の比べだけなので切ってよい)
+    const lopt = (opt.leafK || opt.leafPen !== undefined) ? (opt._lopt || (opt._lopt = Object.assign({}, opt, { K: opt.leafK || opt.K, overPen: opt.leafPen !== undefined ? opt.leafPen : opt.overPen }))) : opt;
     const best1 = (s2) => {
       if (s2.dead) return 0;
       if (Array.isArray(s2.lit)) {
@@ -276,7 +287,7 @@ function featLen(G, ver) { return ver === 1 ? G.active.length * 12 + 14 : G.acti
       }
       const key = stateKey(s2);
       const hit = tt.get(key); if (hit !== undefined) return hit;
-      const qs = evalActs(net, G, s2, opt);
+      const qs = evalActs(net, G, s2, lopt);
       let m = 0; for (const x of qs) if (x.q > m) m = x.q;
       if (tt.size > 200000) tt.clear();
       tt.set(key, m);
@@ -360,7 +371,9 @@ function featLen(G, ver) { return ver === 1 ? G.active.length * 12 + 14 : G.acti
     const q1 = evalActs(net, G, s, opt);
     const N = opt.N2 || 4;
     const order = q1.slice().sort((a, b) => b.q - a.q);
-    const top = order.slice(0, N).filter(x => x.a);
+    // margin: 1手読みの1位から margin より下の手は2手読みしない(差が大きい時の打ち切り)
+    const cut = opt.margin ? order[0].q - opt.margin : -Infinity;
+    const top = order.slice(0, N).filter(x => x.a && x.q >= cut);
     for (const x of top) x.q2 = act2Value(net, G, s, x.a, opt);
     for (const x of q1) if (x.q2 === undefined) x.q2 = x.a ? -1 : x.q;   // やめるは確定値
     return q1;
