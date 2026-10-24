@@ -16,6 +16,12 @@ const rnd = seeded(SEED * 7919 + 1);
 let net = INIT ? load(INIT) : V.makeNet([V.featLen(G, +(process.env.FVER || 2)), +(process.env.HID || 64), +(process.env.HID || 64), 1], rnd);
 net.ver = net.sizes[0] === V.featLen(G, 1) ? 1 : net.sizes[0] === V.featLen(G, 3) ? 3 : 2;
 const D = V.featLen(G, net.ver);
+// 2つ目の出力(学習の足しだけ。推奨手には使わない・重みファイルにも入れない): 終局の誤差から作る「惜しさ」
+// 目標 = 誤差≦許容なら1、超えたら 2(1-sigmoid((誤差-許容)/2))。AUX は損失の割合(0 なら今まで通り)
+const AUX = +(process.env.AUX || 0);
+const HL = net.sizes[net.sizes.length - 2];
+const aux = { W: new Float32Array(HL).map(() => (rnd() - 0.5) * 0.1), b: new Float32Array(1), mW: new Float32Array(HL), vW: new Float32Array(HL), mb: new Float32Array(1), vb: new Float32Array(1) };
+const auxTarget = j => j.over ? 0 : j.err <= G.T ? 1 : 2 * (1 - V.sigmoid((j.err - G.T) / 2));
 const TAG = process.env.TAG || '';
 const OUT = `${__dirname}/w_${item}${TAG}.json`;
 const LOG = `${__dirname}/log_${item}${TAG}.txt`;
@@ -38,7 +44,7 @@ function choose(qs, eps, r) {
 }
 
 // ---- 1局打つ(局面と目標を集める) ----
-function playGame(r, eps, collect) {
+function playGame(r, eps, collect, collectAux) {
   const s = GAME.newState(G), ideal = randIdeal(r);
   const opt = { K: 12, rnd: r, buf: new Float32Array(D) };
   const traj = [];
@@ -55,10 +61,11 @@ function playGame(r, eps, collect) {
     // λ収益: 先読みの値と、実際の結果を混ぜる(先読みの値だけだと楽観に偏るため)。寄り道した手の前では切る
     // 最後の局面の「やめた時の大成功の確率」(見当から正確に出る)。0/1 の結果より揺れが小さい
     let g = GAME.stopProb(G, s);
+    const ya = auxTarget(j);
     for (let t = traj.length - 1; t >= 0; t--) {
       const x = traj[t];
       const target = x.greedy ? (1 - LAMBDA) * x.q + LAMBDA * g : x.q;
-      collect(x.f, target);
+      collect(x.f, target, ya);
       g = target;
     }
   }
@@ -101,7 +108,7 @@ function sampleState(r) {
 // ---- 学習(Adam・交差エントロピー) ----
 function makeAdam(net) { return net.L.map(l => ({ mW: new Float32Array(l.W.length), vW: new Float32Array(l.W.length), mb: new Float32Array(l.b.length), vb: new Float32Array(l.b.length) })); }
 let adam = makeAdam(net), adamT = 0;
-function trainOn(X, Y, epochs, lr) {
+function trainOn(X, Y, epochs, lr, YA) {
   const N = Y.length, B = 256, idx = Array.from({ length: N }, (_, i) => i);
   const L = net.L;
   let lossSum = 0, cnt = 0;
@@ -110,12 +117,20 @@ function trainOn(X, Y, epochs, lr) {
     for (let b0 = 0; b0 < N; b0 += B) {
       const gW = L.map(l => new Float32Array(l.W.length)), gb = L.map(l => new Float32Array(l.b.length));
       const bs = Math.min(B, N - b0);
+      const gaW = new Float32Array(HL); let gab = 0;
       for (let q = 0; q < bs; q++) {
         const n = idx[b0 + q], x = X[n], y = Y[n];
         const acts = V.forward(net, x, true);
         const z = acts[acts.length - 1][0], p = V.sigmoid(z);
         lossSum += -(y * Math.log(p + 1e-9) + (1 - y) * Math.log(1 - p + 1e-9)); cnt++;
         let delta = new Float32Array([p - y]);
+        const ya = YA ? YA[n] : NaN, hA = acts[L.length - 1];
+        let da = 0;
+        if (AUX > 0 && ya === ya) {
+          let za = aux.b[0]; for (let k = 0; k < HL; k++) za += aux.W[k] * hA[k];
+          da = AUX * (V.sigmoid(za) - ya); gab += da;
+          for (let k = 0; k < HL; k++) gaW[k] += da * hA[k];
+        }
         for (let l = L.length - 1; l >= 0; l--) {
           const { n: ni, m, W } = L[l], a = acts[l];
           const prev = l > 0 ? new Float32Array(ni) : null;
@@ -125,11 +140,17 @@ function trainOn(X, Y, epochs, lr) {
             const off = j * ni;
             for (let k = 0; k < ni; k++) { gW[l][off + k] += d * a[k]; if (prev) prev[k] += d * W[off + k]; }
           }
+          if (prev && l === L.length - 1 && da) for (let k = 0; k < ni; k++) prev[k] += da * aux.W[k];
           if (prev) { for (let k = 0; k < ni; k++) prev[k] *= (1 - a[k] * a[k]); delta = prev; }
         }
       }
       adamT++;
       const b1 = 0.9, b2 = 0.999, c1 = 1 - Math.pow(b1, adamT), c2 = 1 - Math.pow(b2, adamT);
+      if (AUX > 0) {
+        const A = aux;
+        for (let k = 0; k < HL; k++) { const g = gaW[k] / bs; A.mW[k] = b1 * A.mW[k] + (1 - b1) * g; A.vW[k] = b2 * A.vW[k] + (1 - b2) * g * g; A.W[k] -= lr * (A.mW[k] / c1) / (Math.sqrt(A.vW[k] / c2) + 1e-8); }
+        { const g = gab / bs; A.mb[0] = b1 * A.mb[0] + (1 - b1) * g; A.vb[0] = b2 * A.vb[0] + (1 - b2) * g * g; A.b[0] -= lr * (A.mb[0] / c1) / (Math.sqrt(A.vb[0] / c2) + 1e-8); }
+      }
       for (let l = 0; l < L.length; l++) {
         const A = adam[l];
         for (let k = 0; k < L[l].W.length; k++) { const g = gW[l][k] / bs; A.mW[k] = b1 * A.mW[k] + (1 - b1) * g; A.vW[k] = b2 * A.vW[k] + (1 - b2) * g * g; L[l].W[k] -= lr * (A.mW[k] / c1) / (Math.sqrt(A.vW[k] / c2) + 1e-8); }
@@ -193,11 +214,11 @@ if (process.env.PRE) {
   log(`pre n ${Y.length} mean ${(Y.reduce((a, b) => a + b, 0) / Y.length).toFixed(3)} loss ${loss.toFixed(4)} ${JSON.stringify(evaluate(300, 99))}`);
 }
 
-let bufX = [], bufY = [], bestGreat = -1;
+let bufX = [], bufY = [], bufA = [], bestGreat = -1;
 for (let it = 1; it <= ITERS; it++) {
   const t0 = Date.now();
-  const X = [], Y = [];
-  const collect = (f, y) => { X.push(f); Y.push(y); };
+  const X = [], Y = [], YA = [];
+  const collect = (f, y, ya) => { X.push(f); Y.push(y); YA.push(ya); };
   let gw = 0;
   for (let g = 0; g < GAMES; g++) { const j = playGame(rnd, 0.1, collect); gw += j.great; }
   const opt = { K: 8, rnd, buf: new Float32Array(D) };
@@ -205,13 +226,13 @@ for (let it = 1; it <= ITERS; it++) {
     const s = sampleState(rnd);
     const qs = V.evalActs(net, G, s, opt);
     let best = 0; for (const x of qs) best = Math.max(best, x.q);
-    X.push(V.features(G, s, null, net.ver)); Y.push(best);
+    X.push(V.features(G, s, null, net.ver)); Y.push(best); YA.push(NaN);
   }
   // 直近3回分を残して学ぶ
-  bufX.push(X); bufY.push(Y);
-  if (bufX.length > 3) { bufX.shift(); bufY.shift(); }
-  const AX = [].concat(...bufX), AY = [].concat(...bufY);
-  const loss = trainOn(AX, AY, 3, (it < 5 ? 2e-3 : 1e-3) * LR_MUL);
+  bufX.push(X); bufY.push(Y); bufA.push(YA);
+  if (bufX.length > 3) { bufX.shift(); bufY.shift(); bufA.shift(); }
+  const AX = [].concat(...bufX), AY = [].concat(...bufY), AA = [].concat(...bufA);
+  const loss = trainOn(AX, AY, 3, (it < 5 ? 2e-3 : 1e-3) * LR_MUL, AA);
   save(net, OUT);
   let ev = '';
   if (it % 3 === 0 || it === ITERS) {
