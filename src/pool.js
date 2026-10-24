@@ -110,8 +110,10 @@
       const res = acts.map((a, i) => ({ a, q: q[i] }));
       res.push({ a: null, q: GAME.stopProb(G, s), q2: GAME.stopProb(G, s) });
       // 2段目: 上位 N2 手を1手ずつ配る
-      const top = res.filter(x => x.a).sort((x, y) => y.q - x.q).slice(0, opt.N2);
-      await Promise.all(top.map(x => this.run(Object.assign({ type: 'job', phase: 2, idx: [acts.indexOf(x.a)], opt: { K: opt.Ki || 8, K2: opt.K2, overPen: opt.overPen, seed: opt.seed } }, sc))
+      const srt = res.filter(x => x.a).sort((x, y) => y.q - x.q);
+      const cut = opt.margin && srt.length ? srt[0].q - opt.margin : -Infinity;   // 1位から margin より下は2手読みしない
+      const top = srt.slice(0, opt.N2).filter(x => x.q >= cut);
+      await Promise.all(top.map(x => this.run(Object.assign({ type: 'job', phase: 2, idx: [acts.indexOf(x.a)], opt: { K: opt.Ki || 8, K2: opt.K2, overPen: opt.overPen, leafPen: opt.leafPen, seed: opt.seed } }, sc))
         .then(r => { for (const [, v] of r.out) x.q2 = v; })));
       for (const x of res) if (x.q2 === undefined) x.q2 = -1;
       return res;
