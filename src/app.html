@@ -409,6 +409,7 @@ let pipW = null;
 const PIP_CSS = `body{margin:0;background:#0f1115;color:#f4f6f9;font:15px/1.4 system-ui,"Hiragino Sans","Yu Gothic UI",sans-serif;padding:8px;user-select:none}
 .nm{font-size:26px;font-weight:800;color:#ff9447;line-height:1.15}.tg{font-size:19px;font-weight:800;margin-left:6px}
 .st{font-size:12px;color:#adb6c5;font-weight:700;margin:2px 0 6px}.st b{color:#f4f6f9}
+.it{font-size:12px;font-weight:800;color:#ffcf5c;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .bd{display:grid;gap:5px;margin-bottom:6px}.c{border:2px solid #566074;border-radius:8px;background:#20242c;text-align:center;padding:2px 0;min-height:40px}
 .c .v{font-size:20px;font-weight:800;font-variant-numeric:tabular-nums}.c .l{font-size:10px;color:#adb6c5;font-weight:700}
 .c.in{border-color:#3fd98b}.c.in .v{color:#3fd98b}.c.ov{border-color:#ff6b6b}
@@ -448,7 +449,7 @@ function renderPip(){
   let btn = '';
   if(a && !a.t.area && !picking && !busy && qs) btn = `<div class="row"><button id="pGo">打った</button>${chainN > 1 ? `<button id="pChain">×${chainN}</button>` : ''}</div>`;
   else if(a && a.t.area && !picking && qs) btn = '<div class="why">結果は元の画面で入れる</div>';
-  d.body.innerHTML = head + `<div class="st">温度 <b>${s.temp}</b>℃ ・ 集中力 <b>${s.F}</b></div>` + h + (why ? `<div class="why">${why}</div>` : '') + btn;
+  d.body.innerHTML = `<div class="it">${GM.ITEMS[item].name}</div>` + head + `<div class="st">温度 <b>${s.temp}</b>℃ ・ 集中力 <b>${s.F}</b></div>` + h + (why ? `<div class="why">${why}</div>` : '') + btn;
   const go = d.getElementById('pGo'); if(go) go.onclick = () => startAct(a);
   const ch = d.getElementById('pChain'); if(ch) ch.onclick = () => applyChain(a, chainN);
   if(picking) d.querySelectorAll('.c.pick').forEach(e => e.onclick = () => pickLit(+e.dataset.i));
