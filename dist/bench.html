@@ -468,6 +468,26 @@ th{color:var(--sub);font-size:13px}
     return m > 0 ? post.map(x => x / m) : bel;
   }
 
+  // 必殺の後(確定会心)で v → w になった時の理想値の見当。会心かどうかを見分けられなくても、会心として絞る。
+  // 今の見当と合わない時(入れ間違い・読み間違いなど)は、見当をゾーン全体に戻してやり直し、
+  // それでも合わなければ、w がゾーン内なら理想値は w とみなす。ゾーンの外なら見当はそのまま。
+  function critBelief(z, v, w, bel, rs) {
+    const tryPost = b => {
+      let m = 0;
+      const post = b.map((p, k) => {
+        if (!p) return 0;
+        const I = z[0] + k;
+        let like = 0;
+        for (const r of rs) if ((I > v ? Math.min(v + 2 * r, I) : v) === w) like++;
+        m += p * like;
+        return p * like;
+      });
+      return m > 0 ? post.map(x => x / m) : null;
+    };
+    return tryPost(bel) || tryPost(uniformBelief(z))
+      || (w >= z[0] && w <= z[1] ? bel.map((_, k) => z[0] + k === w ? 1 : 0) : bel);
+  }
+
   // ---- 大成功の確率(今やめた場合) ----------------------------------------
   // マスごとの誤差の分布を掛け合わせ、合計が T 以下の確率
   function massErrDist(z, v, bel) {
@@ -500,7 +520,7 @@ th{color:var(--sub);font-size:13px}
   }
 
   const GAME = { HS_ACT, hasLegal, ITEMS, START_TEMP, TEMP_MAX, areaSets, setup, newState, cloneState, legalActs, costOf,
-                 hitParams, massOutcomes, afterAct, play, critPosterior, massErrDist, stopProb, judge };
+                 hitParams, massOutcomes, afterAct, play, critPosterior, critBelief, massErrDist, stopProb, judge };
   if (typeof module !== 'undefined' && module.exports) module.exports = GAME;
   else root.KajiGame = GAME;
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -97,6 +97,10 @@
 - 叩いた後10%でたまる設定・同じ200局(`node train/sim_hs.js hidane <重み> 200 300 mid`、Lv80・罰0.6): 必殺なし 78.5% / たまると 96%。
   上の直しの前後で 96.0% / 95.5%(差は1局)。
 
+- 必殺の後(`s.hs === 2`)に叩いた結果を入れる時は、会心かどうかを見分けなくても必ず会心として理想値を絞る(`GAME.critBelief`、2026-10-25)。
+  合わない値は 見当をゾーン全体に戻してやり直し → それでも合わなければ ゾーン内の値をその理想値とする。
+  `commitReels({マス番号: 値})` で、リールの候補に無い実際の値も入れられる(画面読み取りから使える。自分用の読み取り側の呼び方は未確認)。試験: `node tests/crit_belief.test.js`。
+
 ## コマンド(すべてリポジトリの直下から)
 - 作り直す: `python3 build.py` → 試験: `node tests/core.test.js`(ALL OK)。
 - ブラウザの試験: `tests/t_focus.py`・`tests/t_voice_sp.py`。Playwright は `pip install playwright` し、

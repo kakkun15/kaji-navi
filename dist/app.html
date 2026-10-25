@@ -604,6 +604,26 @@ select{font:inherit;font-weight:700;padding:6px 10px;border:1px solid var(--line
     return m > 0 ? post.map(x => x / m) : bel;
   }
 
+  // 必殺の後(確定会心)で v → w になった時の理想値の見当。会心かどうかを見分けられなくても、会心として絞る。
+  // 今の見当と合わない時(入れ間違い・読み間違いなど)は、見当をゾーン全体に戻してやり直し、
+  // それでも合わなければ、w がゾーン内なら理想値は w とみなす。ゾーンの外なら見当はそのまま。
+  function critBelief(z, v, w, bel, rs) {
+    const tryPost = b => {
+      let m = 0;
+      const post = b.map((p, k) => {
+        if (!p) return 0;
+        const I = z[0] + k;
+        let like = 0;
+        for (const r of rs) if ((I > v ? Math.min(v + 2 * r, I) : v) === w) like++;
+        m += p * like;
+        return p * like;
+      });
+      return m > 0 ? post.map(x => x / m) : null;
+    };
+    return tryPost(bel) || tryPost(uniformBelief(z))
+      || (w >= z[0] && w <= z[1] ? bel.map((_, k) => z[0] + k === w ? 1 : 0) : bel);
+  }
+
   // ---- 大成功の確率(今やめた場合) ----------------------------------------
   // マスごとの誤差の分布を掛け合わせ、合計が T 以下の確率
   function massErrDist(z, v, bel) {
@@ -636,7 +656,7 @@ select{font:inherit;font-weight:700;padding:6px 10px;border:1px solid var(--line
   }
 
   const GAME = { HS_ACT, hasLegal, ITEMS, START_TEMP, TEMP_MAX, areaSets, setup, newState, cloneState, legalActs, costOf,
-                 hitParams, massOutcomes, afterAct, play, critPosterior, massErrDist, stopProb, judge };
+                 hitParams, massOutcomes, afterAct, play, critPosterior, critBelief, massErrDist, stopProb, judge };
   if (typeof module !== 'undefined' && module.exports) module.exports = GAME;
   else root.KajiGame = GAME;
 })(typeof window !== 'undefined' ? window : globalThis);
@@ -1980,7 +2000,7 @@ function voicePlace(a){
   return tg.map(posName).join('と');
 }
 function moveText(a, n){ const p = voicePlace(a); return (YOMI[a.t.id] || a.t.name) + (p ? '、' + p : '') + (n > 1 ? `、${n}回` : ''); }
-// 推奨が出たら読み上げる。同じ局面・同じ手は繰り返さない。「火力上げ、2回」と言った後は、その回数を打ち終わるまで黙る
+// 推奨が出たら読み上げる。同じ局面・同じ手は繰り返さない。火力上げが続く時も1手ずつ読む(回数は言わない)
 function announce(force){
   if(!voiceOn || (window.NR && window.NR.on)) return;         // 画面読み取り中(自分用)は、読み取り側が読み上げる
   let text = null;
@@ -1988,13 +2008,11 @@ function announce(force){
   if(Array.isArray(s.lit)) text = '光ったマスを選んで';
   else if(s.dead || !qs) return;
   else if(!a) text = '全部入った。仕上げ';
-  else text = moveText(a, !a.t.area && chainN > 1 ? chainN : 1);
+  else text = moveText(a, 1);           // 回数は言わない(2回打った所で別の手に変わることがある。1手ずつ読む)
   const key = text + '|' + [s.temp, s.F, s.v.join(','), String(s.lit)].join('/');
   if(!force && key === VC.saidKey) return;
   VC.saidKey = key;
-  if(!force && a && !a.t.area && VC.chain && VC.chain.id === a.t.id && VC.chain.temps.includes(s.temp)) return;
   VC.chain = null;
-  if(a && !a.t.area && chainN > 1){ const temps = []; for(let k = 1; k < chainN; k++) temps.push(s.temp + a.t.dT * k); VC.chain = { id: a.t.id, temps }; }
   vSay(text);
 }
 function renderVoice(){ $('vBt').textContent = voiceOn ? 'オン' : 'オフ'; $('vB').className = 'stat vbtn ' + (voiceOn ? 'on' : 'off'); }
@@ -2123,17 +2141,23 @@ function mark(j){
   e.textContent = t === 'c' ? ' 会心' : t === 'a' ? ' 会心?' : ''; e.className = t;
 }
 function closeReels(){ $('reelM').classList.remove('show'); pend = null; }
-function commitReels(){
+// vals: 外から実際の値を渡す時(画面読み取りなど){マスの番号: 値}。リールの候補に無い値でもそのまま入れる。画面のボタンからはイベントが来るので使わない
+function commitReels(vals){
   if(!pend) return;
   snap(pend.a.t.name + 'の結果');
-  const a = pend.a;
+  const a = pend.a, ov = vals && vals.constructor === Object ? vals : null;
+  const hsCrit = s.hs === 2;      // 必殺の後に叩いたマスは全部会心。会心かどうか見分けられなくても、会心として理想値を絞る
   for(const p of pend.per){
-    const w = p.its[pend.sel[p.j]].w, z = G.cells[p.j];
-    // 選んだ値になる結果(会心あり・なし)を確率で混ぜて、理想値の見込みを更新する
-    const hit = p.outs.filter(o => o.w === w);
-    let tot = 0; const bel = new Array(s.bel[p.j].length).fill(0);
-    for(const o of hit){ tot += o.p; for(let q = 0; q < bel.length; q++) bel[q] += o.p * o.bel[q]; }
-    if(tot > 0) s.bel[p.j] = bel.map(x => x / tot);
+    const w = ov && Number.isFinite(ov[p.j]) ? ov[p.j] : p.its[pend.sel[p.j]].w, z = G.cells[p.j];
+    if(hsCrit){
+      s.bel[p.j] = GM.critBelief(z, s.v[p.j], w, s.bel[p.j], GM.hitParams(G, s, a.t, p.j).rs);
+    } else {
+      // 選んだ値になる結果(会心あり・なし)を確率で混ぜて、理想値の見込みを更新する
+      const hit = p.outs.filter(o => o.w === w);
+      let tot = 0; const bel = new Array(s.bel[p.j].length).fill(0);
+      for(const o of hit){ tot += o.p; for(let q = 0; q < bel.length; q++) bel[q] += o.p * o.bel[q]; }
+      if(tot > 0) s.bel[p.j] = bel.map(x => x / tot);
+    }
     s.v[p.j] = w;
     if(w > z[1]) s.dead = true;
   }
