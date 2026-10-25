@@ -36,6 +36,9 @@ select{font:inherit;font-weight:700;padding:6px 10px;border:1px solid var(--line
 .vbtn b{font-size:15px}
 .vbtn.off b{color:var(--sub)}
 .vbtn.on b{color:var(--good)}
+.hsrow{display:flex;gap:8px;margin:-2px 0 10px}.hsrow .hsb{margin:0;flex:1;min-width:0}
+.techb{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:44px;padding:4px 12px;gap:0}
+.techb small{color:var(--sub);font-size:11px;font-weight:700}.techb b{font-size:16px;font-weight:800}.techb.cut b{color:var(--amb)}
 .hsb{display:flex;width:100%;align-items:center;justify-content:space-between;gap:8px;margin:-2px 0 10px;min-height:44px;padding:6px 12px;text-align:left}
 .hsb small{color:var(--sub);font-size:13px;font-weight:700}
 .hsb b{font-size:17px;font-weight:800;color:var(--sub)}
@@ -161,9 +164,9 @@ select{font:inherit;font-weight:700;padding:6px 10px;border:1px solid var(--line
     <button class="stat" id="stTemp"><small>温度</small><b id="temp">1000</b><span class="u">℃</span><span class="k" id="kind"></span></button>
     <button class="stat" id="stFocus" aria-label="今の集中力を直す"><small>集中力</small><b id="focus">242</b></button>
     <button class="stat vbtn" id="vB" aria-label="声のオン・オフ"><small>声</small><b id="vBt">オン</b></button>
-    <button class="cfgb startf" id="cfgB2" aria-label="最初の集中力と使う技を変える">最初の値 <b id="cfgB2v">245</b>・使う技を変える</button>
+    <button class="cfgb startf" id="cfgB2" aria-label="最初の集中力を変える">最初の値 <b id="cfgB2v">245</b> を変える</button>
   </div>
-  <button class="hsb" id="hsB" aria-label="必殺(ヘパイトスの炎)の状態"><small>必殺</small><b id="hsBt">なし</b><span id="hsBn">たまったら押す</span></button>
+  <div class="hsrow"><button class="hsb" id="hsB" aria-label="必殺(ヘパイトスの炎)の状態"><small>必殺</small><b id="hsBt">なし</b><span id="hsBn">たまったら押す</span></button><button class="techb" id="techB" aria-label="使う技を選ぶ"><small>使う技</small><b id="techBv">15/15</b></button></div>
   <div class="board" id="board"></div>
   <div class="msg" id="msg"></div>
   <!--SELF-PANEL-->
@@ -195,7 +198,7 @@ select{font:inherit;font-weight:700;padding:6px 10px;border:1px solid var(--line
 <div class="modal" id="cfgM"><div class="sheet" onclick="event.stopPropagation()">
   <h2>最初の集中力</h2>
   <div class="num"><input id="cfF" type="number" inputmode="numeric" min="1" max="999" aria-label="最初の集中力"></div>
-  <div class="hint" style="font-size:12px;color:var(--sub);margin:-4px 2px 12px">ゲームで打ち始める前に出ている集中力の数字(職人レベルとハンマーで変わる)。一度決めれば次からも使う。あとで変える時は、集中力の下にある「最初の値・使う技を変える」を押す。打っている途中の数字のまちがいは、集中力の数字そのものを押して直す。光の鍛冶ハンマー★3 で計算する。</div>
+  <div class="hint" style="font-size:12px;color:var(--sub);margin:-4px 2px 12px">ゲームで打ち始める前に出ている集中力の数字(職人レベルとハンマーで変わる)。一度決めれば次からも使う。あとで変える時は、集中力の下にある「最初の値を変える」を押す。打っている途中の数字のまちがいは、集中力の数字そのものを押して直す。光の鍛冶ハンマー★3 で計算する。</div>
   <h2 style="margin-top:6px">使う技</h2>
   <div class="hint" style="font-size:12px;color:var(--sub);margin:0 2px 8px">覚えていない技は押して外す(もう一度押すと戻る)。Lv は覚える職人レベル。外すと見込み% は少し甘めに出る(全部の技を使える前提で学んだ計算なので)。</div>
   <div class="techs" id="cfT"></div>
@@ -284,7 +287,11 @@ const KIND = { shuchu: { 400: '消費半分', 200: '会心ターン' }, tataki: 
 const HS_LABEL = ['なし', 'たまった', '効果中'];
 const HS_NOTE = ['たまったら押す', '使ったら押す', '叩いたら自動で なし'];
 function renderHs(){ const h = s.hs | 0; $('hsBt').textContent = HS_LABEL[h]; $('hsBn').textContent = HS_NOTE[h]; $('hsB').className = 'hsb' + (h ? ' hs' + h : ''); }
-function renderCfg(){ $('cfgB2v').textContent = cfg.focus; }
+function renderCfg(){
+  $('cfgB2v').textContent = cfg.focus;
+  const n = TECH_LIST.length, on = n - offList().length;
+  $('techBv').textContent = `${on}/${n}`; $('techB').classList.toggle('cut', on < n);
+}
 function render(){
   renderCfg(); renderHs();
   $('temp').textContent = s.temp; $('focus').textContent = s.F;
@@ -809,6 +816,8 @@ $('cfT').addEventListener('click', e => {
 });
 function openCfg(){ $('cfF').value = cfg.focus; offDraft = offList().slice(); renderTechs(); $('cfgM').classList.add('show'); setTimeout(() => $('cfF').select(), 50); }
 $('cfgB2').onclick = openCfg;
+// 使う技のボタン: 同じ画面を開いて、技の一覧まで送る
+$('techB').onclick = () => { openCfg(); setTimeout(() => { $('cfT').scrollIntoView({ block: 'start' }); $('cfF').blur(); }, 80); };
 $('cfgCancel').onclick = () => { $('cfgM').classList.remove('show'); if(!cfgSaved) saveCfg(); };   // 初めての時にやめたら、今の値のまま次から聞かない
 $('cfgM').onclick = $('cfgCancel').onclick;
 $('cfgOk').onclick = () => {
