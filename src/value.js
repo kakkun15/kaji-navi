@@ -28,6 +28,8 @@ function featLen(G, ver) { return ver === 1 ? G.active.length * 12 + 14 : G.acti
                  cr: CORE.critRate(id, { temp: tNext, trait: G.trait, lit, first: false, level: G.level, hammer: G.hammer, star: G.star }) };
       });
     }
+    // 戻りの地金: 「光ったマス」の欄に、次の戻りで減るマス(今の値で決まる)を入れる。ほかの地金では使わない
+    const RET = G.trait === 'modori' ? GAME.retTarget(G, s) : -2;
     for (const i of G.active) {
       const z = G.cells[i], v = s.v[i], b = s.bel[i], w = z[1] - z[0] + 1;
       const need = Math.max(0, z[0] - v);
@@ -55,10 +57,10 @@ function featLen(G, ver) { return ver === 1 ? G.active.length * 12 + 14 : G.acti
       f[k++] = pUp;
       f[k++] = pAt;
       f[k++] = ver === 1 ? (v - z[0]) / w : Math.max(-3, (v - z[0]) / w);
-      f[k++] = ver === 1 ? (z[1] - v) / 20 : Math.min(3, (z[1] - v) / 20);   // 超えるまでの余裕
+      f[k++] = ver === 1 ? (z[1] - v) / 20 : Math.max(-3, Math.min(3, (z[1] - v) / 20));   // 超えるまでの余裕(戻りの地金は超えても続く)
       f[k++] = m1 / w;
       f[k++] = sd / w;
-      f[k++] = s.lit === i ? 1 : 0;
+      f[k++] = RET === -2 ? (s.lit === i ? 1 : 0) : (RET === i ? 1 : 0);
       // 今の温度で「たたく」「てかげん打ち」を打った時: 会心でなくても超えない確率・会心ならぴったり止まる確率
       if (ver >= 2) for (const id of ['tataku', 'tekagen']) {
         const rs = CORE.rolls(id, s.temp, CORE.powerMult(G.trait, s.temp, s.lit === i, s.first));
@@ -104,7 +106,7 @@ function featLen(G, ver) { return ver === 1 ? G.active.length * 12 + 14 : G.acti
     f[k++] = open / G.active.length;
     f[k++] = needSum / 500;
     f[k++] = needSum / Math.max(1, s.F) / 5;
-    f[k++] = s.lit !== null ? 1 : 0;
+    f[k++] = RET === -2 ? (s.lit !== null ? 1 : 0) : (RET >= 0 ? 1 : 0);
     if (ver >= 2) f[k++] = s.temp / 50 / 40;                     // あと何打で温度が尽きるか
     f[k++] = 1;
     return f;
@@ -236,7 +238,7 @@ function featLen(G, ver) { return ver === 1 ? G.active.length * 12 + 14 : G.acti
       for (const o of per[0].outs) {
         const s2 = GAME.cloneState(s);
         s2.v[per[0].j] = o.w; s2.bel[per[0].j] = o.bel;
-        if (o.w > G.cells[per[0].j][1]) s2.dead = true;
+        if (GAME.overDead(G, per[0].j, o.w)) s2.dead = true;
         if (!s2.dead) { GAME.afterAct(G, s2, a, null); sum += o.p * evalAfter(s2); }
       }
       return sum - pen;
@@ -248,7 +250,7 @@ function featLen(G, ver) { return ver === 1 ? G.active.length * 12 + 14 : G.acti
         let u = rnd(), o = outs[outs.length - 1];
         for (const x of outs) { u -= x.p; if (u <= 0) { o = x; break; } }
         s2.v[j] = o.w; s2.bel[j] = o.bel;
-        if (o.w > G.cells[j][1]) s2.dead = true;
+        if (GAME.overDead(G, j, o.w)) s2.dead = true;
       }
       if (!s2.dead) { GAME.afterAct(G, s2, a, null); sum += evalAfter(s2); }
     }
@@ -299,7 +301,7 @@ function featLen(G, ver) { return ver === 1 ? G.active.length * 12 + 14 : G.acti
       const j = a.tg[0], { rs, cr } = GAME.hitParams(G, s, a.t, j);
       for (const o of GAME.massOutcomes(G.cells[j], s.v[j], s.bel[j], rs, cr)) {
         wsum += o.p;
-        if (o.w > G.cells[j][1]) continue;
+        if (GAME.overDead(G, j, o.w)) continue;
         const s2 = GAME.cloneState(s); s2.v[j] = o.w; s2.bel[j] = o.bel;
         GAME.afterAct(G, s2, a, null); sum += o.p * best1(s2);
       }
@@ -310,7 +312,7 @@ function featLen(G, ver) { return ver === 1 ? G.active.length * 12 + 14 : G.acti
         for (const { j, outs } of per) {
           let u = rnd(), o = outs[outs.length - 1];
           for (const y of outs) { u -= y.p; if (u <= 0) { o = y; break; } }
-          s2.v[j] = o.w; s2.bel[j] = o.bel; if (o.w > G.cells[j][1]) s2.dead = true;
+          s2.v[j] = o.w; s2.bel[j] = o.bel; if (GAME.overDead(G, j, o.w)) s2.dead = true;
         }
         wsum += 1;
         if (!s2.dead) { GAME.afterAct(G, s2, a, null); sum += best1(s2); }
@@ -349,11 +351,11 @@ function featLen(G, ver) { return ver === 1 ? G.active.length * 12 + 14 : G.acti
     if (opt.overPen) { let ok = 1; for (const { j, outs } of per) { let o2 = 0; for (const o of outs) if (o.w > G.cells[j][1]) o2 += o.p; ok *= 1 - o2; } pen = opt.overPen * (1 - ok); }
     if (per.length === 1) {
       const { j, outs } = per[0];
-      for (const o of outs) { wsum += o.p; if (o.w > G.cells[j][1]) continue; const s2 = GAME.cloneState(s); s2.v[j] = o.w; s2.bel[j] = o.bel; GAME.afterAct(G, s2, a, null); sum += o.p * best2(s2); }
+      for (const o of outs) { wsum += o.p; if (GAME.overDead(G, j, o.w)) continue; const s2 = GAME.cloneState(s); s2.v[j] = o.w; s2.bel[j] = o.bel; GAME.afterAct(G, s2, a, null); sum += o.p * best2(s2); }
     } else {
       for (let k = 0; k < K3; k++) {
         const s2 = GAME.cloneState(s);
-        for (const { j, outs } of per) { let u = rnd(), o = outs[outs.length - 1]; for (const y of outs) { u -= y.p; if (u <= 0) { o = y; break; } } s2.v[j] = o.w; s2.bel[j] = o.bel; if (o.w > G.cells[j][1]) s2.dead = true; }
+        for (const { j, outs } of per) { let u = rnd(), o = outs[outs.length - 1]; for (const y of outs) { u -= y.p; if (u <= 0) { o = y; break; } } s2.v[j] = o.w; s2.bel[j] = o.bel; if (GAME.overDead(G, j, o.w)) s2.dead = true; }
         wsum += 1; if (!s2.dead) { GAME.afterAct(G, s2, a, null); sum += best2(s2); }
       }
     }

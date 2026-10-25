@@ -188,7 +188,7 @@ select{font:inherit;font-weight:700;padding:6px 10px;border:1px solid var(--line
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <div class="modal" id="reelM"><div class="sheet" onclick="event.stopPropagation()">
-  <h2>ゲームと同じ位置のマスを合わせて「決定」</h2>
+  <h2 id="reelT">ゲームと同じ位置のマスを合わせて「決定」</h2>
   <div class="reels" id="reels"></div>
   <div class="row2"><button id="reelCancel">やめる</button><button class="main" id="reelOk">決定</button></div>
 </div></div>
@@ -220,7 +220,7 @@ select{font:inherit;font-weight:700;padding:6px 10px;border:1px solid var(--line
 (function(){
 'use strict';
 const C = KajiCore, GM = KajiGame, V = KajiValue, W = window.KAJI_WEIGHTS || {};
-const ITEM_ORDER = ['lamp', 'hidane', 'hammer', 'pan', 'needle'];
+const ITEM_ORDER = ['lamp', 'hidane', 'hammer', 'pan', 'orb', 'needle'];
 const SEARCH = { lamp: { depth: 2, K: 6, N2: 3, K2: 4 } };       // ランプだけ軽い2手読み(1000局で +4pt)
 const $ = id => document.getElementById(id);
 const STORE = 'kajiNaviV1', CFG_STORE = 'kajiNaviCfgV1';
@@ -270,7 +270,9 @@ function save(){ try{ localStorage.setItem(STORE, JSON.stringify({ item, s, hist
 function restore(){
   try{
     const j = JSON.parse(localStorage.getItem(STORE) || 'null');
-    if(j && GM.ITEMS[j.item] && j.s){ item = j.item; G = mkG(item); net = loadNet(item); s = j.s; hist = j.hist || []; return true; }
+    if(j && GM.ITEMS[j.item] && j.s){ item = j.item; G = mkG(item); net = loadNet(item); s = j.s; hist = j.hist || [];
+      if(s.ret){ s.v[s.ret.j] = Math.max(0, s.ret.from - 14); s.ret = null; }   // 戻りの値を入れる途中で閉じていたら平均で減らす
+      return true; }
   }catch(e){}
   return false;
 }
@@ -281,7 +283,7 @@ let toastT = null;
 function toast(t){ const e = $('toast'); e.textContent = t; e.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => e.classList.remove('show'), 2000); }
 
 // ---- 表示 ----
-const KIND = { shuchu: { 400: '消費半分', 200: '会心ターン' }, tataki: { 400: '威力2倍', 200: '威力半分' }, hikari: { 400: '光る', 200: '光る' }, none: {} };
+const KIND = { shuchu: { 400: '消費半分', 200: '会心ターン' }, tataki: { 400: '威力2倍', 200: '威力半分' }, hikari: { 400: '光る', 200: '光る' }, modori: { 400: '戻り', 200: '戻り' }, none: {} };
 const HS_LABEL = ['なし', 'たまった', '効果中'];
 const HS_NOTE = ['たまったら押す', '使ったら押す', '叩いたら自動で なし'];
 function renderHs(){ const h = s.hs | 0; $('hsBt').textContent = HS_LABEL[h]; $('hsBn').textContent = HS_NOTE[h]; $('hsB').className = 'hsb' + (h ? ' hs' + h : ''); }
@@ -345,6 +347,7 @@ function whyText(a){
     const eff = G.trait === 'hikari' && k ? '届いていないマスが1つ光る(威力2倍・会心が出やすい)'
       : G.trait === 'shuchu' && k === 200 ? '会心が出やすい温度' : G.trait === 'shuchu' && k === 400 ? '集中力の消費が半分の温度'
       : G.trait === 'tataki' && k === 400 ? '威力2倍の温度'
+      : G.trait === 'modori' && k ? (() => { const j = GM.retTarget(G, s); return j >= 0 ? `戻り: ${posName(j)}が 12〜16 減る` : '戻り(減るマスは無い)'; })()
       : t.dT > 0 ? '温度を上げて、叩いた時の伸びを大きくする' : '温度を下げて、伸びを小さくする(超えないように)';
     return `${T}℃にする → ${eff}`;
   }
@@ -509,7 +512,7 @@ try{ if(localStorage.getItem(POWER_KEY) === 'max') power = 'max'; }catch(e){}
 const OVER_PEN = 1;
 // 商材ごとの罰。ひだねは 0.6: 1手読み・同じ局 2000局(種960・961)で 罰1 72.45% / 0.6 73.3%
 // (片方だけ大成功 8局 / 25局)。超えて失敗は 0.5% → 0.8% と少しだけ増える
-const OVER_PEN_MAP = { hidane: 0.6 };
+const OVER_PEN_MAP = { hidane: 0.6, orb: 0 };   // 虹色のオーブは超えても戻りで戻せるので、超える罰は無し
 function overPen(){ return OVER_PEN_MAP[item] ?? OVER_PEN; }
 // 開幕の決め打ち: 全マス0でこの温度の時は、計算(最強)を待たずに火力上げを先頭に出す。
 // ひだねは 1000・1300・1900(マスが光らない温度)。1600 は光ったマスで答えが変わるので計算する
@@ -696,7 +699,7 @@ function finishCalc(id, res){
 function startAct(a){
   if(!a) return;
   if(!a.t.area){            // 火力上げ・冷やし込み: 結果は決まっている
-    snap(a.t.name); GM.afterAct(G, s, a, null); save(); recalc(); return;
+    snap(a.t.name); GM.afterAct(G, s, a, null); save(); if(!askRet()) recalc(); return;
   }
   prepAct(a);
   openReels();
@@ -757,10 +760,32 @@ function mark(j){
   const t = p.its[k].tag, e = $('rt' + j);
   e.textContent = t === 'c' ? ' 会心' : t === 'a' ? ' 会心?' : ''; e.className = t;
 }
-function closeReels(){ $('reelM').classList.remove('show'); pend = null; }
+function closeReels(){
+  // 戻りの値を入れずに閉じた時は、平均(14)で減らしておく(あとで盤面のマスを押して直せる)
+  if(pend && pend.ret){ const { j, from } = s.ret || {}; if(s.ret){ s.v[j] = Math.max(0, from - 14); s.ret = null; } pend = null; $('reelM').classList.remove('show'); $('reelT').textContent = 'ゲームと同じ位置のマスを合わせて「決定」'; save(); recalc(); return; }
+  $('reelM').classList.remove('show'); pend = null; $('reelT').textContent = 'ゲームと同じ位置のマスを合わせて「決定」';
+}
+// 戻りの地金: 温度が200の倍数になって1マスが減った時、実際の値をリールで入れてもらう(12〜16 減る。最初は真ん中の14)
+function askRet(){
+  if(!s.ret) return false;
+  const { j, from } = s.ret, z = G.cells[j];
+  const outs = []; for(let d = GM.RET_MAX; d >= GM.RET_MIN; d--){ const w = Math.max(0, from - d); if(!outs.some(o => o.w === w)) outs.push({ w, p: 1, crit: false, bel: s.bel[j] }); }
+  pend = { a: { t: { name: '戻り' }, tg: [j] }, per: [{ j, outs }], sel: {}, ret: true };
+  s.v[j] = from;                       // 入れるまでは減る前の値で見せる(リールの「やめる」でも、平均で減らした値に戻す)
+  openReels();
+  const k = outs.findIndex(o => o.w === Math.max(0, from - 14)); if(k >= 0){ pend.sel[j] = k; $('rl' + j).scrollTop = k * 44; mark(j); }
+  $('reelT').textContent = `戻り: ${posName(j)}が減った。今の値を選んで「決定」`;
+  if(voiceOn) vSay('もどり、' + posName(j));
+  return true;
+}
 // vals: 外から実際の値を渡す時(画面読み取りなど){マスの番号: 値}。リールの候補に無い値でもそのまま入れる。画面のボタンからはイベントが来るので使わない
 function commitReels(vals){
   if(!pend) return;
+  if(pend.ret){        // 戻りの値: 温度・集中力は打った時に済んでいる。値だけ入れる
+    const p = pend.per[0], ov = vals && vals.constructor === Object ? vals : null;
+    s.v[p.j] = ov && Number.isFinite(ov[p.j]) ? ov[p.j] : p.its[pend.sel[p.j]].w; s.ret = null;
+    pend = null; closeReels(); save(); recalc(); return;
+  }
   snap(pend.a.t.name + 'の結果');
   const a = pend.a, ov = vals && vals.constructor === Object ? vals : null;
   const hsCrit = s.hs === 2;      // 必殺の後に叩いたマスは全部会心。会心かどうか見分けられなくても、会心として理想値を絞る
@@ -776,10 +801,11 @@ function commitReels(vals){
       if(tot > 0) s.bel[p.j] = bel.map(x => x / tot);
     }
     s.v[p.j] = w;
-    if(w > z[1]) s.dead = true;
+    if(GM.overDead(G, p.j, w)) s.dead = true;
   }
   GM.afterAct(G, s, a, null);      // 集中力・温度。光るマスは候補の一覧になる(盤面で選ぶ)
-  closeReels(); save(); recalc();
+  closeReels(); save();
+  if(!askRet()) recalc();
 }
 
 // ---- 光ったマス・手直し ----
@@ -787,7 +813,7 @@ $('board').addEventListener('click', e => {
   const c = e.target.closest('.cell'); if(!c || c.classList.contains('gap')) return;
   const i = +c.dataset.i;
   if(Array.isArray(s.lit)){ if(s.lit.includes(i)) pickLit(i); return; }
-  askNum(`${posName(i)}の値`, s.v[i], v => { snap(`${posName(i)}の値の手直し`); s.v[i] = v; s.dead = v > G.cells[i][1]; s.first = false; save(); recalc(); });
+  askNum(`${posName(i)}の値`, s.v[i], v => { snap(`${posName(i)}の値の手直し`); s.v[i] = v; s.dead = GM.overDead(G, i, v); s.first = false; save(); recalc(); });
 });
 $('stTemp').onclick = () => askNum('温度(℃)', s.temp, v => { snap('温度の手直し'); s.temp = Math.round(v / 50) * 50; s.first = s.first && s.temp === 1000; s.lit = null; s.last = null;
   if(G.trait === 'hikari' && !s.first && s.temp % 200 === 0){ const c = G.active.filter(i => s.v[i] < G.cells[i][0]); if(c.length) s.lit = c; }
