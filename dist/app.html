@@ -125,6 +125,11 @@ select{font:inherit;font-weight:700;padding:6px 10px;border:1px solid var(--line
 .reel button.on{color:var(--ink);font-size:27px;font-weight:800}
 .reel button.c.on{color:var(--crit)} .reel button.a.on{color:var(--amb)}
 .reel button.ov{text-decoration:line-through;color:var(--bad)}
+.techs{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:12px}
+.techs button{font:inherit;font-size:14px;font-weight:800;min-height:44px;border-radius:10px;border:2px solid var(--good);background:var(--sunk);color:var(--ink);display:flex;justify-content:space-between;align-items:center;padding:0 10px;touch-action:manipulation}
+.techs button small{font-size:11px;color:var(--sub);font-weight:700}
+.techs button.off{border-color:var(--line);color:var(--sub);text-decoration:line-through;opacity:.6}
+.techs button:disabled{opacity:1}
 .num{display:flex;gap:8px;align-items:center;margin:8px 0 12px}
 .num input{flex:1;font:inherit;font-size:30px;font-weight:800;text-align:center;padding:8px;border:1px solid var(--line);border-radius:10px;background:var(--sunk);color:var(--ink);min-width:0}
 .row2{display:flex;gap:8px}
@@ -152,7 +157,7 @@ select{font:inherit;font-weight:700;padding:6px 10px;border:1px solid var(--line
     <button class="stat" id="stTemp"><small>温度</small><b id="temp">1000</b><span class="u">℃</span><span class="k" id="kind"></span></button>
     <button class="stat" id="stFocus" aria-label="今の集中力を直す"><small>集中力</small><b id="focus">242</b></button>
     <button class="stat vbtn" id="vB" aria-label="声のオン・オフ"><small>声</small><b id="vBt">オン</b></button>
-    <button class="cfgb startf" id="cfgB2" aria-label="最初の集中力を変える">最初の値 <b id="cfgB2v">245</b> を変える</button>
+    <button class="cfgb startf" id="cfgB2" aria-label="最初の集中力と使う技を変える">最初の値 <b id="cfgB2v">245</b>・使う技を変える</button>
   </div>
   <button class="hsb" id="hsB" aria-label="必殺(ヘパイトスの炎)の状態"><small>必殺</small><b id="hsBt">なし</b><span id="hsBn">たまったら押す</span></button>
   <div class="board" id="board"></div>
@@ -186,7 +191,10 @@ select{font:inherit;font-weight:700;padding:6px 10px;border:1px solid var(--line
 <div class="modal" id="cfgM"><div class="sheet" onclick="event.stopPropagation()">
   <h2>最初の集中力</h2>
   <div class="num"><input id="cfF" type="number" inputmode="numeric" min="1" max="999" aria-label="最初の集中力"></div>
-  <div class="hint" style="font-size:12px;color:var(--sub);margin:-4px 2px 12px">ゲームで打ち始める前に出ている集中力の数字(職人レベルとハンマーで変わる)。一度決めれば次からも使う。あとで変える時は、上の集中力の下にある「最初の集中力を変える」を押す。打っている途中の数字のまちがいは、集中力の数字そのものを押して直す。光の鍛冶ハンマー★3 で計算する。</div>
+  <div class="hint" style="font-size:12px;color:var(--sub);margin:-4px 2px 12px">ゲームで打ち始める前に出ている集中力の数字(職人レベルとハンマーで変わる)。一度決めれば次からも使う。あとで変える時は、集中力の下にある「最初の値・使う技を変える」を押す。打っている途中の数字のまちがいは、集中力の数字そのものを押して直す。光の鍛冶ハンマー★3 で計算する。</div>
+  <h2 style="margin-top:6px">使う技</h2>
+  <div class="hint" style="font-size:12px;color:var(--sub);margin:0 2px 8px">覚えていない技は押して外す(もう一度押すと戻る)。Lv は覚える職人レベル。外すと見込み% は少し甘めに出る(全部の技を使える前提で学んだ計算なので)。</div>
+  <div class="techs" id="cfT"></div>
   <div class="row2"><button id="cfgCancel">やめる</button><button class="main" id="cfgOk">決める</button></div>
 </div></div>
 
@@ -1632,17 +1640,23 @@ const STORE = 'kajiNaviV1', CFG_STORE = 'kajiNaviCfgV1';
 // 条件は「開始の集中力」だけ。ハンマーは光の鍛冶ハンマー★3 で決め打ち。
 // 打てる技は集中力から決める: 253 以上(光★3 の Lv80)なら左右打ちまで、それより下は弱ねらい打ちまで
 const CFG_STORE2 = 'kajiNaviCfgV2';
-let cfg = { focus: 245 }, cfgSaved = false;     // cfgSaved: 開始の集中力を一度でも決めたか(初めての人には最初に聞く)
+// off: 使わない(覚えていない)技の id。たたくは外せない。みだれ打ちは一覧に出さず、いつも外す
+let cfg = { focus: 245, off: null }, cfgSaved = false;     // cfgSaved: 開始の集中力を一度でも決めたか(初めての人には最初に聞く)
+const TECH_LIST = C.TECHS.filter(t => t.id !== 'midare');
 try{
   const j2 = JSON.parse(localStorage.getItem(CFG_STORE2) || 'null');
-  if(j2 && j2.focus >= 1){ cfg.focus = j2.focus | 0; cfgSaved = true; }
+  if(j2 && j2.focus >= 1){ cfg.focus = j2.focus | 0; cfgSaved = true; if(Array.isArray(j2.off)) cfg.off = j2.off.filter(id => C.TECH[id] && id !== 'tataku'); }
   else {      // 前の版の保存(職人Lv・ハンマー)から引き継ぐ
     const j = JSON.parse(localStorage.getItem(CFG_STORE) || 'null');
     if(j && j.level >= 75){ cfg.focus = 243 + 2 * (j.level - 75) + (j.fadj | 0); cfgSaved = true; }
   }
 }catch(e){}
-function saveCfg(){ cfgSaved = true; try{ localStorage.setItem(CFG_STORE2, JSON.stringify({ focus: cfg.focus })); }catch(e){} }
-function mkG(key){ return GM.setup({ item: key, level: cfg.focus >= 253 ? 80 : 79, hammer: 'hikari', star: 3, focus: cfg.focus }); }
+// 技を選んだことが無い時は、前と同じく集中力から決める(253 未満なら左右打ち(Lv80)を外す)
+function offList(){ return cfg.off || (cfg.focus >= 253 ? [] : ['sayuu']); }
+function saveCfg(){ cfgSaved = true; try{ localStorage.setItem(CFG_STORE2, JSON.stringify(cfg.off ? { focus: cfg.focus, off: cfg.off } : { focus: cfg.focus })); }catch(e){} }
+function mkG(key){ const off = offList();
+  return GM.setup({ item: key, level: cfg.focus >= 253 ? 80 : 79, hammer: 'hikari', star: 3, focus: cfg.focus,
+    techs: TECH_LIST.filter(t => !off.includes(t.id)).map(t => t.id) }); }
 
 let item = 'lamp', G = null, net = null, s = null, hist = [];
 let qs = null, pend = null, busy = false, calcId = 0;
@@ -2041,7 +2055,7 @@ function recalc(){
     }
     if(power === 'max' && !MAX_SKIP[item] && !s.hs && window.KajiPool && KajiPool.start()){
       // 最強: Worker に手分けして読ませる(待っている間も画面は動く)
-      const t0 = performance.now(), cfgW = { item, level: G.level, hammer: G.hammer, star: G.star, focus: G.focus };
+      const t0 = performance.now(), cfgW = { item, level: G.level, hammer: G.hammer, star: G.star, focus: G.focus, techs: G.techs };
       KajiPool.setNet(item, W[item]);
       KajiPool.evalMax(cfgW, s, Object.assign({}, MAXOPT, { overPen: overPen() })).then(r => {
         if(id !== calcId) return;
@@ -2186,7 +2200,20 @@ $('reelCancel').onclick = closeReels;
 $('reelM').onclick = closeReels;
 
 // ---- 自分の条件 ----
-function openCfg(){ $('cfF').value = cfg.focus; $('cfgM').classList.add('show'); setTimeout(() => $('cfF').select(), 50); }
+let offDraft = [];
+function renderTechs(){
+  $('cfT').innerHTML = TECH_LIST.map(t => {
+    const off = offDraft.includes(t.id), fix = t.id === 'tataku';
+    return `<button type="button" data-id="${t.id}" class="${off ? 'off' : ''}"${fix ? ' disabled' : ''} aria-pressed="${!off}">${t.name}<small>Lv${t.lv}</small></button>`;
+  }).join('');
+}
+$('cfT').addEventListener('click', e => {
+  const b = e.target.closest('button'); if(!b || b.disabled) return;
+  const id = b.dataset.id, k = offDraft.indexOf(id);
+  if(k >= 0) offDraft.splice(k, 1); else offDraft.push(id);
+  renderTechs();
+});
+function openCfg(){ $('cfF').value = cfg.focus; offDraft = offList().slice(); renderTechs(); $('cfgM').classList.add('show'); setTimeout(() => $('cfF').select(), 50); }
 $('cfgB2').onclick = openCfg;
 $('cfgCancel').onclick = () => { $('cfgM').classList.remove('show'); if(!cfgSaved) saveCfg(); };   // 初めての時にやめたら、今の値のまま次から聞かない
 $('cfgM').onclick = $('cfgCancel').onclick;
@@ -2194,7 +2221,7 @@ $('cfgOk').onclick = () => {
   const f = parseInt($('cfF').value, 10);
   if(!(f >= 1 && f <= 999)) return;
   const fresh = !hist.length && s.first;                  // まだ打っていなければ、新しい集中力で始め直す
-  cfg = { focus: f }; saveCfg();
+  cfg = { focus: f, off: offDraft.slice() }; saveCfg();
   $('cfgM').classList.remove('show');
   G = mkG(item); net = loadNet(item);
   if(fresh) s = GM.newState(G);
@@ -2239,7 +2266,7 @@ window.__navi = { get s(){ return s; }, get qs(){ return qs; }, get G(){ return 
   mut(fn){ snap(); fn(s); pend = null; if($('reelM').classList.contains('show')) $('reelM').classList.remove('show'); save(); recalc(); },
   reset(F){ s = GM.newState(G); if(Number.isFinite(F)) s.F = F; hist = []; pend = null; save(); recalc(); },
   // 画面で見た打ち始めの集中力を覚える
-  setStartFocus(f){ if(cfg.focus === f) return; cfg = { focus: f }; saveCfg(); G = mkG(item); net = loadNet(item); renderCfg(); },
+  setStartFocus(f){ if(cfg.focus === f) return; cfg = { focus: f, off: cfg.off }; saveCfg(); G = mkG(item); net = loadNet(item); renderCfg(); },
   setHs(h){ if((s.hs | 0) === h) return; snap(); s.hs = h; save(); recalc(); },
   get power(){ return power; }, get lastCalc(){ return lastCalc; },
   setVoiceRate, get voiceRate(){ return voiceRate; }, get vel(){ return VC.el ? { rate: VC.el.playbackRate, pitch: VC.el.preservesPitch, src: !!VC.el.src } : null; },
