@@ -18,6 +18,12 @@
               cells: [[92, 102], [110, 120], [134, 146], [158, 164], [158, 164], [92, 102], [92, 102], null] },
     // 光のさいほう針: 左の列の2マス。ゾーンは利用者が確かめた値(上 460〜474・下 376〜382、2026-10-21)。
     // 地金特性は倍半(たたき変化。meluce.jp)。許容誤差 0(2マスとも理想値ぴったりで大成功。さいほう針の値。docs/仕様.md)
+    // 虹色のオーブ: 左上A 85〜95・右上B 140〜148・左中C 115〜121・右中D 140〜148・左下E 115〜121・右下F 85〜95、誤差合計7以下
+    // (位置: dqxikoan.blog.jp/archives/5705931.html、誤差: rumayer.hatenablog.com 2023/08/30)。
+    // 地金特性「戻り」(メーター減少): 温度が200の倍数の時、ゾーンに入っていないマスのうち (値 ÷ ゾーン上限) が一番大きいマスが 12〜16 減る
+    // (比率: 10-yg4a1a3kyh.jp「道具鍛冶職人の素材特性」、量: gameranbu.jp)。ゾーンを超えても戻せるので、超えただけでは失敗にしない。
+    orb:    { name: '虹色のオーブ', trait: 'modori', T: 7,
+              cells: [[85, 95], [140, 148], [115, 121], [140, 148], [115, 121], [85, 95]] },
     needle: { name: '光のさいほう針', trait: 'tataki', T: 0,
               cells: [[460, 474], null, [376, 382], null] },
   };
@@ -83,7 +89,7 @@
   }
   function cloneState(s) {
     return { v: s.v.slice(), bel: s.bel.map(b => b && b.slice()), temp: s.temp, F: s.F,
-             first: s.first, lit: s.lit, dead: s.dead, hs: s.hs | 0, last: s.last || null };
+             first: s.first, lit: s.lit, dead: s.dead, hs: s.hs | 0, last: s.last || null, ret: s.ret || null };
   }
 
   // ---- 必殺(ヘパイトスの炎) ---------------------------------------------
@@ -92,6 +98,22 @@
   // チャージが来る確率は公表されていないので、計算ではチャージを起こさない(画面で「チャージが来た」と入れた時だけ使う)。
   const HS_TECH = { id: 'hissatsu', name: 'ヘパイトスの炎', lv: 0, mp: 0, pow: 0, area: null, dT: -50, hs: true };
   const HS_ACT = { t: HS_TECH, tg: [] };
+
+  // ---- ゾーンを超えた時 ---------------------------------------------------
+  // ふつうは超えたら終わり。戻りの地金は減って戻れるので、超えただけでは終わらない(仕上げた時にゾーンの外なら失敗)
+  function overDead(G, j, w) { return G.trait !== 'modori' && w > G.cells[j][1]; }
+  // 戻りで減るマス(無ければ -1)。同じ比率が並んだ時は番号の小さいマス(実機の決まりは不明)
+  const RET_MIN = 12, RET_MAX = 16, RET_MEAN = 14;
+  function retTarget(G, s) {
+    let best = -1, br = 0;
+    for (const i of G.active) {
+      const z = G.cells[i], v = s.v[i];
+      if (v <= 0 || (v >= z[0] && v <= z[1])) continue;
+      const r = v / z[1];
+      if (r > br) { br = r; best = i; }
+    }
+    return best;
+  }
 
   // ---- 手 ---------------------------------------------------------------
   function costOf(G, s, t) { return t.hs ? 0 : CORE.cost(t.id, s.temp, G.trait, s.first); }
@@ -190,6 +212,16 @@
     else if (s.hs === 2 && a.t.area) s.hs = 0;
     s.first = false;
     s.lit = null;
+    s.ret = null;
+    // 戻り: rnd が無い時(先読み)は平均の 14 で減らす。s.ret に減ったマスと減る前の値を残す(画面で実際の値を入れてもらう)
+    if (G.trait === 'modori' && s.temp > 0 && s.temp % 200 === 0) {
+      const j = retTarget(G, s);
+      if (j >= 0) {
+        const d = rnd ? RET_MIN + Math.floor(rnd() * (RET_MAX - RET_MIN + 1)) : RET_MEAN;
+        s.ret = { j, from: s.v[j] };
+        s.v[j] = Math.max(0, s.v[j] - d);
+      }
+    }
     if (G.trait === 'hikari' && s.temp > 0 && s.temp % 200 === 0) {
       const cand = G.active.filter(i => s.v[i] < G.cells[i][0]);
       if (cand.length) s.lit = rnd ? cand[Math.floor(rnd() * cand.length)] : cand;   // rnd 無しなら候補の一覧を返す
@@ -210,7 +242,7 @@
         else w = v + r;
         obs.push({ j, v, w, crit, rs, cr });
         s.v[j] = w;
-        if (w > z[1]) s.dead = true;
+        if (overDead(G, j, w)) s.dead = true;
       }
       // 見当を更新(会心の時だけ情報がある)
       for (const o of obs) if (o.crit) s.bel[o.j] = critPosterior(G.cells[o.j], o.v, o.w, s.bel[o.j], o.rs);
@@ -282,7 +314,7 @@
     return { great: reached && err <= G.T, reached, over: s.dead, err };
   }
 
-  const GAME = { HS_ACT, hasLegal, ITEMS, START_TEMP, TEMP_MAX, areaSets, setup, newState, cloneState, legalActs, costOf,
+  const GAME = { HS_ACT, overDead, retTarget, RET_MIN, RET_MAX, hasLegal, ITEMS, START_TEMP, TEMP_MAX, areaSets, setup, newState, cloneState, legalActs, costOf,
                  hitParams, massOutcomes, afterAct, play, critPosterior, critBelief, massErrDist, stopProb, judge };
   if (typeof module !== 'undefined' && module.exports) module.exports = GAME;
   else root.KajiGame = GAME;

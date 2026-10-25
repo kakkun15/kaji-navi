@@ -11,6 +11,7 @@ WEIGHTS = {
     'hidane': ['w_hidane_h128_best.json'],
     'hammer': ['w_hammer_v3c_best.json', 'w_hammer_v3_best.json', 'w_hammer.json'],
     'pan':    ['w_pan_v3c_best.json', 'w_pan_v3b_best.json', 'w_pan_v3_best.json'],
+    'orb':    ['w_orb_best.json', 'w_orba1_best.json'],   # 虹色のオーブ: ひだねの重みから戻りの地金で学び直し(2026-10-25)
     'needle': ['w_needle_r0_best.json'],     # 光のさいほう針: rule0.js をお手本に学習(2026-10-21)
 }
 
