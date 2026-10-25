@@ -582,7 +582,7 @@ function voicePlace(a){
   return tg.map(posName).join('と');
 }
 function moveText(a, n){ const p = voicePlace(a); return (YOMI[a.t.id] || a.t.name) + (p ? '、' + p : '') + (n > 1 ? `、${n}回` : ''); }
-// 推奨が出たら読み上げる。同じ局面・同じ手は繰り返さない。「火力上げ、2回」と言った後は、その回数を打ち終わるまで黙る
+// 推奨が出たら読み上げる。同じ局面・同じ手は繰り返さない。火力上げが続く時も1手ずつ読む(回数は言わない)
 function announce(force){
   if(!voiceOn || (window.NR && window.NR.on)) return;         // 画面読み取り中(自分用)は、読み取り側が読み上げる
   let text = null;
@@ -590,13 +590,11 @@ function announce(force){
   if(Array.isArray(s.lit)) text = '光ったマスを選んで';
   else if(s.dead || !qs) return;
   else if(!a) text = '全部入った。仕上げ';
-  else text = moveText(a, !a.t.area && chainN > 1 ? chainN : 1);
+  else text = moveText(a, 1);           // 回数は言わない(2回打った所で別の手に変わることがある。1手ずつ読む)
   const key = text + '|' + [s.temp, s.F, s.v.join(','), String(s.lit)].join('/');
   if(!force && key === VC.saidKey) return;
   VC.saidKey = key;
-  if(!force && a && !a.t.area && VC.chain && VC.chain.id === a.t.id && VC.chain.temps.includes(s.temp)) return;
   VC.chain = null;
-  if(a && !a.t.area && chainN > 1){ const temps = []; for(let k = 1; k < chainN; k++) temps.push(s.temp + a.t.dT * k); VC.chain = { id: a.t.id, temps }; }
   vSay(text);
 }
 function renderVoice(){ $('vBt').textContent = voiceOn ? 'オン' : 'オフ'; $('vB').className = 'stat vbtn ' + (voiceOn ? 'on' : 'off'); }
