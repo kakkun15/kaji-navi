@@ -169,7 +169,7 @@ select{font:inherit;font-weight:700;padding:6px 10px;border:1px solid var(--line
   <div class="msg" id="msg"></div>
   <!--SELF-PANEL-->
   <div class="note">
-    <label class="vrate">計算の強さ <select id="power"><option value="normal">ふつう</option><option value="max">最強(全スレッド)</option></select></label>
+    <label class="vrate">計算の強さ <select id="power"><option value="normal">ふつう</option><option value="strong">強(スマホ向け)</option><option value="max">最強(PC向け)</option></select></label>
     <label class="vrate">声の速さ <select id="vRate"><option value="0.9">ゆっくり</option><option value="1">ややゆっくり</option><option value="1.15">ふつう</option><option value="1.35">はやい</option><option value="1.6">とてもはやい</option><option value="1.9">さらにはやい</option></select></label><br>
     盤面のマス・温度・集中力は押すと手で直せる。<br>
     必殺がたまったら(ゲームのメニューに「ひっさつ」が出たら)「必殺」を押して「たまった」にする。押すたびに なし → たまった → 効果中 と変わる。<br>
@@ -392,7 +392,7 @@ function renderFoot(){
     msg.textContent = best.idleCut ? 'この後は温度を変えても叩く所が無いので、ここで仕上げる(火力上げ・冷やし込みは打たなくていい)。' : 'これ以上打つより、ここで仕上げる方が大成功しやすい。'; return;
   }
   const c = GM.costOf(G, s, best.a.t);
-  if(!lastCalc && power === 'max' && MAX_SKIP[item]) msg.textContent = 'この商材は最強でも上がらなかったので、ふつうの読み(2手読み)で出している。';
+  if(!lastCalc && power !== 'normal' && MAX_SKIP[item]) msg.textContent = 'この商材は最強でも上がらなかったので、ふつうの読み(2手読み)で出している。';
   if(s.hs === 2) msg.textContent = '必殺の効果中: 次に叩く技は、当たったマスが全部会心(理想値で止まる)。';
   else if(s.hs === 1 && best.a.t.hs) msg.textContent = '必殺を使う(集中力は使わず、温度 −50)。';
   else if(s.hs === 1 && best.hsPick) msg.textContent = '必殺は温存。超4連打ちの4マスを、使った後の1打で理想値ぴったりに届く所まで寄せている(揃ったら「ヘパイトスの炎」を推す)。';
@@ -506,7 +506,7 @@ const CLIP_BASE = 1.15;
 // 計算の強さ。最強は PC のスレッドを全部使って、上位12手を2手先まで読む(pool.js)
 const POWER_KEY = 'kajiNaviPowerV1';
 let power = 'normal';
-try{ if(localStorage.getItem(POWER_KEY) === 'max') power = 'max'; }catch(e){}
+try{ const p = localStorage.getItem(POWER_KEY); if(p === 'max' || p === 'strong') power = p; }catch(e){}
 // 超える確率の罰(value.js の overPen)。1 で、同じ局どうしの比べで 大成功はそのまま・超えて失敗が
 // ランプ 11.7→0.0%(600局)、ひだね 7.7→0.3%(300局)。ゾーンの外で終わる局(超え+届かず)も減った
 const OVER_PEN = 1;
@@ -522,10 +522,10 @@ const OPEN_BOOK = { hidane: [1000, 1300, 1900] };
 // 片方だけ大成功 48局 / 53局(差なし)・超えて失敗 3局 / 10局。最強にしても上がらないので、ふつうの読みのまま
 const MAX_SKIP = { lamp: true };
 const MAXOPT = { K: 12, Ki: 12, N2: 12, K2: 24, seed: 12345 };
-// スマホ(指で触る画面)だけ軽い最強: 1手読みの1位から5%より下の手は2手読みせず、2手目は12通り。
-// 322局面で今の最強と比べて、それぞれ 一致 99.7%・損 0.000pt / 一致 97.8%・損 0.003pt(1手あたり)。PC は劣化させない
-const IS_PHONE = (() => { try{ return matchMedia('(pointer: coarse)').matches || /Android|iPhone|iPad|Mobile/.test(navigator.userAgent); }catch(e){ return false; } })();
-if(IS_PHONE) Object.assign(MAXOPT, { margin: 0.05, K2: 12 });
+// 強(スマホ向け): 最強と同じ2手読みを、上位4手・2手目8通りに絞る(打ち切りの margin は使わない)。
+// ひだねの79局面(1スレッド)で最強と比べて: 2052ms → 664ms・推奨の一致 92.4%・1手あたりの損 0.046pt。
+// 前のスマホ用の最強(margin 0.05・K2 12)は 1576ms・89.9%・0.158pt、ふつう(1手読み)は 7ms・60.8%・0.670pt だった(2026-10-27)
+const STRONGOPT = { K: 12, Ki: 12, N2: 4, K2: 8, seed: 12345 };
 let lastCalc = null;      // { ms, threads }
 function playRate(){ return Math.max(0.5, Math.min(2.5, voiceRate / ((typeof AR_CLIP_INFO !== 'undefined' && AR_CLIP_INFO.speed) || CLIP_BASE))); }
 function setVoiceRate(r){ if(!(r >= 0.6 && r <= 2.5)) return; voiceRate = r; try{ localStorage.setItem(RATE_KEY, String(r)); }catch(e){} const el = $('vRate'); if(el) el.value = String(r); }
@@ -659,11 +659,11 @@ function recalc(){
       const k = res.find(x => x.a && x.a.t.id === 'karyoku');
       if(k){ res.splice(res.indexOf(k), 1); res.unshift(k); lastCalc = null; finishCalc(id, res); return; }
     }
-    if(power === 'max' && !MAX_SKIP[item] && !s.hs && window.KajiPool && KajiPool.start()){
+    if(power !== 'normal' && !MAX_SKIP[item] && !s.hs && window.KajiPool && KajiPool.start()){
       // 最強: Worker に手分けして読ませる(待っている間も画面は動く)
       const t0 = performance.now(), cfgW = { item, level: G.level, hammer: G.hammer, star: G.star, focus: G.focus, techs: G.techs };
       KajiPool.setNet(item, W[item]);
-      KajiPool.evalMax(cfgW, s, Object.assign({}, MAXOPT, { overPen: overPen() })).then(r => {
+      KajiPool.evalMax(cfgW, s, Object.assign({}, power === 'strong' ? STRONGOPT : MAXOPT, { overPen: overPen() })).then(r => {
         if(id !== calcId) return;
         r.sort((a, b) => b.q2 - a.q2);
         lastCalc = { ms: performance.now() - t0, threads: KajiPool.size };
@@ -875,7 +875,7 @@ $('vB').onclick = () => {
 renderVoice();
 $('vRate').value = String(voiceRate);
 $('power').value = power;
-$('power').onchange = e => { power = e.target.value === 'max' ? 'max' : 'normal'; try{ localStorage.setItem(POWER_KEY, power); }catch(e2){} if(power === 'max' && window.KajiPool) KajiPool.start(); recalc(); };
+$('power').onchange = e => { const v = e.target.value; power = v === 'max' || v === 'strong' ? v : 'normal'; try{ localStorage.setItem(POWER_KEY, power); }catch(e2){} if(power !== 'normal' && window.KajiPool) KajiPool.start(); recalc(); };
 $('vRate').onchange = e => { setVoiceRate(+e.target.value); VC.saidKey = null; announce(true); };
 // 必殺の状態を手で切り替える(なし → たまった → 効果中 → なし)。戻すで戻せる
 $('hsB').onclick = () => { if(pend) return; snap(); s.hs = ((s.hs | 0) + 1) % 3; save(); recalc(); };
