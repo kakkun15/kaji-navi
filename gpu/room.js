@@ -350,5 +350,14 @@ button{background:#232b38;color:var(--fg);border:1px solid var(--line);border-ra
     UI.set('st', `止まった(世代 ${S.it})`);
     return 'done';
   }
-  window.KajiRoom = { start, stop() { S.run = false; }, S, DB, DEF, evalGames, workersRef: () => workers };
+  // 重みを1つ、決まった局で打たせる(1手読み)。res は局ごとの 0/1
+  async function bench(j, n, seed, over) {
+    const cfg = Object.assign({}, DEF, over || {});
+    const ctx = window.__kctx || (window.__kctx = await GPU.device());
+    if (!workers.length) makeWorkers(cfg);
+    genNet = GPU.GNet(ctx, j, { cap: 262144 });
+    const e = await evalGames(cfg, n, seed);
+    return { great: e.great, res: e.res.map(x => x.great).join('') };
+  }
+  window.KajiRoom = { bench, start, stop() { S.run = false; }, S, DB, DEF, evalGames, workersRef: () => workers };
 })();
