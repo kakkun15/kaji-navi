@@ -12,15 +12,20 @@
     item: 'hidane', level: 80, focus: 253,
     sizes: [111, 256, 256, 256, 1],   // 学ぶネット
     teacher: 'train/w_hidane_h128_best.json',
-    warm: 4,              // 最初の何回は今の重み(先生)で自己対戦して、先生の見積もりをそのまま写す(大きいネットの出発点)
+    warm: 6,              // 最初の何回は今の重み(先生)で自己対戦して、先生の見積もりをそのまま写す(大きいネットの出発点)
     warmMul: 8,           // 写す時は学ぶ回数を何倍にするか
+    pLeaf: 0.003,         // 読みが見る葉の局面を、この割合で RAM にためる(先生の見積もりを写す用)
+    leafCap: 4000000,     // 葉をためる数
+    anchor: 0.25,         // 自分で打つ段階でも、バッチのこの割合は葉の局面で先生の見積もりを写す(読みが荒れた所を拾わないように)
+    lrRL: 3e-4,           // 自分で打つ段階の学習率
+    dropTol: 0.03,        // 成績が一番良かった時よりこれだけ落ちたら、一番良い重みに戻して学習率を半分に
     iters: 1000,          // 回数(止めるまで)
     games: 4000, sampled: 30000, eps: 0.1, lam: 0.7,
     conc: 32,             // Worker ごとに同時に進める局
     batch: 1024, lr: 1e-3, lrMin: 2e-4, replay: 9,   // 1つの局面を平均何回学ぶか
     cap: 3000000,         // RAM にためる局面の数(111×4バイト = 444B/局面)
     window: 1200000,      // 学ぶ時に使う新しい方の局面の数
-    evalEvery: 2, evalGames: 2000, evalSeed: 990, overPen: 0.6,
+    evalEvery: 1, evalGames: 2000, evalSeed: 990, overPen: 0.6,
   };
   const S = { cfg: null, run: false, it: 0, hist: [], log: [], t0: 0, leaves: 0, gpuBusy: 0, base: null, best: -1 };
   const log = s => { const l = new Date().toLocaleTimeString() + ' ' + s; S.log.push(l); if (S.log.length > 400) S.log.shift(); UI.log(l); };
@@ -62,18 +67,22 @@
   const WK = String.raw`
 const GAME = self.KajiGame, V = self.KajiValue, SP = self.KajiSP;
 let G = null, D = 0, rid = 0; const pend = new Map();
-const evalBatch = (X, n) => new Promise(res => { const id = ++rid; pend.set(id, res); self.postMessage({ t: 'req', id, X, n }, [X.buffer]); });
+let LF = [], pLeaf = 0, lr = 1;
+const lrand = () => { lr = (lr * 1103515245 + 12345) % 2147483648; return lr / 2147483648; };
+const evalBatch = (X, n) => new Promise(res => {
+  if (pLeaf > 0) for (let i = 0; i < n; i++) if (lrand() < pLeaf) LF.push(X.slice(i * D, i * D + D));
+  const id = ++rid; pend.set(id, res); self.postMessage({ t: 'req', id, X, n }, [X.buffer]); });
 self.onmessage = async e => {
   const m = e.data;
   if (m.t === 'z') { const f = pend.get(m.id); pend.delete(m.id); f(m.z); return; }
   if (m.t === 'init') { G = GAME.setup(m.cfg); D = V.featLen(G, 2); return; }
   if (m.t === 'gen') {
-    const r = SP.rng(m.seed), out = { f: [], y: [] }, total = m.games + m.sampled;
+    const r = SP.rng(m.seed), out = { f: [], y: [] }, total = m.games + m.sampled; LF = []; pLeaf = m.pLeaf || 0; lr = m.seed % 2147483647 + 1;
     const res = await SP.runMany(total, m.conc, k => k < m.games ? SP.trainGame(G, r, m.eps, m.lam, 2, out) : SP.sampledPos(G, r, 2, out), evalBatch, D);
     let great = 0; for (let k = 0; k < m.games; k++) great += res[k];
     const X = new Float32Array(out.y.length * D); out.f.forEach((f, i) => X.set(f, i * D));
-    const Y = Float32Array.from(out.y);
-    self.postMessage({ t: 'done', jid: m.jid, X, Y, great, games: m.games }, [X.buffer, Y.buffer]);
+    const Y = Float32Array.from(out.y), LX = new Float32Array(LF.length * D); LF.forEach((f, i) => LX.set(f, i * D)); LF = []; pLeaf = 0;
+    self.postMessage({ t: 'done', jid: m.jid, X, Y, LX, great, games: m.games }, [X.buffer, Y.buffer, LX.buffer]);
     return;
   }
   if (m.t === 'eval') {
@@ -121,7 +130,7 @@ self.onmessage = async e => {
   const job = (w, m) => new Promise(res => { m.jid = ++jseq; jobs.set(m.jid, res); w.postMessage(m); });
   async function gen(cfg, seed) {
     const NW = workers.length, rs = await Promise.all(workers.map((w, i) => job(w, {
-      t: 'gen', seed: seed * 1009 + i, games: Math.ceil(cfg.games / NW), sampled: Math.ceil(cfg.sampled / NW), eps: cfg.eps, lam: cfg.lam, conc: cfg.conc })));
+      t: 'gen', seed: seed * 1009 + i, games: Math.ceil(cfg.games / NW), sampled: Math.ceil(cfg.sampled / NW), eps: cfg.eps, lam: cfg.lam, conc: cfg.conc, pLeaf: cfg.pLeaf })));
     let great = 0, games = 0; for (const r of rs) { great += r.great; games += r.games; }
     return { rs, selfplay: great / games };
   }
@@ -274,8 +283,8 @@ button{background:#232b38;color:var(--fg);border:1px solid var(--line);border-ra
     const student = GPU.GNet(ctx, sj, { cap: 262144, batch: cfg.batch });
     if (!workers.length) makeWorkers(cfg);
     UI.set('v-cpu', workers.length + ' 本');
-    const rep = S.rep || (S.rep = Replay(cfg.cap, D));
-    UI.set('v-ram', '0'); log(`RAM の局面置き場 ${(rep.bytes / 1e9).toFixed(2)} GB(${cfg.cap.toLocaleString()} 局面)`);
+    const rep = S.rep || (S.rep = Replay(cfg.cap, D)), leafRep = S.leafRep || (S.leafRep = Replay(cfg.leafCap, D));
+    UI.set('v-ram', '0'); log(`RAM の局面置き場 ${((rep.bytes + leafRep.bytes) / 1e9).toFixed(2)} GB(局面 ${cfg.cap.toLocaleString()}・葉 ${cfg.leafCap.toLocaleString()})`);
     log(`GPU ${ctx.info.vendor || ''} ${ctx.info.architecture || ''} / Worker ${workers.length} 本 / 学ぶネット ${cfg.sizes.join('×')}`);
     const H = heatInput(G);
     UI.heat('h0', await heat(teacher, H));
@@ -293,28 +302,39 @@ button{background:#232b38;color:var(--fg);border:1px solid var(--line);border-ra
       genNet = warm ? teacher : student;
       UI.set('st', `世代 ${S.it}: 自己対戦中(${warm ? '今の重みで' : '学習中のネットで'})…`);
       const g = await gen(cfg, (cfg.seed || 1) * 100000 + S.it);
-      let nNew = 0; for (const r of g.rs) { rep.push(r.X, r.Y); nNew += r.Y.length; }
+      let nNew = 0, nLeaf = 0; for (const r of g.rs) { rep.push(r.X, r.Y); nNew += r.Y.length; const nl = r.LX.length / D; leafRep.push(r.LX, new Float32Array(nl)); nLeaf += nl; }
       const t1 = performance.now();
-      UI.set('v-ram', (rep.n / 1e6).toFixed(2) + 'M'); UI.bar('b-ram', rep.n / cfg.cap);
+      UI.set('v-ram', ((rep.n + leafRep.n) / 1e6).toFixed(2) + 'M'); UI.bar('b-ram', (rep.n + leafRep.n) / (cfg.cap + cfg.leafCap));
       // 学習
       UI.set('st', `世代 ${S.it}: 学習中…`);
       const steps = Math.ceil(nNew * cfg.replay * (warm ? cfg.warmMul : 1) / cfg.batch);
-      const lr = Math.max(cfg.lrMin, cfg.lr * Math.pow(0.5, Math.max(0, S.it - cfg.warm) / 40));
+      const lr = warm ? cfg.lr * (S.it === cfg.warm ? 0.3 : 1) : Math.max(cfg.lrMin * 0.3, cfg.lrRL * (S.lrScale || 1) * Math.pow(0.5, Math.max(0, S.it - cfg.warm) / 60));
+      const nA = warm ? Math.floor(cfg.batch / 2) : Math.round(cfg.batch * (1 - cfg.anchor));   // 前の nA 個は局面、残りは葉
       let ls = 0, lc = 0;
       for (let k = 0; k < steps; k++) {
-        rep.sample(cfg.batch, cfg.window, XB, YB, rnd);
-        if (warm) { const z = await teacher.infer(XB, cfg.batch); for (let q = 0; q < cfg.batch; q++) YB[q] = 1 / (1 + Math.exp(-z[q])); }   // 先生の見積もりを写す
+        rep.sample(nA, cfg.window, XB, YB, rnd);
+        const useLeaf = leafRep.n > 0 && nA < cfg.batch;
+        if (useLeaf) leafRep.sample(cfg.batch - nA, cfg.leafCap, XB.subarray(nA * D), YB.subarray(nA), rnd);
+        else if (nA < cfg.batch) rep.sample(cfg.batch - nA, cfg.window, XB.subarray(nA * D), YB.subarray(nA), rnd);
+        if (warm || useLeaf) {      // 先生の見積もりを写す(まねる段階は全部、そのあとは葉の分だけ)
+          const z = await teacher.infer(XB, cfg.batch);
+          for (let q = warm ? 0 : nA; q < cfg.batch; q++) YB[q] = 1 / (1 + Math.exp(-z[q]));
+        }
         const want = k % 25 === 24 || k === steps - 1;
         const l = await student.trainStep(XB, YB, lr, want);
         if (want) { ls += l; lc++; }
       }
       const t2 = performance.now();
-      const rec = { it: S.it, sp: g.selfplay, loss: ls / lc, ev: NaN, n: nNew, gen: (t1 - t0) / 1000, train: (t2 - t1) / 1000, lr, warm };
+      const rec = { it: S.it, sp: g.selfplay, loss: ls / lc, ev: NaN, n: nNew, nLeaf, gen: (t1 - t0) / 1000, train: (t2 - t1) / 1000, lr, warm };
       // 成績
       if (S.it % cfg.evalEvery === 0 || S.it === cfg.warm) {
         genNet = student; UI.set('st', `世代 ${S.it}: 成績を測っている…`);
         const e = await evalGames(cfg, cfg.evalGames, cfg.evalSeed); rec.ev = e.great;
         if (e.great > S.best) { S.best = e.great; const net = await student.readNet(); await DB.put('best', { it: S.it, ev: e.great, net: pack(net), cfg }); rec.best = 1; }
+        else if (!warm && e.great < S.best - cfg.dropTol) {   // 崩れたら一番良い重みに戻す
+          const b = await DB.get('best'); student.setNet(b.net); S.lrScale = (S.lrScale || 1) * 0.5; rec.back = b.it;
+          log(`成績が ${(e.great * 100).toFixed(2)}% に落ちたので、世代 ${b.it} の重み(${(b.ev * 100).toFixed(2)}%)に戻す。学習率 ×${S.lrScale}`);
+        }
       }
       S.hist.push(rec);
       UI.heat('h1', await heat(student, H));
@@ -324,7 +344,7 @@ button{background:#232b38;color:var(--fg);border:1px solid var(--line);border-ra
       UI.set('v-it', S.it);
       if (rec.ev === rec.ev) UI.set('v-ev', `${(rec.ev * 100).toFixed(1)}%`);
       UI.draw();
-      log(`世代 ${S.it}${warm ? '(先生)' : ''} 自己対戦 ${(g.selfplay * 100).toFixed(1)}% 局面 +${nNew} 損失 ${rec.loss.toFixed(4)} 学習率 ${lr.toExponential(1)} 自己対戦 ${rec.gen.toFixed(0)}s 学習 ${rec.train.toFixed(1)}s${rec.ev === rec.ev ? ` 成績 ${(rec.ev * 100).toFixed(2)}%(今の重み ${(S.base * 100).toFixed(2)}%)${rec.best ? ' ★' : ''}` : ''}`);
+      log(`世代 ${S.it}${warm ? '(先生)' : ''} 自己対戦 ${(g.selfplay * 100).toFixed(1)}% 局面 +${nNew} 葉 +${nLeaf} 損失 ${rec.loss.toFixed(4)} 学習率 ${lr.toExponential(1)} 自己対戦 ${rec.gen.toFixed(0)}s 学習 ${rec.train.toFixed(1)}s${rec.ev === rec.ev ? ` 成績 ${(rec.ev * 100).toFixed(2)}%(今の重み ${(S.base * 100).toFixed(2)}%)${rec.best ? ' ★' : ''}` : ''}`);
     }
     S.run = false; clearInterval(S.tick);
     UI.set('st', `止まった(世代 ${S.it})`);
