@@ -199,7 +199,8 @@ button{background:#232b38;color:var(--fg);border:1px solid var(--line);border-ra
     bar(id, f) { const e = document.getElementById(id); if (e) e.style.width = Math.max(0, Math.min(100, f * 100)) + '%'; },
     line(id, series, opt) {
       const c = document.getElementById(id); if (!c) return;
-      const W = c.clientWidth * devicePixelRatio, H = c.height * devicePixelRatio; c.width = W; const g = c.getContext('2d');
+      const ch = +(c.dataset.h || (c.dataset.h = c.getAttribute('height'))); c.style.height = ch + 'px';
+      const W = c.clientWidth * devicePixelRatio, H = ch * devicePixelRatio; c.width = W; c.height = H; const g = c.getContext('2d');
       g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, W, H);
       const pts = series.flatMap(s => s.d.filter(p => p[1] === p[1]));
       if (!pts.length) return;
