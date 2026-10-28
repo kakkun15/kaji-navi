@@ -12,7 +12,9 @@ WEIGHTS = {
     'hammer': ['w_hammer_v3c_best.json', 'w_hammer_v3_best.json', 'w_hammer.json'],
     'pan':    ['w_pan_v3c_best.json', 'w_pan_v3b_best.json', 'w_pan_v3_best.json'],
     'orb':    ['w_orb_best.json', 'w_orba1_best.json'],   # 虹色のオーブ: ひだねの重みから戻りの地金で学び直し(2026-10-25)
-    'needle': ['w_needle_r0_best.json'],     # 光のさいほう針: rule0.js をお手本に学習(2026-10-21)
+    'needle': ['w_needle_r0_best.json'],
+    # 試しの重み(最強(テスト中)で使う)。ひだね: 今の重みから24回ずつ学んだ4本(種51〜54・ブラウザで学習)と今の重みの5本平均(2026-10-28)
+    'hidane_test': ['w_hidane_test.json'],     # 光のさいほう針: rule0.js をお手本に学習(2026-10-21)
 }
 
 def rounded(x):
