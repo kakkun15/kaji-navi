@@ -106,6 +106,12 @@ select{font:inherit;font-weight:700;padding:6px 10px;border:1px solid var(--line
 .stats .startf{grid-column:2;margin:-4px 0 0;min-height:34px;font-size:12px;color:var(--sub);white-space:nowrap;padding:2px 6px}
 .stats .startf b{color:var(--ink)}
 .msg{font-size:14px;color:var(--sub);margin:10px 2px}
+.tres{border:1px dashed var(--amb);border-radius:12px;padding:10px 12px;margin:10px 0;display:grid;gap:8px}
+.tres-h{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13px;color:var(--sub)}.tres-h b{color:var(--amb)}
+.tres-h button{margin-left:auto;min-height:32px;padding:2px 10px;font-size:12px;box-shadow:none}
+.tres-q{font-size:13px;font-weight:700}
+.tres-b{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.tres-b button{min-height:46px;font-weight:800;font-size:15px}
+.tres-b .r-great{border-color:var(--good);color:var(--good)}.tres-b .r-fail{border-color:var(--bad);color:var(--bad)}
 .msg.warn{color:var(--accent);font-weight:700}
 .modal{position:fixed;inset:0;background:rgba(0,0,0,.65);display:none;align-items:flex-end;z-index:20}
 .modal.show{display:flex}
@@ -167,9 +173,14 @@ select{font:inherit;font-weight:700;padding:6px 10px;border:1px solid var(--line
   <div class="hsrow"><button class="hsb" id="hsB" aria-label="必殺(ヘパイトスの炎)の状態"><small>必殺</small><b id="hsBt">なし</b><span id="hsBn">たまったら押す</span></button><button class="techb" id="techB" aria-label="使う技を選ぶ"><small>使う技</small><b id="techBv">15/15</b></button></div>
   <div class="board" id="board"></div>
   <div class="msg" id="msg"></div>
+  <div class="tres" id="tres" hidden>
+    <div class="tres-h"><b>最強(テスト中)の記録</b> <span id="tresN">0手</span><button type="button" id="tresPick">保存先: <span id="tresDir">未設定</span></button></div>
+    <div class="tres-q">この局の結果は?</div>
+    <div class="tres-b"><button type="button" data-r="大成功" class="r-great">大成功</button><button type="button" data-r="成功" class="r-ok">成功</button><button type="button" data-r="失敗" class="r-fail">失敗</button></div>
+  </div>
   <!--SELF-PANEL-->
   <div class="note">
-    <label class="vrate">計算の強さ <select id="power"><option value="normal">ふつう</option><option value="strong">強(スマホ向け)</option><option value="max">最強(PC向け)</option></select></label>
+    <label class="vrate">計算の強さ <select id="power"><option value="normal">ふつう</option><option value="strong">強(スマホ向け)</option><option value="max">最強(PC向け)</option><option value="maxTest" id="powTest" hidden>最強(テスト中)</option></select></label>
     <label class="vrate">声の速さ <select id="vRate"><option value="0.9">ゆっくり</option><option value="1">ややゆっくり</option><option value="1.15">ふつう</option><option value="1.35">はやい</option><option value="1.6">とてもはやい</option><option value="1.9">さらにはやい</option></select></label><br>
     盤面のマス・温度・集中力は押すと手で直せる。<br>
     必殺がたまったら(ゲームのメニューに「ひっさつ」が出たら)「必殺」を押して「たまった」にする。押すたびに なし → たまった → 効果中 と変わる。<br>
@@ -252,7 +263,7 @@ let qs = null, pend = null, busy = false, calcId = 0;
 function seeded(a){ return function(){ a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a);
   t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
 function loadNet(key){
-  const j = W[key]; if(!j) return null;
+  const j = (power === 'maxTest' && W[key + '_test']) || W[key]; if(!j) return null;
   const n = { sizes: j.sizes, L: j.L.map(l => ({ n: l.n, m: l.m, W: Float32Array.from(l.W), b: Float32Array.from(l.b) })) };
   n.ver = j.sizes[0] === V.featLen(G, 1) ? 1 : j.sizes[0] === V.featLen(G, 3) ? 3 : 2;
   return n;
@@ -277,7 +288,14 @@ function restore(){
   return false;
 }
 // 戻る地点を残す。label は「戻す」を押した時に出す名前。光ったマスの選び直しは次の手を入れるまで(litCand)
-function snap(label){ const c = JSON.parse(JSON.stringify(s)); c._u = label || '1手'; hist.push(c); if(hist.length > 60) hist.shift(); s.litCand = null; }
+function snap(label){ const c = JSON.parse(JSON.stringify(s)); c._u = label || '1手'; hist.push(c); if(hist.length > 60) hist.shift(); s.litCand = null; tlogAdd(label); }
+// テスト中の記録(s.tlog)。戻すと一緒に戻る。最後に結果のボタンでメモに書く
+function tlogAdd(label){
+  if(!isTest()) return;
+  const b = qs && qs[0], q = b ? (b.q2 !== undefined ? b.q2 : b.q) : null;
+  (s.tlog = s.tlog || []).push({ t: Date.now(), label: label || '1手', T: s.temp, F: s.F, v: s.v.slice(), lit: s.lit, hs: s.hs | 0,
+    rec: b ? (b.a ? actName(b.a) + (tgName(b.a) ? ' ' + tgName(b.a) : '') : '仕上げ') : null, q: q === null ? null : Math.round(q * 1000) / 10 });
+}
 function pickLit(i){ const c = s.lit; snap('光ったマスの選択'); s.litCand = c; s.lit = i; save(); recalc(); }
 let toastT = null;
 function toast(t){ const e = $('toast'); e.textContent = t; e.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => e.classList.remove('show'), 2000); }
@@ -288,6 +306,7 @@ const HS_LABEL = ['なし', 'たまった', '効果中'];
 const HS_NOTE = ['たまったら押す', '使ったら押す', '叩いたら自動で なし'];
 function renderHs(){ const h = s.hs | 0; $('hsBt').textContent = HS_LABEL[h]; $('hsBn').textContent = HS_NOTE[h]; $('hsB').className = 'hsb' + (h ? ' hs' + h : ''); }
 function renderCfg(){
+  $('powTest').hidden = !W[item + '_test']; renderTres();
   $('cfgB2v').textContent = cfg.focus;
   const n = TECH_LIST.length, on = n - offList().length;
   $('techBv').textContent = `${on}/${n}`; $('techB').classList.toggle('cut', on < n);
@@ -506,7 +525,9 @@ const CLIP_BASE = 1.15;
 // 計算の強さ。最強は PC のスレッドを全部使って、上位12手を2手先まで読む(pool.js)
 const POWER_KEY = 'kajiNaviPowerV1';
 let power = 'normal';
-try{ const p = localStorage.getItem(POWER_KEY); if(p === 'max' || p === 'strong') power = p; }catch(e){}
+try{ const p = localStorage.getItem(POWER_KEY); if(p === 'max' || p === 'strong' || p === 'maxTest') power = p; }catch(e){}
+// 最強(テスト中): 最強と同じ読みで、重みだけ試しの物(W[商材+'_test'])にする。試しの重みがある商材だけ選べる
+function isTest(){ return power === 'maxTest' && !!W[item + '_test']; }
 // 超える確率の罰(value.js の overPen)。1 で、同じ局どうしの比べで 大成功はそのまま・超えて失敗が
 // ランプ 11.7→0.0%(600局)、ひだね 7.7→0.3%(300局)。ゾーンの外で終わる局(超え+届かず)も減った
 const OVER_PEN = 1;
@@ -662,7 +683,7 @@ function recalc(){
     if(power !== 'normal' && !MAX_SKIP[item] && !s.hs && window.KajiPool && KajiPool.start()){
       // 最強: Worker に手分けして読ませる(待っている間も画面は動く)
       const t0 = performance.now(), cfgW = { item, level: G.level, hammer: G.hammer, star: G.star, focus: G.focus, techs: G.techs };
-      KajiPool.setNet(item, W[item]);
+      KajiPool.setNet(item, isTest() ? W[item + '_test'] : W[item]);
       KajiPool.evalMax(cfgW, s, Object.assign({}, power === 'strong' ? STRONGOPT : MAXOPT, { overPen: overPen() })).then(r => {
         if(id !== calcId) return;
         r.sort((a, b) => b.q2 - a.q2);
@@ -875,12 +896,57 @@ $('vB').onclick = () => {
 renderVoice();
 $('vRate').value = String(voiceRate);
 $('power').value = power;
-$('power').onchange = e => { const v = e.target.value; power = v === 'max' || v === 'strong' ? v : 'normal'; try{ localStorage.setItem(POWER_KEY, power); }catch(e2){} if(power !== 'normal' && window.KajiPool) KajiPool.start(); recalc(); };
+$('power').onchange = e => { const v = e.target.value; power = v === 'max' || v === 'strong' || v === 'maxTest' ? v : 'normal'; try{ localStorage.setItem(POWER_KEY, power); }catch(e2){} if(power !== 'normal' && window.KajiPool) KajiPool.start(); net = loadNet(item); recalc(); };
 $('vRate').onchange = e => { setVoiceRate(+e.target.value); VC.saidKey = null; announce(true); };
 // 必殺の状態を手で切り替える(なし → たまった → 効果中 → なし)。戻すで戻せる
 $('hsB').onclick = () => { if(pend) return; snap(); s.hs = ((s.hs | 0) + 1) % 3; save(); recalc(); };
 
 function doReset(){ s = GM.newState(G); hist = []; pend = null; save(); recalc(); }
+
+// ---- テスト中の記録をメモに書く(Chrome・Edge: 選んだフォルダに自動で書く。選べない時はこの端末に残す) ----
+const TDB = { get(k){ return new Promise(res => { try{ const o = indexedDB.open('kajiNaviTest', 1); o.onupgradeneeded = () => o.result.createObjectStore('kv');
+  o.onsuccess = () => { const r = o.result.transaction('kv').objectStore('kv').get(k); r.onsuccess = () => res(r.result); r.onerror = () => res(null); }; o.onerror = () => res(null); }catch(e){ res(null); } }); },
+  set(k, v){ return new Promise(res => { try{ const o = indexedDB.open('kajiNaviTest', 1); o.onupgradeneeded = () => o.result.createObjectStore('kv');
+  o.onsuccess = () => { const t = o.result.transaction('kv', 'readwrite'); t.objectStore('kv').put(v, k); t.oncomplete = () => res(true); t.onerror = () => res(false); }; o.onerror = () => res(false); }catch(e){ res(false); } }); } };
+let tDir = null;
+TDB.get('dir').then(h => { if(h){ tDir = h; renderTres(); } });
+async function dirOk(ask){
+  if(!tDir) return false;
+  try{ let p = await tDir.queryPermission({ mode: 'readwrite' }); if(p !== 'granted' && ask) p = await tDir.requestPermission({ mode: 'readwrite' }); return p === 'granted'; }catch(e){ return false; }
+}
+async function pickDir(){
+  if(!window.showDirectoryPicker){ toast('このブラウザは保存先を選べない(Chrome・Edge で開いて)'); return false; }
+  try{ tDir = await showDirectoryPicker({ id: 'kajiNaviLog', mode: 'readwrite' }); await TDB.set('dir', tDir); renderTres(); return true; }catch(e){ return false; }
+}
+async function appendFile(name, text){
+  const fh = await tDir.getFileHandle(name, { create: true }), old = await (await fh.getFile()).text();
+  const w = await fh.createWritable(); await w.write(old + text); await w.close();
+}
+function renderTres(){
+  const on = isTest(); $('tres').hidden = !on; if(!on) return;
+  $('tresN').textContent = ((s && s.tlog) ? s.tlog.length : 0) + '手';
+  $('tresDir').textContent = tDir ? tDir.name : '未設定';
+}
+const pad = n => String(n).padStart(2, '0');
+function memoText(res){
+  const d = new Date(), L = s.tlog || [], b = qs && qs[0], q = b ? (b.q2 !== undefined ? b.q2 : b.q) : null;
+  const head = `=== ${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())} ${GM.ITEMS[item].name} 最強(テスト中) 結果: ${res} ===\n`
+    + `重み: ${(W[item + '_test'] && W[item + '_test'].src) || '試しの重み'} / 最初の集中力 ${cfg.focus} / ${L.length}手\n`;
+  const lines = L.map((x, k) => `${String(k + 1).padStart(2)}. ${x.T}℃ 集中力${x.F} [${x.v.join(',')}]${x.lit !== null && x.lit !== undefined ? ' 光:' + (Array.isArray(x.lit) ? '選ぶ前' : posName(x.lit)) : ''}${x.hs ? ' 必殺' + x.hs : ''} 推奨 ${x.rec || '-'}${x.q !== null ? '(' + x.q + '%)' : ''} → ${x.label}`);
+  return head + lines.join('\n') + `\n最後: ${s.temp}℃ 集中力${s.F} [${s.v.join(',')}]${q !== null ? ' 最後の見込み ' + (q * 100).toFixed(1) + '%' : ''}\n\n`;
+}
+async function finishTest(res){
+  const d = new Date(), day = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  const memo = memoText(res), rec = JSON.stringify({ at: d.toISOString(), item, power: 'maxTest', weights: (W[item + '_test'] && W[item + '_test'].src) || null, focus: cfg.focus, result: res, final: { T: s.temp, F: s.F, v: s.v }, moves: s.tlog || [] }) + '\n';
+  let saved = false;
+  if(!tDir) await pickDir();
+  if(tDir && await dirOk(true)){ try{ await appendFile(`鍛冶ナビ記録_${day}.txt`, memo); await appendFile('鍛冶ナビ記録.jsonl', rec); saved = true; }catch(e){ saved = false; } }
+  if(!saved){ try{ localStorage.setItem('kajiNaviTestLog', (localStorage.getItem('kajiNaviTestLog') || '') + rec); }catch(e){} }
+  toast(saved ? `記録した(${res})。次の局へ` : `保存先に書けなかったので、この端末に残した(${res})`);
+  doReset();
+}
+$('tresPick').onclick = () => pickDir();
+document.querySelectorAll('#tres .tres-b button').forEach(bt => bt.onclick = () => finishTest(bt.dataset.r));
 $('reset').onclick = doReset;
 if('documentPictureInPicture' in window){ $('pipB').hidden = false; $('pipB').onclick = openPip; }
 $('undo').onclick = () => { if(!hist.length){ toast('これ以上は戻せない'); return; } s = hist.pop(); const u = s._u; delete s._u; pend = null; save(); recalc(); toast('戻した: ' + u); };
