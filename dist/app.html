@@ -1743,7 +1743,7 @@ function restore(){
 function snap(label){ const c = JSON.parse(JSON.stringify(s)); c._u = label || '1手'; hist.push(c); if(hist.length > 60) hist.shift(); s.litCand = null; tlogAdd(label); }
 // テスト中の記録(s.tlog)。戻すと一緒に戻る。最後に結果のボタンでメモに書く
 function tlogAdd(label){
-  if(!isTest()) return;
+  if(!logOn()) return;
   const b = qs && qs[0], q = b ? (b.q2 !== undefined ? b.q2 : b.q) : null;
   (s.tlog = s.tlog || []).push({ t: Date.now(), label: label || '1手', T: s.temp, F: s.F, v: s.v.slice(), lit: s.lit, hs: s.hs | 0,
     rec: b ? (b.a ? actName(b.a) + (tgName(b.a) ? ' ' + tgName(b.a) : '') : '仕上げ') : null, q: q === null ? null : Math.round(q * 1000) / 10 });
@@ -1980,6 +1980,8 @@ let power = 'normal';
 try{ const p = localStorage.getItem(POWER_KEY); if(p === 'max' || p === 'strong' || p === 'maxTest') power = p; }catch(e){}
 // 最強(テスト中): 最強と同じ読みで、重みだけ試しの物(W[商材+'_test'])にする。試しの重みがある商材だけ選べる
 function isTest(){ return power === 'maxTest' && !!W[item + '_test']; }
+// 記録は利用者の PC の自分用(画面読み取りの欄がある版)だけで取る。公開版では最強(テスト中)を選べるが記録はしない
+function logOn(){ return isTest() && !!document.querySelector('section.rd'); }
 // 超える確率の罰(value.js の overPen)。1 で、同じ局どうしの比べで 大成功はそのまま・超えて失敗が
 // ランプ 11.7→0.0%(600局)、ひだね 7.7→0.3%(300局)。ゾーンの外で終わる局(超え+届かず)も減った
 const OVER_PEN = 1;
@@ -2375,7 +2377,7 @@ async function appendFile(name, text){
   const w = await fh.createWritable(); await w.write(old + text); await w.close();
 }
 function renderTres(){
-  const on = isTest(); $('tres').hidden = !on; if(!on) return;
+  const on = logOn(); $('tres').hidden = !on; if(!on) return;
   $('tresN').textContent = ((s && s.tlog) ? s.tlog.length : 0) + '手';
   $('tresDir').textContent = tDir ? tDir.name : '未設定';
 }
