@@ -12,7 +12,8 @@
     item: 'hidane', level: 80, focus: 253,
     sizes: [111, 256, 256, 256, 1],   // 学ぶネット
     teacher: 'train/w_hidane_h128_best.json',
-    warm: 3,              // 最初の何回は今の重み(先生)で自己対戦して、その目標を学ぶ
+    warm: 4,              // 最初の何回は今の重み(先生)で自己対戦して、先生の見積もりをそのまま写す(大きいネットの出発点)
+    warmMul: 8,           // 写す時は学ぶ回数を何倍にするか
     iters: 1000,          // 回数(止めるまで)
     games: 4000, sampled: 30000, eps: 0.1, lam: 0.7,
     conc: 32,             // Worker ごとに同時に進める局
@@ -297,11 +298,12 @@ button{background:#232b38;color:var(--fg);border:1px solid var(--line);border-ra
       UI.set('v-ram', (rep.n / 1e6).toFixed(2) + 'M'); UI.bar('b-ram', rep.n / cfg.cap);
       // 学習
       UI.set('st', `世代 ${S.it}: 学習中…`);
-      const steps = Math.ceil(nNew * cfg.replay * (warm ? 2 : 1) / cfg.batch);
+      const steps = Math.ceil(nNew * cfg.replay * (warm ? cfg.warmMul : 1) / cfg.batch);
       const lr = Math.max(cfg.lrMin, cfg.lr * Math.pow(0.5, Math.max(0, S.it - cfg.warm) / 40));
       let ls = 0, lc = 0;
       for (let k = 0; k < steps; k++) {
         rep.sample(cfg.batch, cfg.window, XB, YB, rnd);
+        if (warm) { const z = await teacher.infer(XB, cfg.batch); for (let q = 0; q < cfg.batch; q++) YB[q] = 1 / (1 + Math.exp(-z[q])); }   // 先生の見積もりを写す
         const want = k % 25 === 24 || k === steps - 1;
         const l = await student.trainStep(XB, YB, lr, want);
         if (want) { ls += l; lc++; }
