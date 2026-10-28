@@ -5,6 +5,8 @@
 (function () {
   'use strict';
   const V = window.KajiValue, GAME = window.KajiGame, GPU = window.KajiGPU;
+  // 計算の部品(ページの script[data-src])。画面を置き換える前に写しておく
+  const LIBSRC = window.__klib || (window.__klib = ['core.js', 'game.js', 'value.js'].map(n => document.querySelector('script[data-src="' + n + '"]').textContent).join('\n;\n'));
   const RAW = 'https://raw.githubusercontent.com/kakkun15/kaji-navi/main/';
   const DEF = {
     item: 'hidane', level: 80, focus: 253,
@@ -80,8 +82,7 @@ self.onmessage = async e => {
 };`;
   let workers = [], jobs = new Map(), jseq = 0, Q = [], busy = false, genNet = null;
   function makeWorkers(cfg) {
-    const get = n => document.querySelector('script[data-src="' + n + '"]').textContent;
-    const lib = ['core.js', 'game.js', 'value.js'].map(get).join('\n;\n') + '\n;\n' + window.__kspSrc + '\n;\n' + WK;
+    const lib = LIBSRC + '\n;\n' + window.__kspSrc + '\n;\n' + WK;
     const url = URL.createObjectURL(new Blob([lib], { type: 'text/javascript' }));
     const NW = Math.max(1, (navigator.hardwareConcurrency || 4) - 1);
     for (let i = 0; i < NW; i++) {
