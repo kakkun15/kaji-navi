@@ -268,7 +268,7 @@ button{background:#232b38;color:var(--fg);border:1px solid var(--line);border-ra
     // 学ぶネット: 続きがあればそれから
     let sj = null, resume = await DB.get('latest');
     if (resume && cfg.resume !== false && JSON.stringify(resume.net.sizes) === JSON.stringify(cfg.sizes)) { sj = resume.net; S.it = resume.it; S.hist = resume.hist || []; S.base = resume.base; S.best = resume.best ?? -1; log(`続きから: 世代 ${S.it}`); }
-    else { let a = cfg.seed || 12345; const r = () => { a = (a * 1103515245 + 12345) % 2147483648; return a / 2147483648; }; sj = GPU.makeNet(cfg.sizes, r); S.it = 0; S.hist = []; }
+    else { S.base = null; S.best = -1; let a = cfg.seed || 12345; const r = () => { a = (a * 1103515245 + 12345) % 2147483648; return a / 2147483648; }; sj = GPU.makeNet(cfg.sizes, r); S.it = 0; S.hist = []; }
     const student = GPU.GNet(ctx, sj, { cap: 262144, batch: cfg.batch });
     if (!workers.length) makeWorkers(cfg);
     UI.set('v-cpu', workers.length + ' 本');
