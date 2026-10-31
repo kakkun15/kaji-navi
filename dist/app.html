@@ -1927,7 +1927,7 @@ const PIP_CSS = `body{margin:0;background:#0f1115;color:#f4f6f9;font:15px/1.4 sy
 .st{font-size:12px;color:#adb6c5;font-weight:700;margin:2px 0 6px}.st b{color:#f4f6f9}
 .it{display:block;width:100%;font:inherit;font-size:13px;font-weight:800;color:#ffcf5c;background:#20242c;border:1px solid #566074;border-radius:6px;padding:3px 4px;margin-bottom:4px}
 .bd{display:grid;gap:5px;margin-bottom:6px}.c{border:2px solid #566074;border-radius:8px;background:#20242c;text-align:center;padding:2px 0;min-height:40px}
-.c .v{font-size:20px;font-weight:800;font-variant-numeric:tabular-nums}.c .l{font-size:10px;color:#adb6c5;font-weight:700}
+.c .v{font-size:20px;font-weight:800;font-variant-numeric:tabular-nums}.c .zn{font-size:11px;color:#adb6c5;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.1}.c .l{font-size:10px;color:#adb6c5;font-weight:700}
 .c.in{border-color:#3fd98b}.c.in .v{color:#3fd98b}.c.ov{border-color:#ff6b6b}
 .c.hit{border-color:#ff7a14;background:#5a2a08;box-shadow:0 0 0 2px #ff7a14}.c.hit .l{color:#ffb070}
 .c.lit{outline:2px solid #ffcf5c}.c.pick{cursor:pointer;outline:3px dashed #ffcf5c}.c.gap{visibility:hidden}
@@ -1961,7 +1961,7 @@ function renderPip(){
     const i = 2*r + c, z = G.cells[i];
     if(!z){ h += '<div class="c gap"></div>'; continue; }
     const v = s.v[i], cls = ['c', v > z[1] ? 'ov' : v >= z[0] ? 'in' : '', tg.includes(i) ? 'hit' : '', s.lit === i ? 'lit' : '', picking && s.lit.includes(i) ? 'pick' : ''].join(' ');
-    h += `<div class="${cls}" data-i="${i}"><div class="l">${posName(i)}${tg.includes(i) ? ' ◀叩く' : ''}</div><div class="v">${v}</div></div>`;
+    h += `<div class="${cls}" data-i="${i}"><div class="l">${posName(i)}${tg.includes(i) ? ' ◀叩く' : ''}</div><div class="v">${v}</div><div class="zn">${z[0]}〜${z[1]}</div></div>`;
   }
   h += '</div>';
   const why = a && !picking && !s.dead && qs ? whyText(a) : '';
