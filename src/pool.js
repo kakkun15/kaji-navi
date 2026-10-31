@@ -35,6 +35,18 @@
         self.postMessage({ id: m.id, out });
         return;
       }
+      if (m.type === 'part') {          // 最強の2段目の一部(1つの手の、枝の一部)
+        const gk = JSON.stringify(m.cfg);
+        const G = Gs[gk] || (Gs[gk] = GAME.setup(m.cfg));
+        const N = nets[m.cfg.item]; if (!N.n) N.n = toNet(N.j, V.featLen, G);
+        const acts = GAME.legalActs(G, m.s), out = [];
+        for (const t of m.tasks) {
+          const opt = Object.assign({}, m.opt, { rnd: seeded(m.opt.seed + 7919 * (t.i + 1) + 104729 * t.lo), buf: new Float32Array(V.featLen(G, N.n.ver)) });
+          out.push([t.k, V.act2Part(N.n, G, m.s, acts[t.i], opt, t)]);
+        }
+        self.postMessage({ id: m.id, out });
+        return;
+      }
       if (m.type === 'game') {          // 性能テスト: 1局まるごと打つ(bench.html)
         const G = GAME.setup(m.cfg);
         const N = nets[m.cfg.item]; if (N && !N.n) N.n = toNet(N.j, V.featLen, G);
@@ -96,25 +108,48 @@
     setNet(key, j) { if (this.sentNet[key] === j) return; for (const w of this.workers) w.postMessage({ type: 'net', key, net: j }); this.sentNet[key] = j; },
     run(msg) { return new Promise(res => { msg.id = ++this.seq; this.wait.set(msg.id, res); this.queue.push(msg); this.pump(); }); },
     pump() { while (this.idle.length && this.queue.length) { const w = this.idle.pop(), m = this.queue.shift(); w.postMessage(m); } },
-    cancelQueued() { for (const m of this.queue) { const cb = this.wait.get(m.id); this.wait.delete(m.id); if (cb) cb({ id: m.id, out: [], cancelled: true }); } this.queue = []; },
+    // 待っている仕事を取り消す。keep を渡すと、その札(tag)の仕事は残す(先に計算している局面のうち、本当に要る物だけ続ける)
+    cancelQueued(keep) {
+      const rest = [];
+      for (const m of this.queue) { if (keep !== undefined && m.tag === keep) { rest.push(m); continue; } const cb = this.wait.get(m.id); this.wait.delete(m.id); if (cb) cb({ id: m.id, out: [], cancelled: true }); }
+      this.queue = rest;
+    },
     // 最強の読み。返り値は evalActs2 と同じ形 [{ a, q, q2 }](やめるも入る)
     async evalMax(cfg, s, opt) {
       const G = GAME.setup(cfg), acts = GAME.legalActs(G, s);
-      const sc = { cfg, s: JSON.parse(JSON.stringify(s)) };
+      const sc = { cfg, s: JSON.parse(JSON.stringify(s)), tag: opt.tag };
+      let cancelled = false;
+      const chk = r => { if (r.cancelled) cancelled = true; return r; };
       // 1段目: 手を Worker の数の数倍に割って配る
       const chunks = [], per = Math.max(1, Math.ceil(acts.length / (this.size * 3)));
       for (let i = 0; i < acts.length; i += per) chunks.push([...Array(Math.min(per, acts.length - i)).keys()].map(k => i + k));
       const q = new Array(acts.length).fill(0);
       await Promise.all(chunks.map(idx => this.run(Object.assign({ type: 'job', phase: 1, idx, opt: { K: opt.K, overPen: opt.overPen, seed: opt.seed } }, sc))
-        .then(r => { for (const [i, v] of r.out) q[i] = v; })));
+        .then(chk).then(r => { for (const [i, v] of r.out) q[i] = v; })));
+      if (cancelled) return null;
       const res = acts.map((a, i) => ({ a, q: q[i] }));
       res.push({ a: null, q: GAME.stopProb(G, s), q2: GAME.stopProb(G, s) });
       // 2段目: 上位 N2 手を1手ずつ配る
       const srt = res.filter(x => x.a).sort((x, y) => y.q - x.q);
       const cut = opt.margin && srt.length ? srt[0].q - opt.margin : -Infinity;   // 1位から margin より下は2手読みしない
       const top = srt.slice(0, opt.N2).filter(x => x.q >= cut);
-      await Promise.all(top.map(x => this.run(Object.assign({ type: 'job', phase: 2, idx: [acts.indexOf(x.a)], opt: { K: opt.Ki || 8, K2: opt.K2, overPen: opt.overPen, leafPen: opt.leafPen, seed: opt.seed } }, sc))
-        .then(r => { for (const [, v] of r.out) x.q2 = v; })));
+      const o2 = { K: opt.Ki || 8, K2: opt.K2, overPen: opt.overPen, leafPen: opt.leafPen, seed: opt.seed };
+      if (opt.split === false) {     // 前の配り方: 1つの手を1つの Worker に
+        await Promise.all(top.map(x => this.run(Object.assign({ type: 'job', phase: 2, idx: [acts.indexOf(x.a)], opt: o2 }, sc))
+          .then(chk).then(r => { for (const [, v] of r.out) x.q2 = v; })));
+      } else {
+        // 手を枝(結果・引く回数)ごとに細かく割って、Worker 全部に配る(1つの手が終わるのを待たずに済む)
+        const tasks = [];
+        top.forEach((x, k) => {
+          const i = acts.indexOf(x.a), nb = V.act2Parts(G, s, x.a, o2), c = Math.max(1, Math.ceil(nb / Math.max(1, Math.round(this.size * (opt.splitMul || 6) / top.length))));
+          for (let lo = 0; lo < nb; lo += c) tasks.push({ k, i, lo, hi: Math.min(nb, lo + c), pen: lo === 0 });
+        });
+        const acc = top.map(() => ({ sum: 0, wsum: 0, pen: 0 }));
+        await Promise.all(tasks.map(t => this.run(Object.assign({ type: 'part', tasks: [t], opt: o2 }, sc))
+          .then(chk).then(r => { for (const [k, v] of r.out) { acc[k].sum += v.sum; acc[k].wsum += v.wsum; acc[k].pen += v.pen; } })));
+        top.forEach((x, k) => { const A = acc[k]; x.q2 = (A.wsum > 0 ? A.sum / A.wsum : 0) - A.pen; });
+      }
+      if (cancelled) return null;       // 取り消された(先に計算していた局面が要らなくなった)
       for (const x of res) if (x.q2 === undefined) x.q2 = -1;
       return res;
     },

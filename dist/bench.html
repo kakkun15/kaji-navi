@@ -888,6 +888,55 @@ function featLen(G, ver) { return ver === 1 ? G.active.length * 12 + 14 : G.acti
     }
     return (wsum > 0 ? sum / wsum : 0) - pen;
   }
+  // act2Value の一部だけ(最強の2段目を Worker 全部に細かく配るため、2026-11-01)。
+  // part: { lo, hi } 枝(1マスの手は結果の番号、複数マスの手は引く回数)の範囲。pen: 超える罰も返すか(1つの手につき1回だけ)
+  // 返り値 { sum, wsum, pen }。手の値 = Σsum / Σwsum − pen(act2Value と同じ式。乱数の引き方だけ違う)
+  function act2Parts(G, s, a, opt) {          // 枝の数
+    if (!a.t.area) return 1;
+    if (a.tg.length === 1) { const j = a.tg[0], { rs, cr } = GAME.hitParams(G, s, a.t, j); return GAME.massOutcomes(G.cells[j], s.v[j], s.bel[j], rs, cr).length; }
+    return opt.K2 || 8;
+  }
+  function act2Part(net, G, s, a, opt, part) {
+    const rnd = opt.rnd, tt = opt.tt || (opt.tt = new Map());
+    const lopt = (opt.leafK || opt.leafPen !== undefined) ? Object.assign({}, opt, { K: opt.leafK || opt.K, overPen: opt.leafPen !== undefined ? opt.leafPen : opt.overPen }) : opt;
+    const best1 = (s2) => {
+      if (s2.dead) return 0;
+      if (Array.isArray(s2.lit)) { const cand = s2.lit; let sum = 0; for (const c of cand) { s2.lit = c; sum += best1(s2); } s2.lit = cand; return sum / cand.length; }
+      const key = stateKey(s2), hit = tt.get(key); if (hit !== undefined) return hit;
+      let m = 0; for (const x of evalActs(net, G, s2, lopt)) if (x.q > m) m = x.q;
+      if (tt.size > 200000) tt.clear(); tt.set(key, m); return m;
+    };
+    let sum = 0, wsum = 0;
+    if (!a.t.area) { const s2 = GAME.cloneState(s); GAME.afterAct(G, s2, a, null); sum = best1(s2); wsum = 1; }
+    else if (a.tg.length === 1) {
+      const j = a.tg[0], { rs, cr } = GAME.hitParams(G, s, a.t, j), outs = GAME.massOutcomes(G.cells[j], s.v[j], s.bel[j], rs, cr);
+      for (let k = part.lo; k < Math.min(part.hi, outs.length); k++) {
+        const o = outs[k]; wsum += o.p;
+        if (GAME.overDead(G, j, o.w)) continue;
+        const s2 = GAME.cloneState(s); s2.v[j] = o.w; s2.bel[j] = o.bel;
+        GAME.afterAct(G, s2, a, null); sum += o.p * best1(s2);
+      }
+    } else {
+      const per = a.tg.map(j => { const { rs, cr } = GAME.hitParams(G, s, a.t, j); return { j, outs: GAME.massOutcomes(G.cells[j], s.v[j], s.bel[j], rs, cr) }; });
+      for (let k = part.lo; k < part.hi; k++) {
+        const s2 = GAME.cloneState(s);
+        for (const { j, outs } of per) {
+          let u = rnd(), o = outs[outs.length - 1];
+          for (const y of outs) { u -= y.p; if (u <= 0) { o = y; break; } }
+          s2.v[j] = o.w; s2.bel[j] = o.bel; if (GAME.overDead(G, j, o.w)) s2.dead = true;
+        }
+        wsum += 1;
+        if (!s2.dead) { GAME.afterAct(G, s2, a, null); sum += best1(s2); }
+      }
+    }
+    let pen = 0;
+    if (part.pen && opt.overPen && a.t.area) {
+      let ok = 1;
+      for (const j of a.tg) { const { rs, cr } = GAME.hitParams(G, s, a.t, j); let o2 = 0; for (const o of GAME.massOutcomes(G.cells[j], s.v[j], s.bel[j], rs, cr)) if (o.w > G.cells[j][1]) o2 += o.p; ok *= 1 - o2; }
+      pen = opt.overPen * (1 - ok);
+    }
+    return { sum, wsum, pen };
+  }
   // 局面の鍵(置き換え表用)。値・温度・集中力・光ったマス・1手目か・必殺・理想値の見当(会心でしぼられた物)
   function stateKey(s) {
     let k = s.v.join(',') + '|' + s.temp + '|' + s.F + '|' + s.lit + '|' + (s.first ? 1 : 0) + '|' + (s.hs | 0);
@@ -1106,7 +1155,7 @@ function featLen(G, ver) { return ver === 1 ? G.active.length * 12 + 14 : G.acti
     return res;
   }
 
-  const VALUE = { trimIdle, act2Value, act3Value, evalActs3, hsVal, evalActsHS, PER_MASS, GLOBAL, featLen, features, makeNet, forward, sigmoid, valueOf, actValue, evalActs, evalActs2, terminalOr };
+  const VALUE = { trimIdle, act2Value, act2Part, act2Parts, stateKey, act3Value, evalActs3, hsVal, evalActsHS, PER_MASS, GLOBAL, featLen, features, makeNet, forward, sigmoid, valueOf, actValue, evalActs, evalActs2, terminalOr };
   if (isNode) module.exports = VALUE;
   else root.KajiValue = VALUE;
 })(typeof window !== 'undefined' ? window : globalThis);
@@ -1146,6 +1195,18 @@ function featLen(G, ver) { return ver === 1 ? G.active.length * 12 + 14 : G.acti
         for (const i of m.idx) {
           const a = acts[i];
           out.push([i, m.phase === 1 ? V.actValue(N.n, G, m.s, a, opt) : V.act2Value(N.n, G, m.s, a, opt)]);
+        }
+        self.postMessage({ id: m.id, out });
+        return;
+      }
+      if (m.type === 'part') {          // 最強の2段目の一部(1つの手の、枝の一部)
+        const gk = JSON.stringify(m.cfg);
+        const G = Gs[gk] || (Gs[gk] = GAME.setup(m.cfg));
+        const N = nets[m.cfg.item]; if (!N.n) N.n = toNet(N.j, V.featLen, G);
+        const acts = GAME.legalActs(G, m.s), out = [];
+        for (const t of m.tasks) {
+          const opt = Object.assign({}, m.opt, { rnd: seeded(m.opt.seed + 7919 * (t.i + 1) + 104729 * t.lo), buf: new Float32Array(V.featLen(G, N.n.ver)) });
+          out.push([t.k, V.act2Part(N.n, G, m.s, acts[t.i], opt, t)]);
         }
         self.postMessage({ id: m.id, out });
         return;
@@ -1211,25 +1272,48 @@ function featLen(G, ver) { return ver === 1 ? G.active.length * 12 + 14 : G.acti
     setNet(key, j) { if (this.sentNet[key] === j) return; for (const w of this.workers) w.postMessage({ type: 'net', key, net: j }); this.sentNet[key] = j; },
     run(msg) { return new Promise(res => { msg.id = ++this.seq; this.wait.set(msg.id, res); this.queue.push(msg); this.pump(); }); },
     pump() { while (this.idle.length && this.queue.length) { const w = this.idle.pop(), m = this.queue.shift(); w.postMessage(m); } },
-    cancelQueued() { for (const m of this.queue) { const cb = this.wait.get(m.id); this.wait.delete(m.id); if (cb) cb({ id: m.id, out: [], cancelled: true }); } this.queue = []; },
+    // 待っている仕事を取り消す。keep を渡すと、その札(tag)の仕事は残す(先に計算している局面のうち、本当に要る物だけ続ける)
+    cancelQueued(keep) {
+      const rest = [];
+      for (const m of this.queue) { if (keep !== undefined && m.tag === keep) { rest.push(m); continue; } const cb = this.wait.get(m.id); this.wait.delete(m.id); if (cb) cb({ id: m.id, out: [], cancelled: true }); }
+      this.queue = rest;
+    },
     // 最強の読み。返り値は evalActs2 と同じ形 [{ a, q, q2 }](やめるも入る)
     async evalMax(cfg, s, opt) {
       const G = GAME.setup(cfg), acts = GAME.legalActs(G, s);
-      const sc = { cfg, s: JSON.parse(JSON.stringify(s)) };
+      const sc = { cfg, s: JSON.parse(JSON.stringify(s)), tag: opt.tag };
+      let cancelled = false;
+      const chk = r => { if (r.cancelled) cancelled = true; return r; };
       // 1段目: 手を Worker の数の数倍に割って配る
       const chunks = [], per = Math.max(1, Math.ceil(acts.length / (this.size * 3)));
       for (let i = 0; i < acts.length; i += per) chunks.push([...Array(Math.min(per, acts.length - i)).keys()].map(k => i + k));
       const q = new Array(acts.length).fill(0);
       await Promise.all(chunks.map(idx => this.run(Object.assign({ type: 'job', phase: 1, idx, opt: { K: opt.K, overPen: opt.overPen, seed: opt.seed } }, sc))
-        .then(r => { for (const [i, v] of r.out) q[i] = v; })));
+        .then(chk).then(r => { for (const [i, v] of r.out) q[i] = v; })));
+      if (cancelled) return null;
       const res = acts.map((a, i) => ({ a, q: q[i] }));
       res.push({ a: null, q: GAME.stopProb(G, s), q2: GAME.stopProb(G, s) });
       // 2段目: 上位 N2 手を1手ずつ配る
       const srt = res.filter(x => x.a).sort((x, y) => y.q - x.q);
       const cut = opt.margin && srt.length ? srt[0].q - opt.margin : -Infinity;   // 1位から margin より下は2手読みしない
       const top = srt.slice(0, opt.N2).filter(x => x.q >= cut);
-      await Promise.all(top.map(x => this.run(Object.assign({ type: 'job', phase: 2, idx: [acts.indexOf(x.a)], opt: { K: opt.Ki || 8, K2: opt.K2, overPen: opt.overPen, leafPen: opt.leafPen, seed: opt.seed } }, sc))
-        .then(r => { for (const [, v] of r.out) x.q2 = v; })));
+      const o2 = { K: opt.Ki || 8, K2: opt.K2, overPen: opt.overPen, leafPen: opt.leafPen, seed: opt.seed };
+      if (opt.split === false) {     // 前の配り方: 1つの手を1つの Worker に
+        await Promise.all(top.map(x => this.run(Object.assign({ type: 'job', phase: 2, idx: [acts.indexOf(x.a)], opt: o2 }, sc))
+          .then(chk).then(r => { for (const [, v] of r.out) x.q2 = v; })));
+      } else {
+        // 手を枝(結果・引く回数)ごとに細かく割って、Worker 全部に配る(1つの手が終わるのを待たずに済む)
+        const tasks = [];
+        top.forEach((x, k) => {
+          const i = acts.indexOf(x.a), nb = V.act2Parts(G, s, x.a, o2), c = Math.max(1, Math.ceil(nb / Math.max(1, Math.round(this.size * (opt.splitMul || 6) / top.length))));
+          for (let lo = 0; lo < nb; lo += c) tasks.push({ k, i, lo, hi: Math.min(nb, lo + c), pen: lo === 0 });
+        });
+        const acc = top.map(() => ({ sum: 0, wsum: 0, pen: 0 }));
+        await Promise.all(tasks.map(t => this.run(Object.assign({ type: 'part', tasks: [t], opt: o2 }, sc))
+          .then(chk).then(r => { for (const [k, v] of r.out) { acc[k].sum += v.sum; acc[k].wsum += v.wsum; acc[k].pen += v.pen; } })));
+        top.forEach((x, k) => { const A = acc[k]; x.q2 = (A.wsum > 0 ? A.sum / A.wsum : 0) - A.pen; });
+      }
+      if (cancelled) return null;       // 取り消された(先に計算していた局面が要らなくなった)
       for (const x of res) if (x.q2 === undefined) x.q2 = -1;
       return res;
     },

@@ -327,6 +327,55 @@ function featLen(G, ver) { return ver === 1 ? G.active.length * 12 + 14 : G.acti
     }
     return (wsum > 0 ? sum / wsum : 0) - pen;
   }
+  // act2Value の一部だけ(最強の2段目を Worker 全部に細かく配るため、2026-11-01)。
+  // part: { lo, hi } 枝(1マスの手は結果の番号、複数マスの手は引く回数)の範囲。pen: 超える罰も返すか(1つの手につき1回だけ)
+  // 返り値 { sum, wsum, pen }。手の値 = Σsum / Σwsum − pen(act2Value と同じ式。乱数の引き方だけ違う)
+  function act2Parts(G, s, a, opt) {          // 枝の数
+    if (!a.t.area) return 1;
+    if (a.tg.length === 1) { const j = a.tg[0], { rs, cr } = GAME.hitParams(G, s, a.t, j); return GAME.massOutcomes(G.cells[j], s.v[j], s.bel[j], rs, cr).length; }
+    return opt.K2 || 8;
+  }
+  function act2Part(net, G, s, a, opt, part) {
+    const rnd = opt.rnd, tt = opt.tt || (opt.tt = new Map());
+    const lopt = (opt.leafK || opt.leafPen !== undefined) ? Object.assign({}, opt, { K: opt.leafK || opt.K, overPen: opt.leafPen !== undefined ? opt.leafPen : opt.overPen }) : opt;
+    const best1 = (s2) => {
+      if (s2.dead) return 0;
+      if (Array.isArray(s2.lit)) { const cand = s2.lit; let sum = 0; for (const c of cand) { s2.lit = c; sum += best1(s2); } s2.lit = cand; return sum / cand.length; }
+      const key = stateKey(s2), hit = tt.get(key); if (hit !== undefined) return hit;
+      let m = 0; for (const x of evalActs(net, G, s2, lopt)) if (x.q > m) m = x.q;
+      if (tt.size > 200000) tt.clear(); tt.set(key, m); return m;
+    };
+    let sum = 0, wsum = 0;
+    if (!a.t.area) { const s2 = GAME.cloneState(s); GAME.afterAct(G, s2, a, null); sum = best1(s2); wsum = 1; }
+    else if (a.tg.length === 1) {
+      const j = a.tg[0], { rs, cr } = GAME.hitParams(G, s, a.t, j), outs = GAME.massOutcomes(G.cells[j], s.v[j], s.bel[j], rs, cr);
+      for (let k = part.lo; k < Math.min(part.hi, outs.length); k++) {
+        const o = outs[k]; wsum += o.p;
+        if (GAME.overDead(G, j, o.w)) continue;
+        const s2 = GAME.cloneState(s); s2.v[j] = o.w; s2.bel[j] = o.bel;
+        GAME.afterAct(G, s2, a, null); sum += o.p * best1(s2);
+      }
+    } else {
+      const per = a.tg.map(j => { const { rs, cr } = GAME.hitParams(G, s, a.t, j); return { j, outs: GAME.massOutcomes(G.cells[j], s.v[j], s.bel[j], rs, cr) }; });
+      for (let k = part.lo; k < part.hi; k++) {
+        const s2 = GAME.cloneState(s);
+        for (const { j, outs } of per) {
+          let u = rnd(), o = outs[outs.length - 1];
+          for (const y of outs) { u -= y.p; if (u <= 0) { o = y; break; } }
+          s2.v[j] = o.w; s2.bel[j] = o.bel; if (GAME.overDead(G, j, o.w)) s2.dead = true;
+        }
+        wsum += 1;
+        if (!s2.dead) { GAME.afterAct(G, s2, a, null); sum += best1(s2); }
+      }
+    }
+    let pen = 0;
+    if (part.pen && opt.overPen && a.t.area) {
+      let ok = 1;
+      for (const j of a.tg) { const { rs, cr } = GAME.hitParams(G, s, a.t, j); let o2 = 0; for (const o of GAME.massOutcomes(G.cells[j], s.v[j], s.bel[j], rs, cr)) if (o.w > G.cells[j][1]) o2 += o.p; ok *= 1 - o2; }
+      pen = opt.overPen * (1 - ok);
+    }
+    return { sum, wsum, pen };
+  }
   // 局面の鍵(置き換え表用)。値・温度・集中力・光ったマス・1手目か・必殺・理想値の見当(会心でしぼられた物)
   function stateKey(s) {
     let k = s.v.join(',') + '|' + s.temp + '|' + s.F + '|' + s.lit + '|' + (s.first ? 1 : 0) + '|' + (s.hs | 0);
@@ -545,7 +594,7 @@ function featLen(G, ver) { return ver === 1 ? G.active.length * 12 + 14 : G.acti
     return res;
   }
 
-  const VALUE = { trimIdle, act2Value, act3Value, evalActs3, hsVal, evalActsHS, PER_MASS, GLOBAL, featLen, features, makeNet, forward, sigmoid, valueOf, actValue, evalActs, evalActs2, terminalOr };
+  const VALUE = { trimIdle, act2Value, act2Part, act2Parts, stateKey, act3Value, evalActs3, hsVal, evalActsHS, PER_MASS, GLOBAL, featLen, features, makeNet, forward, sigmoid, valueOf, actValue, evalActs, evalActs2, terminalOr };
   if (isNode) module.exports = VALUE;
   else root.KajiValue = VALUE;
 })(typeof window !== 'undefined' ? window : globalThis);
