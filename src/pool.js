@@ -35,6 +35,18 @@
         self.postMessage({ id: m.id, out });
         return;
       }
+      if (m.type === 'part') {          // 最強の2段目の一部(1つの手の、枝の一部)
+        const gk = JSON.stringify(m.cfg);
+        const G = Gs[gk] || (Gs[gk] = GAME.setup(m.cfg));
+        const N = nets[m.cfg.item]; if (!N.n) N.n = toNet(N.j, V.featLen, G);
+        const acts = GAME.legalActs(G, m.s), out = [];
+        for (const t of m.tasks) {
+          const opt = Object.assign({}, m.opt, { rnd: seeded(m.opt.seed + 7919 * (t.i + 1) + 104729 * t.lo), buf: new Float32Array(V.featLen(G, N.n.ver)) });
+          out.push([t.k, V.act2Part(N.n, G, m.s, acts[t.i], opt, t)]);
+        }
+        self.postMessage({ id: m.id, out });
+        return;
+      }
       if (m.type === 'game') {          // 性能テスト: 1局まるごと打つ(bench.html)
         const G = GAME.setup(m.cfg);
         const N = nets[m.cfg.item]; if (N && !N.n) N.n = toNet(N.j, V.featLen, G);
@@ -113,8 +125,22 @@
       const srt = res.filter(x => x.a).sort((x, y) => y.q - x.q);
       const cut = opt.margin && srt.length ? srt[0].q - opt.margin : -Infinity;   // 1位から margin より下は2手読みしない
       const top = srt.slice(0, opt.N2).filter(x => x.q >= cut);
-      await Promise.all(top.map(x => this.run(Object.assign({ type: 'job', phase: 2, idx: [acts.indexOf(x.a)], opt: { K: opt.Ki || 8, K2: opt.K2, overPen: opt.overPen, leafPen: opt.leafPen, seed: opt.seed } }, sc))
-        .then(r => { for (const [, v] of r.out) x.q2 = v; })));
+      const o2 = { K: opt.Ki || 8, K2: opt.K2, overPen: opt.overPen, leafPen: opt.leafPen, seed: opt.seed };
+      if (opt.split === false) {     // 前の配り方: 1つの手を1つの Worker に
+        await Promise.all(top.map(x => this.run(Object.assign({ type: 'job', phase: 2, idx: [acts.indexOf(x.a)], opt: o2 }, sc))
+          .then(r => { for (const [, v] of r.out) x.q2 = v; })));
+      } else {
+        // 手を枝(結果・引く回数)ごとに細かく割って、Worker 全部に配る(1つの手が終わるのを待たずに済む)
+        const tasks = [];
+        top.forEach((x, k) => {
+          const i = acts.indexOf(x.a), nb = V.act2Parts(G, s, x.a, o2), c = Math.max(1, Math.ceil(nb / Math.max(1, Math.round(this.size * (opt.splitMul || 3) / top.length))));
+          for (let lo = 0; lo < nb; lo += c) tasks.push({ k, i, lo, hi: Math.min(nb, lo + c), pen: lo === 0 });
+        });
+        const acc = top.map(() => ({ sum: 0, wsum: 0, pen: 0 }));
+        await Promise.all(tasks.map(t => this.run(Object.assign({ type: 'part', tasks: [t], opt: o2 }, sc))
+          .then(r => { for (const [k, v] of r.out) { acc[k].sum += v.sum; acc[k].wsum += v.wsum; acc[k].pen += v.pen; } })));
+        top.forEach((x, k) => { const A = acc[k]; x.q2 = (A.wsum > 0 ? A.sum / A.wsum : 0) - A.pen; });
+      }
       for (const x of res) if (x.q2 === undefined) x.q2 = -1;
       return res;
     },
