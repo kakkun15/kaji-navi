@@ -1436,17 +1436,25 @@ function featLen(G, ver) { return ver === 1 ? G.active.length * 12 + 14 : G.acti
     setNet(key, j) { if (this.sentNet[key] === j) return; for (const w of this.workers) w.postMessage({ type: 'net', key, net: j }); this.sentNet[key] = j; },
     run(msg) { return new Promise(res => { msg.id = ++this.seq; this.wait.set(msg.id, res); this.queue.push(msg); this.pump(); }); },
     pump() { while (this.idle.length && this.queue.length) { const w = this.idle.pop(), m = this.queue.shift(); w.postMessage(m); } },
-    cancelQueued() { for (const m of this.queue) { const cb = this.wait.get(m.id); this.wait.delete(m.id); if (cb) cb({ id: m.id, out: [], cancelled: true }); } this.queue = []; },
+    // 待っている仕事を取り消す。keep を渡すと、その札(tag)の仕事は残す(先に計算している局面のうち、本当に要る物だけ続ける)
+    cancelQueued(keep) {
+      const rest = [];
+      for (const m of this.queue) { if (keep !== undefined && m.tag === keep) { rest.push(m); continue; } const cb = this.wait.get(m.id); this.wait.delete(m.id); if (cb) cb({ id: m.id, out: [], cancelled: true }); }
+      this.queue = rest;
+    },
     // 最強の読み。返り値は evalActs2 と同じ形 [{ a, q, q2 }](やめるも入る)
     async evalMax(cfg, s, opt) {
       const G = GAME.setup(cfg), acts = GAME.legalActs(G, s);
-      const sc = { cfg, s: JSON.parse(JSON.stringify(s)) };
+      const sc = { cfg, s: JSON.parse(JSON.stringify(s)), tag: opt.tag };
+      let cancelled = false;
+      const chk = r => { if (r.cancelled) cancelled = true; return r; };
       // 1段目: 手を Worker の数の数倍に割って配る
       const chunks = [], per = Math.max(1, Math.ceil(acts.length / (this.size * 3)));
       for (let i = 0; i < acts.length; i += per) chunks.push([...Array(Math.min(per, acts.length - i)).keys()].map(k => i + k));
       const q = new Array(acts.length).fill(0);
       await Promise.all(chunks.map(idx => this.run(Object.assign({ type: 'job', phase: 1, idx, opt: { K: opt.K, overPen: opt.overPen, seed: opt.seed } }, sc))
-        .then(r => { for (const [i, v] of r.out) q[i] = v; })));
+        .then(chk).then(r => { for (const [i, v] of r.out) q[i] = v; })));
+      if (cancelled) return null;
       const res = acts.map((a, i) => ({ a, q: q[i] }));
       res.push({ a: null, q: GAME.stopProb(G, s), q2: GAME.stopProb(G, s) });
       // 2段目: 上位 N2 手を1手ずつ配る
@@ -1456,7 +1464,7 @@ function featLen(G, ver) { return ver === 1 ? G.active.length * 12 + 14 : G.acti
       const o2 = { K: opt.Ki || 8, K2: opt.K2, overPen: opt.overPen, leafPen: opt.leafPen, seed: opt.seed };
       if (opt.split === false) {     // 前の配り方: 1つの手を1つの Worker に
         await Promise.all(top.map(x => this.run(Object.assign({ type: 'job', phase: 2, idx: [acts.indexOf(x.a)], opt: o2 }, sc))
-          .then(r => { for (const [, v] of r.out) x.q2 = v; })));
+          .then(chk).then(r => { for (const [, v] of r.out) x.q2 = v; })));
       } else {
         // 手を枝(結果・引く回数)ごとに細かく割って、Worker 全部に配る(1つの手が終わるのを待たずに済む)
         const tasks = [];
@@ -1466,9 +1474,10 @@ function featLen(G, ver) { return ver === 1 ? G.active.length * 12 + 14 : G.acti
         });
         const acc = top.map(() => ({ sum: 0, wsum: 0, pen: 0 }));
         await Promise.all(tasks.map(t => this.run(Object.assign({ type: 'part', tasks: [t], opt: o2 }, sc))
-          .then(r => { for (const [k, v] of r.out) { acc[k].sum += v.sum; acc[k].wsum += v.wsum; acc[k].pen += v.pen; } })));
+          .then(chk).then(r => { for (const [k, v] of r.out) { acc[k].sum += v.sum; acc[k].wsum += v.wsum; acc[k].pen += v.pen; } })));
         top.forEach((x, k) => { const A = acc[k]; x.q2 = (A.wsum > 0 ? A.sum / A.wsum : 0) - A.pen; });
       }
+      if (cancelled) return null;       // 取り消された(先に計算していた局面が要らなくなった)
       for (const x of res) if (x.q2 === undefined) x.q2 = -1;
       return res;
     },
@@ -2264,9 +2273,30 @@ function renderVoice(){ $('vBt').textContent = voiceOn ? 'オン' : 'オフ'; $(
 // ---- 推奨手 ----
 // 学習した見積もりが無い、許容誤差0の商材(光のさいほう針)は、仮の打ち方(rule0.js)で何回も打ってためして推奨を出す
 function useRule(){ return !net && G && G.T === 0 && !!window.KajiRule0; }
+// ---- 先に計算しておく(2026-11-01): 結果の決まっている手(火力上げ・冷やし込み)を打った後の局面と、光ったマスの候補ごとの局面を、
+// 待っている間に最強で読んでおく。押した時・光ったマスが決まった時に、もう答えが出ている。読みの中身は同じ(同じ局面なら同じ答え)
+const PRE = new Map(); PRE.hit = 0;
+function usePool(){ return power !== 'normal' && !MAX_SKIP[item] && !s.hs && window.KajiPool && KajiPool.start(); }
+function preKey(st){ return [item, power, overPen(), G.focus, (G.techs || []).join(','), V.stateKey(st)].join('#'); }
+function maxFor(st, key){
+  const e = PRE.get(key); if(e){ PRE.hit++; return e; }
+  const cfgW = { item, level: G.level, hammer: G.hammer, star: G.star, focus: G.focus, techs: G.techs };
+  KajiPool.setNet(item, isTest() ? W[item + '_test'] : W[item]);
+  const p = KajiPool.evalMax(cfgW, GM.cloneState(st), Object.assign({}, power === 'strong' ? STRONGOPT : MAXOPT, { overPen: overPen(), tag: key }))
+    .then(r => { if(!r){ PRE.delete(key); return null; } r.sort((a, b) => b.q2 - a.q2); return r; });
+  PRE.set(key, p); if(PRE.size > 64) PRE.delete(PRE.keys().next().value);
+  return p;
+}
+function prefetch(st){
+  if(!usePool() || st.dead || st.hs) return;
+  if(Array.isArray(st.lit)){ for(const c of st.lit){ const t = GM.cloneState(st); t.lit = c; prefetch(t); } return; }
+  if(st.temp <= 0 || !GM.hasLegal(G, st)) return;
+  if(OPEN_BOOK[item] && OPEN_BOOK[item].includes(st.temp) && G.active.every(i => st.v[i] === 0)) return;   // 開幕の決め打ちは読まない
+  maxFor(st, preKey(st));
+}
 function recalc(){
   qs = null; render();
-  if(s.dead || Array.isArray(s.lit) || (!net && !useRule())) { if(!net && !useRule()) $('msg').textContent = 'この商材の計算はまだ無い'; if(Array.isArray(s.lit)) announce(false); return; }
+  if(s.dead || Array.isArray(s.lit) || (!net && !useRule())) { if(!net && !useRule()) $('msg').textContent = 'この商材の計算はまだ無い'; if(Array.isArray(s.lit)){ announce(false); try{ prefetch(s); }catch(e){} } return; }
   busy = true; const id = ++calcId;
   setTimeout(() => {
     if(id !== calcId) return;
@@ -2283,15 +2313,15 @@ function recalc(){
       const k = res.find(x => x.a && x.a.t.id === 'karyoku');
       if(k){ res.splice(res.indexOf(k), 1); res.unshift(k); lastCalc = null; finishCalc(id, res); return; }
     }
-    if(power !== 'normal' && !MAX_SKIP[item] && !s.hs && window.KajiPool && KajiPool.start()){
-      // 最強: Worker に手分けして読ませる(待っている間も画面は動く)
-      const t0 = performance.now(), cfgW = { item, level: G.level, hammer: G.hammer, star: G.star, focus: G.focus, techs: G.techs };
-      KajiPool.setNet(item, isTest() ? W[item + '_test'] : W[item]);
-      KajiPool.evalMax(cfgW, s, Object.assign({}, power === 'strong' ? STRONGOPT : MAXOPT, { overPen: overPen() })).then(r => {
+    if(usePool()){
+      // 最強: Worker に手分けして読ませる(待っている間も画面は動く)。先に計算してあればそれを使う(答えは同じ)
+      const t0 = performance.now(), key = preKey(s);
+      KajiPool.cancelQueued(key);           // 先に計算していた別の局面は取り消す(この局面の分は続ける)
+      maxFor(s, key).then(r => {
         if(id !== calcId) return;
-        r.sort((a, b) => b.q2 - a.q2);
-        lastCalc = { ms: performance.now() - t0, threads: KajiPool.size };
-        finishCalc(id, r);
+        if(!r){ recalc(); return; }        // 取り消された時はやり直す
+        lastCalc = { ms: performance.now() - t0, threads: KajiPool.size, pre: PRE.hit };
+        finishCalc(id, r.map(x => Object.assign({}, x)));
       });
       return;
     }
@@ -2311,6 +2341,8 @@ function finishCalc(id, res){
     // 余った集中力で火力上げ・冷やし込みを打つだけで、結局どこも叩かずに終わるなら、ここで仕上げる
     else if(net && !s.hs) res = V.trimIdle(net, G, s, res, { overPen: overPen(), buf: new Float32Array(V.featLen(G, net.ver)) });
     qs = res; busy = false; chainN = 0; render();
+    // 一番良い手が火力上げ・冷やし込み(結果が決まっている)なら、打った後の局面を先に読んでおく
+    try{ const b0 = res[0] && res[0].a; if(b0 && !b0.t.area && !b0.t.hs){ const t = GM.cloneState(s); GM.afterAct(G, t, b0, null); prefetch(t); } }catch(e){}
     if(window.__naviOnCalc) try{ window.__naviOnCalc(); }catch(e){}
     const b = res[0] && res[0].a;
     // 温度だけの技は、続けて何回打つかを数えてから読み上げる(「かりょくあげ、2回」)

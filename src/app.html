@@ -737,9 +737,30 @@ function renderVoice(){ $('vBt').textContent = voiceOn ? 'オン' : 'オフ'; $(
 // ---- 推奨手 ----
 // 学習した見積もりが無い、許容誤差0の商材(光のさいほう針)は、仮の打ち方(rule0.js)で何回も打ってためして推奨を出す
 function useRule(){ return !net && G && G.T === 0 && !!window.KajiRule0; }
+// ---- 先に計算しておく(2026-11-01): 結果の決まっている手(火力上げ・冷やし込み)を打った後の局面と、光ったマスの候補ごとの局面を、
+// 待っている間に最強で読んでおく。押した時・光ったマスが決まった時に、もう答えが出ている。読みの中身は同じ(同じ局面なら同じ答え)
+const PRE = new Map(); PRE.hit = 0;
+function usePool(){ return power !== 'normal' && !MAX_SKIP[item] && !s.hs && window.KajiPool && KajiPool.start(); }
+function preKey(st){ return [item, power, overPen(), G.focus, (G.techs || []).join(','), V.stateKey(st)].join('#'); }
+function maxFor(st, key){
+  const e = PRE.get(key); if(e){ PRE.hit++; return e; }
+  const cfgW = { item, level: G.level, hammer: G.hammer, star: G.star, focus: G.focus, techs: G.techs };
+  KajiPool.setNet(item, isTest() ? W[item + '_test'] : W[item]);
+  const p = KajiPool.evalMax(cfgW, GM.cloneState(st), Object.assign({}, power === 'strong' ? STRONGOPT : MAXOPT, { overPen: overPen(), tag: key }))
+    .then(r => { if(!r){ PRE.delete(key); return null; } r.sort((a, b) => b.q2 - a.q2); return r; });
+  PRE.set(key, p); if(PRE.size > 64) PRE.delete(PRE.keys().next().value);
+  return p;
+}
+function prefetch(st){
+  if(!usePool() || st.dead || st.hs) return;
+  if(Array.isArray(st.lit)){ for(const c of st.lit){ const t = GM.cloneState(st); t.lit = c; prefetch(t); } return; }
+  if(st.temp <= 0 || !GM.hasLegal(G, st)) return;
+  if(OPEN_BOOK[item] && OPEN_BOOK[item].includes(st.temp) && G.active.every(i => st.v[i] === 0)) return;   // 開幕の決め打ちは読まない
+  maxFor(st, preKey(st));
+}
 function recalc(){
   qs = null; render();
-  if(s.dead || Array.isArray(s.lit) || (!net && !useRule())) { if(!net && !useRule()) $('msg').textContent = 'この商材の計算はまだ無い'; if(Array.isArray(s.lit)) announce(false); return; }
+  if(s.dead || Array.isArray(s.lit) || (!net && !useRule())) { if(!net && !useRule()) $('msg').textContent = 'この商材の計算はまだ無い'; if(Array.isArray(s.lit)){ announce(false); try{ prefetch(s); }catch(e){} } return; }
   busy = true; const id = ++calcId;
   setTimeout(() => {
     if(id !== calcId) return;
@@ -756,15 +777,15 @@ function recalc(){
       const k = res.find(x => x.a && x.a.t.id === 'karyoku');
       if(k){ res.splice(res.indexOf(k), 1); res.unshift(k); lastCalc = null; finishCalc(id, res); return; }
     }
-    if(power !== 'normal' && !MAX_SKIP[item] && !s.hs && window.KajiPool && KajiPool.start()){
-      // 最強: Worker に手分けして読ませる(待っている間も画面は動く)
-      const t0 = performance.now(), cfgW = { item, level: G.level, hammer: G.hammer, star: G.star, focus: G.focus, techs: G.techs };
-      KajiPool.setNet(item, isTest() ? W[item + '_test'] : W[item]);
-      KajiPool.evalMax(cfgW, s, Object.assign({}, power === 'strong' ? STRONGOPT : MAXOPT, { overPen: overPen() })).then(r => {
+    if(usePool()){
+      // 最強: Worker に手分けして読ませる(待っている間も画面は動く)。先に計算してあればそれを使う(答えは同じ)
+      const t0 = performance.now(), key = preKey(s);
+      KajiPool.cancelQueued(key);           // 先に計算していた別の局面は取り消す(この局面の分は続ける)
+      maxFor(s, key).then(r => {
         if(id !== calcId) return;
-        r.sort((a, b) => b.q2 - a.q2);
-        lastCalc = { ms: performance.now() - t0, threads: KajiPool.size };
-        finishCalc(id, r);
+        if(!r){ recalc(); return; }        // 取り消された時はやり直す
+        lastCalc = { ms: performance.now() - t0, threads: KajiPool.size, pre: PRE.hit };
+        finishCalc(id, r.map(x => Object.assign({}, x)));
       });
       return;
     }
@@ -784,6 +805,8 @@ function finishCalc(id, res){
     // 余った集中力で火力上げ・冷やし込みを打つだけで、結局どこも叩かずに終わるなら、ここで仕上げる
     else if(net && !s.hs) res = V.trimIdle(net, G, s, res, { overPen: overPen(), buf: new Float32Array(V.featLen(G, net.ver)) });
     qs = res; busy = false; chainN = 0; render();
+    // 一番良い手が火力上げ・冷やし込み(結果が決まっている)なら、打った後の局面を先に読んでおく
+    try{ const b0 = res[0] && res[0].a; if(b0 && !b0.t.area && !b0.t.hs){ const t = GM.cloneState(s); GM.afterAct(G, t, b0, null); prefetch(t); } }catch(e){}
     if(window.__naviOnCalc) try{ window.__naviOnCalc(); }catch(e){}
     const b = res[0] && res[0].a;
     // 温度だけの技は、続けて何回打つかを数えてから読み上げる(「かりょくあげ、2回」)
