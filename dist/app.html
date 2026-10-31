@@ -84,6 +84,7 @@ select{font:inherit;font-weight:700;padding:6px 10px;border:1px solid var(--line
 .rec .p{font-size:14px;color:var(--sub);white-space:nowrap;font-variant-numeric:tabular-nums}
 .rec .p b{color:var(--ink);font-size:19px}
 .rec .why{flex-basis:100%;font-size:14px;font-weight:700;color:var(--ink);line-height:1.45;margin-top:0}
+.rec .lw{flex-basis:100%;background:#5a1414;border:2px solid var(--bad);color:#fff;font-size:16px;font-weight:800;border-radius:8px;padding:4px 10px;margin-top:2px}
 .rec .det{font:inherit;font-size:12px;font-weight:700;color:var(--sub);min-height:30px;padding:2px 10px;box-shadow:none;border-radius:8px;white-space:nowrap}
 .foot.fold .rec .why,.foot.fold #alts{display:none}
 .mm{display:inline-grid;gap:2px;margin-right:8px;vertical-align:middle;position:relative;top:-3px}
@@ -1756,6 +1757,11 @@ function toast(t){ const e = $('toast'); e.textContent = t; e.classList.add('sho
 const KIND = { shuchu: { 400: '消費半分', 200: '会心ターン' }, tataki: { 400: '威力2倍', 200: '威力半分' }, hikari: { 400: '光る', 200: '光る' }, modori: { 400: '戻り', 200: '戻り' }, none: {} };
 const HS_LABEL = ['なし', 'たまった', '効果中'];
 const HS_NOTE = ['たまったら押す', '使ったら押す', '叩いたら自動で なし'];
+// 光ったマスがあるのに、推奨の手がそこを叩かない時の注意(光っている方をつい叩く打ち間違いを減らす)
+function litWarn(a){
+  if(!a || !a.t.area || typeof s.lit !== 'number' || s.dead) return '';
+  return a.tg.includes(s.lit) ? '' : `⚠ 光ってない方:${tgName(a)}(光ってるのは ${posName(s.lit)})`;
+}
 function renderHs(){ const h = s.hs | 0; $('hsBt').textContent = HS_LABEL[h]; $('hsBn').textContent = HS_NOTE[h]; $('hsB').className = 'hsb' + (h ? ' hs' + h : ''); }
 function renderCfg(){
   $('powTest').hidden = !W[item + '_test']; renderTres();
@@ -1871,7 +1877,8 @@ function renderFoot(){
   $('rec').innerHTML = `<span>${best.a.t.area ? miniMap(best.a.tg) : ''}<span class="nm">${best.a.t.name}</span> <span class="tg">${tgName(best.a)}</span></span>`
     + `<span class="p">消費${c} / 見込み <b>${s.hs === 1 && best.hsPick && best.a.t.area ? '寄せ中' : pct(best.q2 !== undefined ? best.q2 : best.q)}</b></span>`
     + `<button class="det" id="detB" aria-expanded="${whyOpen}">${whyOpen ? '詳細 ▴' : '詳細 ▾'}</button>`
-    + (why ? `<div class="why">${why}</div>` : '');
+    + (why ? `<div class="why">${why}</div>` : '')
+    + (litWarn(best.a) ? `<div class="lw">${litWarn(best.a)}</div>` : '');
   $('detB').onclick = () => setDet(!whyOpen);
   // 必殺を温存して寄せている間は、ほかの手の%(温存の分を数えていない)を出さない
   if(!(s.hs === 1 && best.hsPick)) $('alts').innerHTML = qs.slice(1, 3).map((x, k) => `<button data-k="${k+1}">${actName(x.a)} ${tgName(x.a)} ${pct(x.q2 !== undefined ? x.q2 : x.q)}</button>`).join('');
@@ -1926,7 +1933,10 @@ const PIP_CSS = `body{margin:0;background:#0f1115;color:#f4f6f9;font:15px/1.4 sy
 .c.lit{outline:2px solid #ffcf5c}.c.pick{cursor:pointer;outline:3px dashed #ffcf5c}.c.gap{visibility:hidden}
 .why{font-size:12px;color:#adb6c5;font-weight:700;margin-bottom:6px}
 button{font:inherit;font-weight:800;width:100%;min-height:40px;border-radius:8px;border:1px solid #b84d00;background:#ff7a14;color:#fff;cursor:pointer}
-.row{display:flex;gap:6px}.row button+button{flex:none;width:auto;padding:0 10px}`;
+.row{display:flex;gap:6px}.row button+button{flex:none;width:auto;padding:0 10px}
+.lw{background:#5a1414;border:2px solid #ff6b6b;color:#fff;font-size:14px;font-weight:800;border-radius:8px;padding:3px 8px;margin:2px 0 6px}
+.hs{font-size:13px;font-weight:800;border:1px solid #566074;border-radius:8px;padding:3px 8px;margin:0 0 6px;cursor:pointer;color:#adb6c5;background:#20242c}
+.hs.hs1{color:#0f1115;background:#ffcf5c;border-color:#ffcf5c}.hs.hs2{color:#0f1115;background:#ff7ad1;border-color:#ff7ad1}`;
 async function openPip(){
   if(pipW){ pipW.focus(); return; }
   try{ pipW = await documentPictureInPicture.requestWindow({ width: 240, height: 330 }); }catch(e){ return; }
@@ -1955,13 +1965,17 @@ function renderPip(){
   }
   h += '</div>';
   const why = a && !picking && !s.dead && qs ? whyText(a) : '';
+  const lw = a && !picking && qs ? litWarn(a) : '';
+  const hsv = s.hs | 0;
+  const hsRow = `<div class="hs${hsv ? ' hs' + hsv : ''}" id="pHs" role="button" aria-label="必殺の状態を切り替える">必殺:${HS_LABEL[hsv]}<span style="font-weight:700;opacity:.8"> ・ ${HS_NOTE[hsv]}</span></div>`;
   let btn = '';
   if(a && !a.t.area && !picking && !busy && qs) btn = `<div class="row"><button id="pGo">打った</button>${chainN > 1 ? `<button id="pChain">×${chainN}</button>` : ''}</div>`;
   else if(a && a.t.area && !picking && qs) btn = '<div class="why">結果は元の画面で入れる</div>';
-  d.body.innerHTML = `<select class="it" id="pItem" aria-label="商材">${$('item').innerHTML}</select>` + head + `<div class="st">温度 <b>${s.temp}</b>℃ ・ 集中力 <b>${s.F}</b></div>` + h + (why ? `<div class="why">${why}</div>` : '') + btn;
+  d.body.innerHTML = `<select class="it" id="pItem" aria-label="商材">${$('item').innerHTML}</select>` + head + (lw ? `<div class="lw">${lw}</div>` : '') + `<div class="st">温度 <b>${s.temp}</b>℃ ・ 集中力 <b>${s.F}</b></div>` + hsRow + h + (why ? `<div class="why">${why}</div>` : '') + btn;
   const pi = d.getElementById('pItem'); pi.value = item;
   pi.onchange = () => { $('item').value = pi.value; setItem(pi.value, false); };
   const go = d.getElementById('pGo'); if(go) go.onclick = () => startAct(a);
+  d.getElementById('pHs').onclick = () => $('hsB').click();     // 本画面の「必殺」と同じ(なし → たまった → 効果中)
   const ch = d.getElementById('pChain'); if(ch) ch.onclick = () => applyChain(a, chainN);
   if(picking) d.querySelectorAll('.c.pick').forEach(e => e.onclick = () => pickLit(+e.dataset.i));
 }
