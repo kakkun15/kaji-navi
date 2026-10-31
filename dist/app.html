@@ -1319,7 +1319,7 @@ function featLen(G, ver) { return ver === 1 ? G.active.length * 12 + 14 : G.acti
     return res;
   }
 
-  const VALUE = { trimIdle, act2Value, act2Part, act2Parts, act3Value, evalActs3, hsVal, evalActsHS, PER_MASS, GLOBAL, featLen, features, makeNet, forward, sigmoid, valueOf, actValue, evalActs, evalActs2, terminalOr };
+  const VALUE = { trimIdle, act2Value, act2Part, act2Parts, stateKey, act3Value, evalActs3, hsVal, evalActsHS, PER_MASS, GLOBAL, featLen, features, makeNet, forward, sigmoid, valueOf, actValue, evalActs, evalActs2, terminalOr };
   if (isNode) module.exports = VALUE;
   else root.KajiValue = VALUE;
 })(typeof window !== 'undefined' ? window : globalThis);
