@@ -133,7 +133,7 @@
         // 手を枝(結果・引く回数)ごとに細かく割って、Worker 全部に配る(1つの手が終わるのを待たずに済む)
         const tasks = [];
         top.forEach((x, k) => {
-          const i = acts.indexOf(x.a), nb = V.act2Parts(G, s, x.a, o2), c = Math.max(1, Math.ceil(nb / Math.max(1, Math.round(this.size * (opt.splitMul || 3) / top.length))));
+          const i = acts.indexOf(x.a), nb = V.act2Parts(G, s, x.a, o2), c = Math.max(1, Math.ceil(nb / Math.max(1, Math.round(this.size * (opt.splitMul || 6) / top.length))));
           for (let lo = 0; lo < nb; lo += c) tasks.push({ k, i, lo, hi: Math.min(nb, lo + c), pen: lo === 0 });
         });
         const acc = top.map(() => ({ sum: 0, wsum: 0, pen: 0 }));
