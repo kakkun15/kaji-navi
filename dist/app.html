@@ -1936,6 +1936,8 @@ button{font:inherit;font-weight:800;width:100%;min-height:40px;border-radius:8px
 .row{display:flex;gap:6px}.row button+button{flex:none;width:auto;padding:0 10px}
 .lw{background:#5a1414;border:2px solid #ff6b6b;color:#fff;font-size:14px;font-weight:800;border-radius:8px;padding:3px 8px;margin:2px 0 6px}
 .hs{font-size:13px;font-weight:800;border:1px solid #566074;border-radius:8px;padding:3px 8px;margin:0 0 6px;cursor:pointer;color:#adb6c5;background:#20242c}
+.alts{display:flex;flex-wrap:wrap;gap:5px;margin:0 0 6px}.alts .ah{flex-basis:100%;font-size:11px;color:#adb6c5;font-weight:700}
+.alts .alt{width:auto;flex:1 1 45%;min-height:34px;font-size:13px;background:#272c36;border-color:#566074;color:#f4f6f9;padding:2px 6px}.alts .alt b{color:#ffcf5c}
 .hs.hs1{color:#0f1115;background:#ffcf5c;border-color:#ffcf5c}.hs.hs2{color:#0f1115;background:#ff7ad1;border-color:#ff7ad1}`;
 async function openPip(){
   if(pipW){ pipW.focus(); return; }
@@ -1968,13 +1970,18 @@ function renderPip(){
   const lw = a && !picking && qs ? litWarn(a) : '';
   const hsv = s.hs | 0;
   const hsRow = `<div class="hs${hsv ? ' hs' + hsv : ''}" id="pHs" role="button" aria-label="必殺の状態を切り替える">必殺:${HS_LABEL[hsv]}<span style="font-weight:700;opacity:.8"> ・ ${HS_NOTE[hsv]}</span></div>`;
+  // ほかの手(本画面と同じ2位・3位)。必殺を温存して寄せている間は出さない(本画面と同じ)
+  const q0 = qs && qs[0];
+  const alts = q0 && a && !picking && !s.dead && !busy && !(s.hs === 1 && q0.hsPick)
+    ? qs.slice(1, 3).map((x, k) => `<button class="alt" data-k="${k + 1}">${actName(x.a)} ${tgName(x.a)} <b>${pct(x.q2 !== undefined ? x.q2 : x.q)}</b></button>`).join('') : '';
   let btn = '';
   if(a && !a.t.area && !picking && !busy && qs) btn = `<div class="row"><button id="pGo">打った</button>${chainN > 1 ? `<button id="pChain">×${chainN}</button>` : ''}</div>`;
   else if(a && a.t.area && !picking && qs) btn = '<div class="why">結果は元の画面で入れる</div>';
-  d.body.innerHTML = `<select class="it" id="pItem" aria-label="商材">${$('item').innerHTML}</select>` + head + (lw ? `<div class="lw">${lw}</div>` : '') + `<div class="st">温度 <b>${s.temp}</b>℃ ・ 集中力 <b>${s.F}</b></div>` + hsRow + h + (why ? `<div class="why">${why}</div>` : '') + btn;
+  d.body.innerHTML = `<select class="it" id="pItem" aria-label="商材">${$('item').innerHTML}</select>` + head + (lw ? `<div class="lw">${lw}</div>` : '') + `<div class="st">温度 <b>${s.temp}</b>℃ ・ 集中力 <b>${s.F}</b></div>` + hsRow + h + (why ? `<div class="why">${why}</div>` : '') + (alts ? `<div class="alts"><div class="ah">ほかの手</div>${alts}</div>` : '') + btn;
   const pi = d.getElementById('pItem'); pi.value = item;
   pi.onchange = () => { $('item').value = pi.value; setItem(pi.value, false); };
   const go = d.getElementById('pGo'); if(go) go.onclick = () => startAct(a);
+  d.querySelectorAll('.alt').forEach(b => b.onclick = () => startAct(qs[+b.dataset.k].a));
   d.getElementById('pHs').onclick = () => $('hsB').click();     // 本画面の「必殺」と同じ(なし → たまった → 効果中)
   const ch = d.getElementById('pChain'); if(ch) ch.onclick = () => applyChain(a, chainN);
   if(picking) d.querySelectorAll('.c.pick').forEach(e => e.onclick = () => pickLit(+e.dataset.i));
