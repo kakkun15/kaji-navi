@@ -578,7 +578,6 @@ function vUnlock(){
   }catch(e){}
   // 予備: audio 要素も触った時に1回鳴らしておく(Web Audio で流せなかった時に使う)
   try{ if(!VC.el){ VC.el = new Audio(); VC.el.playsInline = true; } if(!VC.primed){ VC.el.src = SILENT_WAV; const p = VC.el.play(); if(p && p.catch) p.catch(() => {}); VC.primed = true; } }catch(e){}
-  try{ if(window.speechSynthesis && !VC.tts){ const u = new SpeechSynthesisUtterance(' '); u.volume = 0; speechSynthesis.speak(u); VC.tts = true; } }catch(e){}
 }
 ['pointerdown', 'touchend', 'click', 'keydown'].forEach(ev => document.addEventListener(ev, vUnlock, { passive: true, capture: true }));
 function clipBytes(text){ const b = atob(AR_CLIPS[text]), u = new Uint8Array(b.length); for(let i = 0; i < b.length; i++) u[i] = b.charCodeAt(i); return u; }
@@ -594,13 +593,6 @@ function vStop(){
   try{ if(VC.src){ VC.src.stop(); VC.src = null; } }catch(e){}
   try{ if(VC.el && !VC.el.paused) VC.el.pause(); }catch(e){}
   try{ if(window.speechSynthesis && (speechSynthesis.speaking || speechSynthesis.pending)) speechSynthesis.cancel(); }catch(e){}
-}
-function vTts(text){
-  try{
-    if(!window.speechSynthesis) return false;
-    const u = new SpeechSynthesisUtterance(text), v = speechSynthesis.getVoices().find(x => /^ja/i.test(x.lang));
-    u.lang = 'ja-JP'; u.rate = Math.max(0.5, Math.min(2, voiceRate * 0.95)); if(v) u.voice = v; speechSynthesis.speak(u); return true;
-  }catch(e){ return false; }
 }
 async function vSay(text){
   VC.log.push(text); if(VC.log.length > 40) VC.log.shift();
@@ -633,8 +625,7 @@ async function vSay(text){
       VC.el.src = VC.url; VC.el.defaultPlaybackRate = pr; VC.el.playbackRate = pr; await VC.el.play(); VC.how = 'audio'; return;
     }catch(e){}
   }
-  if(seq !== VC.seq) return;
-  if(vTts(text)) VC.how = 'tts';
+  // 録った声(ずんだもん)が無い文は読まない(ブラウザの合成音声は使わない。利用者がずんだもん以外の声を嫌がった)
 }
 // 読み上げの文(収録した文と同じ言い方)
 const YOMI = { tataku: 'たたく', jouge: 'じょうげうち', tekagen: 'てかげんうち', nibai: 'にばいうち', karyoku: 'かりょくあげ',
