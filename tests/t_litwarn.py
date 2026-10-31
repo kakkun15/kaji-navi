@@ -43,7 +43,7 @@ with sync_playwright() as p:
             pp = [x for x in ctx.pages if x != pg]
             if pp:
                 pp[0].screenshot(path=f'{OUT}/litwarn_pip.png')
-                pp[0].set_viewport_size({'width': 360, 'height': 900}); pg.wait_for_timeout(200); pp[0].screenshot(path=f'{OUT}/litwarn_pip_narrow.png')
+                pp[0].set_viewport_size({'width': 380, 'height': 560}); pg.wait_for_timeout(200); pp[0].screenshot(path=f'{OUT}/litwarn_pip_narrow.png')
             txt = pg.evaluate("documentPictureInPicture.window.document.body.innerText")
             print('小窓の注意', '⚠' in txt, '/ 必殺の行', [l for l in txt.split('\n') if l.startswith('必殺')])
             for _ in range(3):
