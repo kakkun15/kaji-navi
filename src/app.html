@@ -486,6 +486,9 @@ button{font:inherit;font-weight:800;width:100%;min-height:40px;border-radius:8px
 .hs{font-size:13px;font-weight:800;border:1px solid #566074;border-radius:8px;padding:3px 8px;margin:0 0 6px;cursor:pointer;color:#adb6c5;background:#20242c}
 .alts{display:flex;flex-wrap:wrap;gap:5px;margin:0 0 6px}.alts .ah{flex-basis:100%;font-size:11px;color:#adb6c5;font-weight:700}
 .alts .alt{width:auto;flex:1 1 45%;min-height:34px;font-size:13px;background:#272c36;border-color:#566074;color:#f4f6f9;padding:2px 6px}.alts .alt b{color:#ffcf5c}
+.hy{margin-top:8px;border-top:1px solid #3c4353;padding-top:4px}.hy .ah{font-size:11px;color:#adb6c5;font-weight:700;margin-bottom:2px}
+.hyg{display:grid;grid-template-columns:auto auto;column-gap:10px;row-gap:1px;font-size:12px;font-variant-numeric:tabular-nums;justify-content:start}.hyg.l{grid-template-columns:auto auto auto}
+.hyg .hn{color:#adb6c5;font-weight:700}.hyg .hv{font-weight:800}.hyg .hl{font-weight:800;color:#ffcf5c}
 .hs.hs1{color:#0f1115;background:#ffcf5c;border-color:#ffcf5c}.hs.hs2{color:#0f1115;background:#ff7ad1;border-color:#ff7ad1}`;
 async function openPip(){
   if(pipW){ pipW.focus(); return; }
@@ -494,6 +497,19 @@ async function openPip(){
   pipW.document.title = '鍛冶ナビ';
   pipW.addEventListener('pagehide', () => { pipW = null; });
   renderPip();
+}
+// 小窓の下の早見: 今の温度で、叩く技ごとの伸びの最小〜最大(光ったマスがある時は光ったマスの伸びも)
+function hayamiHtml(){
+  if(!G || !s || s.temp <= 0) return '';
+  const lit = typeof s.lit === 'number' && G.trait === 'hikari', seen = new Set(), rows = [];
+  for(const a of G.acts){
+    const t = a.t; if(!t.area || t.hs || seen.has(t.id)) continue; seen.add(t.id);
+    const r = C.rolls(t.id, s.temp, C.powerMult(G.trait, s.temp, false, s.first)); if(!r || !r.length) continue;
+    const rl = lit ? C.rolls(t.id, s.temp, C.powerMult(G.trait, s.temp, true, s.first)) : null;
+    rows.push(`<span class="hn">${t.name}</span><span class="hv">${Math.min(...r)}〜${Math.max(...r)}</span>` + (lit ? `<span class="hl">${rl && rl.length ? Math.min(...rl) + '〜' + Math.max(...rl) : ''}</span>` : ''));
+  }
+  if(!rows.length) return '';
+  return `<div class="hy"><div class="ah">早見 ${s.temp}℃ の伸び${lit ? '(右は光ったマス)' : ''}</div><div class="hyg${lit ? ' l' : ''}">${rows.join('')}</div></div>`;
 }
 function renderPip(){
   if(!pipW || !G || !s) return;
@@ -525,7 +541,7 @@ function renderPip(){
   let btn = '';
   if(a && !a.t.area && !picking && !busy && qs) btn = `<div class="row"><button id="pGo">打った</button>${chainN > 1 ? `<button id="pChain">×${chainN}</button>` : ''}</div>`;
   else if(a && a.t.area && !picking && qs) btn = '<div class="why">結果は元の画面で入れる</div>';
-  d.body.innerHTML = `<select class="it" id="pItem" aria-label="商材">${$('item').innerHTML}</select>` + head + (lw ? `<div class="lw">${lw}</div>` : '') + `<div class="st">温度 <b>${s.temp}</b>℃ ・ 集中力 <b>${s.F}</b></div>` + hsRow + h + (why ? `<div class="why">${why}</div>` : '') + (alts ? `<div class="alts"><div class="ah">ほかの手</div>${alts}</div>` : '') + btn;
+  d.body.innerHTML = `<select class="it" id="pItem" aria-label="商材">${$('item').innerHTML}</select>` + head + (lw ? `<div class="lw">${lw}</div>` : '') + `<div class="st">温度 <b>${s.temp}</b>℃ ・ 集中力 <b>${s.F}</b></div>` + hsRow + h + (why ? `<div class="why">${why}</div>` : '') + (alts ? `<div class="alts"><div class="ah">ほかの手</div>${alts}</div>` : '') + btn + hayamiHtml();
   const pi = d.getElementById('pItem'); pi.value = item;
   pi.onchange = () => { $('item').value = pi.value; setItem(pi.value, false); };
   const go = d.getElementById('pGo'); if(go) go.onclick = () => startAct(a);
