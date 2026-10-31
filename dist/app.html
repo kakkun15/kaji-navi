@@ -36,7 +36,9 @@ select{font:inherit;font-weight:700;padding:6px 10px;border:1px solid var(--line
 .vbtn b{font-size:15px}
 .vbtn.off b{color:var(--sub)}
 .vbtn.on b{color:var(--good)}
-.hsrow{display:flex;gap:8px;margin:-2px 0 10px}.hsrow .hsb{margin:0;flex:1;min-width:0}
+.hsrow{display:flex;gap:8px;margin:-2px 0 10px}.critb{flex:none;min-height:44px;padding:2px 10px;font-weight:800;font-size:13px;line-height:1.15;color:#0f1115;background:var(--crit);border:1px solid var(--crit);border-radius:10px}
+.critp{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:-4px 0 10px;font-size:13px;font-weight:700;color:var(--sub)}.critp button{min-height:36px;padding:2px 12px;font-weight:800;color:#0f1115;background:var(--crit);border:1px solid var(--crit);border-radius:8px}
+.hsrow .hsb{margin:0;flex:1;min-width:0}
 .techb{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:44px;padding:4px 12px;gap:0}
 .techb small{color:var(--sub);font-size:11px;font-weight:700}.techb b{font-size:16px;font-weight:800}.techb.cut b{color:var(--amb)}
 .hsb{display:flex;width:100%;align-items:center;justify-content:space-between;gap:8px;margin:-2px 0 10px;min-height:44px;padding:6px 12px;text-align:left}
@@ -171,7 +173,8 @@ select{font:inherit;font-weight:700;padding:6px 10px;border:1px solid var(--line
     <button class="stat vbtn" id="vB" aria-label="声のオン・オフ"><small>声</small><b id="vBt">オン</b></button>
     <button class="cfgb startf" id="cfgB2" aria-label="最初の集中力を変える">最初の値 <b id="cfgB2v">245</b> を変える</button>
   </div>
-  <div class="hsrow"><button class="hsb" id="hsB" aria-label="必殺(ヘパイトスの炎)の状態"><small>必殺</small><b id="hsBt">なし</b><span id="hsBn">たまったら押す</span></button><button class="techb" id="techB" aria-label="使う技を選ぶ"><small>使う技</small><b id="techBv">15/15</b></button></div>
+  <div class="hsrow"><button class="hsb" id="hsB" aria-label="必殺(ヘパイトスの炎)の状態"><small>必殺</small><b id="hsBt">なし</b><span id="hsBn">たまったら押す</span></button><button class="critb" id="critB" hidden aria-label="直前に叩いたマスが会心だった">今の<br>会心!</button><button class="techb" id="techB" aria-label="使う技を選ぶ"><small>使う技</small><b id="techBv">15/15</b></button></div>
+  <div class="critp" id="critP" hidden></div>
   <div class="board" id="board"></div>
   <div class="msg" id="msg"></div>
   <div class="tres" id="tres" hidden>
@@ -1762,6 +1765,28 @@ function litWarn(a){
   if(!a || !a.t.area || typeof s.lit !== 'number' || s.dead) return '';
   return a.tg.includes(s.lit) ? '' : `⚠ 光ってない方:${tgName(a)}(光ってるのは ${posName(s.lit)})`;
 }
+// ---- 今の会心!: 直前に叩いたマスが会心だった(画面で見分けられなかった時に手で教える) ----
+let critPick = false;
+function critCells(){ return s && s.lastHit && !pend && !Array.isArray(s.lit) ? s.lastHit.cells.filter(c => !c.done && Number.isFinite(c.w)) : []; }
+function applyCrit(j){
+  const c = critCells().find(x => x.j === j); if(!c) return;
+  snap(`${posName(j)}は会心だった`);
+  const z = G.cells[j], k = s.lastHit.cells.find(x => x.j === j);
+  s.bel[j] = GM.critBelief(z, c.v0, c.w, c.bel0, c.rs); k.done = true;
+  critPick = false; save(); recalc(); toast(`${posName(j)}を会心として理想値を絞った`);
+}
+function pressCrit(){
+  const cs = critCells(); if(!cs.length) return;
+  if(cs.length === 1){ applyCrit(cs[0].j); return; }
+  critPick = !critPick; render();
+}
+function renderCrit(){
+  const cs = critCells(), b = $('critB'), p = $('critP');
+  b.hidden = !cs.length; if(!cs.length) critPick = false;
+  p.hidden = !critPick;
+  if(critPick) p.innerHTML = '会心だったマス:' + cs.map(c => `<button data-j="${c.j}">${posName(c.j)}</button>`).join('') + '<button data-j="-1" style="background:var(--chip);color:var(--ink);border-color:var(--line)">やめる</button>';
+  p.querySelectorAll('button').forEach(x => x.onclick = () => { const j = +x.dataset.j; if(j < 0){ critPick = false; render(); } else applyCrit(j); });
+}
 function renderHs(){ const h = s.hs | 0; $('hsBt').textContent = HS_LABEL[h]; $('hsBn').textContent = HS_NOTE[h]; $('hsB').className = 'hsb' + (h ? ' hs' + h : ''); }
 function renderCfg(){
   $('powTest').hidden = !W[item + '_test']; renderTres();
@@ -1770,7 +1795,7 @@ function renderCfg(){
   $('techBv').textContent = `${on}/${n}`; $('techB').classList.toggle('cut', on < n);
 }
 function render(){
-  renderCfg(); renderHs();
+  renderCfg(); renderHs(); renderCrit();
   $('temp').textContent = s.temp; $('focus').textContent = s.F;
   const k = s.first ? 0 : C.tempKind(s.temp), lab = (KIND[G.trait] || {})[k];
   $('kind').textContent = lab || ''; $('kind').className = 'k' + (lab ? ' on' : ''); $('kind').style.display = lab ? '' : 'none';
@@ -1943,6 +1968,8 @@ button{font:inherit;font-weight:800;width:100%;min-height:40px;border-radius:8px
 .hyr{display:flex;flex-direction:column;gap:4px}.hb{border:2px solid;border-radius:8px;background:#20242c;padding:2px 3px;text-align:center}
 .hb .hv{font-size:18px;font-weight:800;font-variant-numeric:tabular-nums;line-height:1.15;white-space:nowrap}.hb .hl{font-size:13px;font-weight:800;color:#ffcf5c;font-variant-numeric:tabular-nums;white-space:nowrap}
 .hb .hn{font-size:10px;color:#adb6c5;font-weight:700;line-height:1.2}
+.cr{display:flex;flex-wrap:wrap;gap:4px;align-items:center;margin:0 0 6px;font-size:12px;font-weight:700;color:#adb6c5}
+.cb{width:auto;flex:1 1 auto;min-height:32px;font-size:13px;color:#0f1115;background:#ff7ad1;border-color:#ff7ad1;padding:2px 8px}.cb.no{flex:none;background:#272c36;border-color:#566074;color:#f4f6f9}
 .hs.hs1{color:#0f1115;background:#ffcf5c;border-color:#ffcf5c}.hs.hs2{color:#0f1115;background:#ff7ad1;border-color:#ff7ad1}`;
 async function openPip(){
   if(pipW){ pipW.focus(); return; }
@@ -2003,16 +2030,22 @@ function renderPip(){
   const q0 = qs && qs[0];
   const alts = q0 && a && !picking && !s.dead && !busy && !(s.hs === 1 && q0.hsPick)
     ? qs.slice(1, 3).map((x, k) => `<button class="alt" data-k="${k + 1}">${actName(x.a)} ${tgName(x.a)} <b>${pct(x.q2 !== undefined ? x.q2 : x.q)}</b></button>`).join('') : '';
+  const ccs = critCells();
+  const critRow = !ccs.length ? '' : critPick
+    ? `<div class="cr">会心:${ccs.map(c => `<button class="cb" data-j="${c.j}">${posName(c.j)}</button>`).join('')}<button class="cb no" data-j="-1">やめる</button></div>`
+    : `<div class="cr"><button class="cb" id="pCrit">今の会心!(${ccs.map(c => posName(c.j)).join('・')})</button></div>`;
   let btn = '';
   if(a && !a.t.area && !picking && !busy && qs) btn = `<div class="row"><button id="pGo">打った</button>${chainN > 1 ? `<button id="pChain">×${chainN}</button>` : ''}</div>`;
   else if(a && a.t.area && !picking && qs) btn = '<div class="why">結果は元の画面で入れる</div>';
-  const main = `<select class="it" id="pItem" aria-label="商材">${$('item').innerHTML}</select>` + head + (lw ? `<div class="lw">${lw}</div>` : '') + `<div class="st">温度 <b>${s.temp}</b>℃ ・ 集中力 <b>${s.F}</b></div>` + hsRow + h + (why ? `<div class="why">${why}</div>` : '') + (alts ? `<div class="alts"><div class="ah">ほかの手</div>${alts}</div>` : '') + btn;
+  const main = `<select class="it" id="pItem" aria-label="商材">${$('item').innerHTML}</select>` + head + (lw ? `<div class="lw">${lw}</div>` : '') + `<div class="st">温度 <b>${s.temp}</b>℃ ・ 集中力 <b>${s.F}</b></div>` + hsRow + critRow + h + (why ? `<div class="why">${why}</div>` : '') + (alts ? `<div class="alts"><div class="ah">ほかの手</div>${alts}</div>` : '') + btn;
   const hy = hayamiHtml();      // 早見は右に並べる(下だと見にくい)
   d.body.innerHTML = `<div class="pw${hy ? '' : ' one'}"><div class="pm">${main}</div>${hy}</div>`;
   const pi = d.getElementById('pItem'); pi.value = item;
   pi.onchange = () => { $('item').value = pi.value; setItem(pi.value, false); };
   const go = d.getElementById('pGo'); if(go) go.onclick = () => startAct(a);
   d.querySelectorAll('.alt').forEach(b => b.onclick = () => startAct(qs[+b.dataset.k].a));
+  const pc = d.getElementById('pCrit'); if(pc) pc.onclick = () => pressCrit();
+  d.querySelectorAll('.cb[data-j]').forEach(x => x.onclick = () => { const j = +x.dataset.j; if(j < 0){ critPick = false; render(); } else applyCrit(j); });
   d.getElementById('pHs').onclick = () => $('hsB').click();     // 本画面の「必殺」と同じ(なし → たまった → 効果中)
   const ch = d.getElementById('pChain'); if(ch) ch.onclick = () => applyChain(a, chainN);
   if(picking) d.querySelectorAll('.c.pick').forEach(e => e.onclick = () => pickLit(+e.dataset.i));
@@ -2304,6 +2337,8 @@ function commitReels(vals){
   }
   snap(pend.a.t.name + 'の結果');
   const a = pend.a, ov = vals && vals.constructor === Object ? vals : null;
+  // 「今の会心!」用に、叩く前の値・見当を残す(会心だったと後から言われたら、ここから絞り直す)
+  s.lastHit = { name: a.t.name, cells: pend.per.map(p => ({ j: p.j, v0: s.v[p.j], bel0: s.bel[p.j].slice(), rs: GM.hitParams(G, s, a.t, p.j).rs })) };
   const hsCrit = s.hs === 2;      // 必殺の後に叩いたマスは全部会心。会心かどうか見分けられなくても、会心として理想値を絞る
   for(const p of pend.per){
     const w = ov && Number.isFinite(ov[p.j]) ? ov[p.j] : p.its[pend.sel[p.j]].w, z = G.cells[p.j];
@@ -2317,6 +2352,7 @@ function commitReels(vals){
       if(tot > 0) s.bel[p.j] = bel.map(x => x / tot);
     }
     s.v[p.j] = w;
+    const lc = s.lastHit.cells.find(c => c.j === p.j); if(lc){ lc.w = w; lc.done = hsCrit; }
     if(GM.overDead(G, p.j, w)) s.dead = true;
   }
   GM.afterAct(G, s, a, null);      // 集中力・温度。光るマスは候補の一覧になる(盤面で選ぶ)
@@ -2394,6 +2430,7 @@ $('power').value = power;
 $('power').onchange = e => { const v = e.target.value; power = v === 'max' || v === 'strong' || v === 'maxTest' ? v : 'normal'; try{ localStorage.setItem(POWER_KEY, power); }catch(e2){} if(power !== 'normal' && window.KajiPool) KajiPool.start(); net = loadNet(item); recalc(); };
 $('vRate').onchange = e => { setVoiceRate(+e.target.value); VC.saidKey = null; announce(true); };
 // 必殺の状態を手で切り替える(なし → たまった → 効果中 → なし)。戻すで戻せる
+$('critB').onclick = () => pressCrit();
 $('hsB').onclick = () => { if(pend) return; snap(); s.hs = ((s.hs | 0) + 1) % 3; save(); recalc(); };
 
 function doReset(){ s = GM.newState(G); hist = []; pend = null; save(); recalc(); }
