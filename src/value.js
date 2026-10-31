@@ -470,12 +470,14 @@ function featLen(G, ver) { return ver === 1 ? G.active.length * 12 + 14 : G.acti
         }
       }
       if (!ok) continue;
-      sc -= 0.5 * c;
+      sc -= (opt.hsCostW === undefined ? 0.5 : opt.hsCostW) * c;
       if (sc > bv) { bv = sc; best = a; }
     }
     // 火力上げ: 温度を上げると使った後の超4連打ちの伸びが大きくなり、寄せる残りが減る(叩かずに届くマスも出る)。
     // 叩く手と同じ物差し(使う時の温度での残りの減り − 0.5×消費)で比べる。opt.hsHeat === false で前の動き
     const kar = opt.hsHeat === false ? null : GAME.legalActs(G, s).find(a => a.t.id === 'karyoku');
+    // 試し: チャージ後に火力上げを先に何回か(opt.hsHeatLeft)。使った後の伸びが大きくなり、寄せる手数が減る
+    if (kar && opt.hsHeatLeft > 0 && s.F - GAME.costOf(G, s, kar.t) - GAME.costOf(G, Object.assign({}, s, { temp: s.temp + kar.t.dT - 50, first: false }), sq) >= reserve) return kar;
     if (kar) {
       const c = GAME.costOf(G, s, kar.t), T2 = s.temp + kar.t.dT - 50;
       if (s.F - c - GAME.costOf(G, Object.assign({}, s, { temp: T2, first: false }), sq) >= reserve) {
