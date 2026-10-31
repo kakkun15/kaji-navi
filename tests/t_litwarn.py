@@ -41,10 +41,18 @@ with sync_playwright() as p:
         if pw:
             pg.evaluate(MUT, kfirst); pg.wait_for_function('!window.__navi.busy && window.__navi.qs'); pg.wait_for_timeout(200)
             pp = [x for x in ctx.pages if x != pg]
-            if pp: pp[0].screenshot(path=f'{OUT}/litwarn_pip.png')
+            if pp:
+                pp[0].screenshot(path=f'{OUT}/litwarn_pip.png')
+                pp[0].set_viewport_size({'width': 380, 'height': 560}); pg.wait_for_timeout(200); pp[0].screenshot(path=f'{OUT}/litwarn_pip_narrow.png')
             txt = pg.evaluate("documentPictureInPicture.window.document.body.innerText")
             print('小窓の注意', '⚠' in txt, '/ 必殺の行', [l for l in txt.split('\n') if l.startswith('必殺')])
             for _ in range(3):
                 pg.evaluate("documentPictureInPicture.window.document.getElementById('pHs').click()"); pg.wait_for_timeout(200)
                 print('  押した → s.hs', pg.evaluate("__navi.s.hs|0"), '本画面', pg.inner_text('#hsBt'), '小窓', pg.evaluate("documentPictureInPicture.window.document.getElementById('pHs').innerText"))
+            alts = pg.evaluate("[...documentPictureInPicture.window.document.querySelectorAll('.alt')].map(b => b.innerText)")
+            main = pg.evaluate("[...document.querySelectorAll('#alts button')].map(b => b.innerText)")
+            print('小窓のほかの手', alts, '/ 本画面', main, '/ 同じ', [x.replace('\n',' ') for x in alts] == [x.replace('\n',' ') for x in main])
+            want = pg.evaluate("__navi.qs[1].a.t.name")
+            pg.evaluate("documentPictureInPicture.window.document.querySelector('.alt').click()"); pg.wait_for_timeout(300)
+            print('ほかの手を押した → 打った手', want, '/ 結果入力が開いた', pg.evaluate("!!__navi.pend"), '/ 温度', pg.evaluate("__navi.s.temp"))
     print('errors', errs); b.close()

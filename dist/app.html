@@ -36,7 +36,9 @@ select{font:inherit;font-weight:700;padding:6px 10px;border:1px solid var(--line
 .vbtn b{font-size:15px}
 .vbtn.off b{color:var(--sub)}
 .vbtn.on b{color:var(--good)}
-.hsrow{display:flex;gap:8px;margin:-2px 0 10px}.hsrow .hsb{margin:0;flex:1;min-width:0}
+.hsrow{display:flex;gap:8px;margin:-2px 0 10px}.critb{flex:none;min-height:44px;padding:2px 10px;font-weight:800;font-size:13px;line-height:1.15;color:#0f1115;background:var(--crit);border:1px solid var(--crit);border-radius:10px}
+.critp{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:-4px 0 10px;font-size:13px;font-weight:700;color:var(--sub)}.critp button{min-height:36px;padding:2px 12px;font-weight:800;color:#0f1115;background:var(--crit);border:1px solid var(--crit);border-radius:8px}
+.hsrow .hsb{margin:0;flex:1;min-width:0}
 .techb{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:44px;padding:4px 12px;gap:0}
 .techb small{color:var(--sub);font-size:11px;font-weight:700}.techb b{font-size:16px;font-weight:800}.techb.cut b{color:var(--amb)}
 .hsb{display:flex;width:100%;align-items:center;justify-content:space-between;gap:8px;margin:-2px 0 10px;min-height:44px;padding:6px 12px;text-align:left}
@@ -171,7 +173,8 @@ select{font:inherit;font-weight:700;padding:6px 10px;border:1px solid var(--line
     <button class="stat vbtn" id="vB" aria-label="声のオン・オフ"><small>声</small><b id="vBt">オン</b></button>
     <button class="cfgb startf" id="cfgB2" aria-label="最初の集中力を変える">最初の値 <b id="cfgB2v">245</b> を変える</button>
   </div>
-  <div class="hsrow"><button class="hsb" id="hsB" aria-label="必殺(ヘパイトスの炎)の状態"><small>必殺</small><b id="hsBt">なし</b><span id="hsBn">たまったら押す</span></button><button class="techb" id="techB" aria-label="使う技を選ぶ"><small>使う技</small><b id="techBv">15/15</b></button></div>
+  <div class="hsrow"><button class="hsb" id="hsB" aria-label="必殺(ヘパイトスの炎)の状態"><small>必殺</small><b id="hsBt">なし</b><span id="hsBn">たまったら押す</span></button><button class="critb" id="critB" hidden aria-label="直前に叩いたマスが会心だった">今の<br>会心!</button><button class="techb" id="techB" aria-label="使う技を選ぶ"><small>使う技</small><b id="techBv">15/15</b></button></div>
+  <div class="critp" id="critP" hidden></div>
   <div class="board" id="board"></div>
   <div class="msg" id="msg"></div>
   <div class="tres" id="tres" hidden>
@@ -1837,6 +1840,28 @@ function litWarn(a){
   if(!a || !a.t.area || typeof s.lit !== 'number' || s.dead) return '';
   return a.tg.includes(s.lit) ? '' : `⚠ 光ってない方:${tgName(a)}(光ってるのは ${posName(s.lit)})`;
 }
+// ---- 今の会心!: 直前に叩いたマスが会心だった(画面で見分けられなかった時に手で教える) ----
+let critPick = false;
+function critCells(){ return s && s.lastHit && !pend && !Array.isArray(s.lit) ? s.lastHit.cells.filter(c => !c.done && Number.isFinite(c.w)) : []; }
+function applyCrit(j){
+  const c = critCells().find(x => x.j === j); if(!c) return;
+  snap(`${posName(j)}は会心だった`);
+  const z = G.cells[j], k = s.lastHit.cells.find(x => x.j === j);
+  s.bel[j] = GM.critBelief(z, c.v0, c.w, c.bel0, c.rs); k.done = true;
+  critPick = false; save(); recalc(); toast(`${posName(j)}を会心として理想値を絞った`);
+}
+function pressCrit(){
+  const cs = critCells(); if(!cs.length) return;
+  if(cs.length === 1){ applyCrit(cs[0].j); return; }
+  critPick = !critPick; render();
+}
+function renderCrit(){
+  const cs = critCells(), b = $('critB'), p = $('critP');
+  b.hidden = !cs.length; if(!cs.length) critPick = false;
+  p.hidden = !critPick;
+  if(critPick) p.innerHTML = '会心だったマス:' + cs.map(c => `<button data-j="${c.j}">${posName(c.j)}</button>`).join('') + '<button data-j="-1" style="background:var(--chip);color:var(--ink);border-color:var(--line)">やめる</button>';
+  p.querySelectorAll('button').forEach(x => x.onclick = () => { const j = +x.dataset.j; if(j < 0){ critPick = false; render(); } else applyCrit(j); });
+}
 function renderHs(){ const h = s.hs | 0; $('hsBt').textContent = HS_LABEL[h]; $('hsBn').textContent = HS_NOTE[h]; $('hsB').className = 'hsb' + (h ? ' hs' + h : ''); }
 function renderCfg(){
   $('powTest').hidden = !W[item + '_test']; renderTres();
@@ -1845,7 +1870,7 @@ function renderCfg(){
   $('techBv').textContent = `${on}/${n}`; $('techB').classList.toggle('cut', on < n);
 }
 function render(){
-  renderCfg(); renderHs();
+  renderCfg(); renderHs(); renderCrit();
   $('temp').textContent = s.temp; $('focus').textContent = s.F;
   const k = s.first ? 0 : C.tempKind(s.temp), lab = (KIND[G.trait] || {})[k];
   $('kind').textContent = lab || ''; $('kind').className = 'k' + (lab ? ' on' : ''); $('kind').style.display = lab ? '' : 'none';
@@ -2002,7 +2027,7 @@ const PIP_CSS = `body{margin:0;background:#0f1115;color:#f4f6f9;font:15px/1.4 sy
 .st{font-size:12px;color:#adb6c5;font-weight:700;margin:2px 0 6px}.st b{color:#f4f6f9}
 .it{display:block;width:100%;font:inherit;font-size:13px;font-weight:800;color:#ffcf5c;background:#20242c;border:1px solid #566074;border-radius:6px;padding:3px 4px;margin-bottom:4px}
 .bd{display:grid;gap:5px;margin-bottom:6px}.c{border:2px solid #566074;border-radius:8px;background:#20242c;text-align:center;padding:2px 0;min-height:40px}
-.c .v{font-size:20px;font-weight:800;font-variant-numeric:tabular-nums}.c .l{font-size:10px;color:#adb6c5;font-weight:700}
+.c .v{font-size:20px;font-weight:800;font-variant-numeric:tabular-nums}.c .zn{font-size:11px;color:#adb6c5;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.1}.c .l{font-size:10px;color:#adb6c5;font-weight:700}
 .c.in{border-color:#3fd98b}.c.in .v{color:#3fd98b}.c.ov{border-color:#ff6b6b}
 .c.hit{border-color:#ff7a14;background:#5a2a08;box-shadow:0 0 0 2px #ff7a14}.c.hit .l{color:#ffb070}
 .c.lit{outline:2px solid #ffcf5c}.c.pick{cursor:pointer;outline:3px dashed #ffcf5c}.c.gap{visibility:hidden}
@@ -2011,14 +2036,47 @@ button{font:inherit;font-weight:800;width:100%;min-height:40px;border-radius:8px
 .row{display:flex;gap:6px}.row button+button{flex:none;width:auto;padding:0 10px}
 .lw{background:#5a1414;border:2px solid #ff6b6b;color:#fff;font-size:14px;font-weight:800;border-radius:8px;padding:3px 8px;margin:2px 0 6px}
 .hs{font-size:13px;font-weight:800;border:1px solid #566074;border-radius:8px;padding:3px 8px;margin:0 0 6px;cursor:pointer;color:#adb6c5;background:#20242c}
+.alts{display:flex;flex-wrap:wrap;gap:5px;margin:0 0 6px}.alts .ah{flex-basis:100%;font-size:11px;color:#adb6c5;font-weight:700}
+.alts .alt{width:auto;flex:1 1 45%;min-height:34px;font-size:13px;background:#272c36;border-color:#566074;color:#f4f6f9;padding:2px 6px}.alts .alt b{color:#ffcf5c}
+.pw{display:grid;grid-template-columns:minmax(0,1fr) 96px;gap:8px;align-items:start}.pw.one{grid-template-columns:1fr}
+.hy .ah{font-size:11px;color:#adb6c5;font-weight:700;margin-bottom:3px;text-align:center}
+.hyr{display:flex;flex-direction:column;gap:4px}.hb{border:2px solid;border-radius:8px;background:#20242c;padding:2px 3px;text-align:center}
+.hb .hv{font-size:18px;font-weight:800;font-variant-numeric:tabular-nums;line-height:1.15;white-space:nowrap}.hb .hl{font-size:13px;font-weight:800;color:#ffcf5c;font-variant-numeric:tabular-nums;white-space:nowrap}
+.hb .hn{font-size:10px;color:#adb6c5;font-weight:700;line-height:1.2}
+.cr{display:flex;flex-wrap:wrap;gap:4px;align-items:center;margin:0 0 6px;font-size:12px;font-weight:700;color:#adb6c5}
+.cb{width:auto;flex:1 1 auto;min-height:32px;font-size:13px;color:#0f1115;background:#ff7ad1;border-color:#ff7ad1;padding:2px 8px}.cb.no{flex:none;background:#272c36;border-color:#566074;color:#f4f6f9}
 .hs.hs1{color:#0f1115;background:#ffcf5c;border-color:#ffcf5c}.hs.hs2{color:#0f1115;background:#ff7ad1;border-color:#ff7ad1}`;
 async function openPip(){
   if(pipW){ pipW.focus(); return; }
-  try{ pipW = await documentPictureInPicture.requestWindow({ width: 240, height: 330 }); }catch(e){ return; }
+  try{ pipW = await documentPictureInPicture.requestWindow({ width: 380, height: 420 }); }catch(e){ return; }
   const st = pipW.document.createElement('style'); st.textContent = PIP_CSS; pipW.document.head.appendChild(st);
   pipW.document.title = '鍛冶ナビ';
   pipW.addEventListener('pagehide', () => { pipW = null; });
   renderPip();
+}
+// 小窓の右の早見: 今の温度で、伸びが同じ技をまとめて、弱い順に上から並べる(最小〜最大。光ったマスがある時は光ったマスの伸びも)
+const HY_COL = ['#8fb8ff', '#5fd3c4', '#8fe36b', '#ffd24a', '#ff9a3d', '#ff6b6b', '#ff7ad1'];
+function hayamiHtml(){
+  if(!G || !s || s.temp <= 0) return '';
+  const lit = typeof s.lit === 'number' && G.trait === 'hikari', seen = new Set(), grp = new Map();
+  for(const a of G.acts){
+    const t = a.t; if(!t.area || t.hs || seen.has(t.id)) continue; seen.add(t.id);
+    const r = C.rolls(t.id, s.temp, C.powerMult(G.trait, s.temp, false, s.first)); if(!r || !r.length) continue;
+    const lo = Math.min(...r), hi = Math.max(...r), k = lo + '-' + hi;
+    if(!grp.has(k)){
+      const rl = lit ? C.rolls(t.id, s.temp, C.powerMult(G.trait, s.temp, true, s.first)) : null;
+      grp.set(k, { lo, hi, ll: rl && rl.length ? Math.min(...rl) : null, lh: rl && rl.length ? Math.max(...rl) : null, names: [] });
+    }
+    grp.get(k).names.push(t.name.replace(/打ち$/, ''));
+  }
+  const L = [...grp.values()].sort((a, b) => a.lo - b.lo || a.hi - b.hi);
+  if(!L.length) return '';
+  const blocks = L.map((g, k) => {
+    const c = HY_COL[Math.round(k * (HY_COL.length - 1) / Math.max(1, L.length - 1))];
+    return `<div class="hb" style="border-color:${c}"><div class="hv" style="color:${c}">${g.lo}〜${g.hi}</div>`
+      + (lit && g.ll !== null ? `<div class="hl">光 ${g.ll}〜${g.lh}</div>` : '') + `<div class="hn">${g.names.join('・')}</div></div>`;
+  }).join('');
+  return `<div class="hy"><div class="ah">早見 ${s.temp}℃</div><div class="hyr">${blocks}</div></div>`;
 }
 function renderPip(){
   if(!pipW || !G || !s) return;
@@ -2036,20 +2094,33 @@ function renderPip(){
     const i = 2*r + c, z = G.cells[i];
     if(!z){ h += '<div class="c gap"></div>'; continue; }
     const v = s.v[i], cls = ['c', v > z[1] ? 'ov' : v >= z[0] ? 'in' : '', tg.includes(i) ? 'hit' : '', s.lit === i ? 'lit' : '', picking && s.lit.includes(i) ? 'pick' : ''].join(' ');
-    h += `<div class="${cls}" data-i="${i}"><div class="l">${posName(i)}${tg.includes(i) ? ' ◀叩く' : ''}</div><div class="v">${v}</div></div>`;
+    h += `<div class="${cls}" data-i="${i}"><div class="l">${posName(i)}${tg.includes(i) ? ' ◀叩く' : ''}</div><div class="v">${v}</div><div class="zn">${z[0]}〜${z[1]}</div></div>`;
   }
   h += '</div>';
   const why = a && !picking && !s.dead && qs ? whyText(a) : '';
   const lw = a && !picking && qs ? litWarn(a) : '';
   const hsv = s.hs | 0;
   const hsRow = `<div class="hs${hsv ? ' hs' + hsv : ''}" id="pHs" role="button" aria-label="必殺の状態を切り替える">必殺:${HS_LABEL[hsv]}<span style="font-weight:700;opacity:.8"> ・ ${HS_NOTE[hsv]}</span></div>`;
+  // ほかの手(本画面と同じ2位・3位)。必殺を温存して寄せている間は出さない(本画面と同じ)
+  const q0 = qs && qs[0];
+  const alts = q0 && a && !picking && !s.dead && !busy && !(s.hs === 1 && q0.hsPick)
+    ? qs.slice(1, 3).map((x, k) => `<button class="alt" data-k="${k + 1}">${actName(x.a)} ${tgName(x.a)} <b>${pct(x.q2 !== undefined ? x.q2 : x.q)}</b></button>`).join('') : '';
+  const ccs = critCells();
+  const critRow = !ccs.length ? '' : critPick
+    ? `<div class="cr">会心:${ccs.map(c => `<button class="cb" data-j="${c.j}">${posName(c.j)}</button>`).join('')}<button class="cb no" data-j="-1">やめる</button></div>`
+    : `<div class="cr"><button class="cb" id="pCrit">今の会心!(${ccs.map(c => posName(c.j)).join('・')})</button></div>`;
   let btn = '';
   if(a && !a.t.area && !picking && !busy && qs) btn = `<div class="row"><button id="pGo">打った</button>${chainN > 1 ? `<button id="pChain">×${chainN}</button>` : ''}</div>`;
   else if(a && a.t.area && !picking && qs) btn = '<div class="why">結果は元の画面で入れる</div>';
-  d.body.innerHTML = `<select class="it" id="pItem" aria-label="商材">${$('item').innerHTML}</select>` + head + (lw ? `<div class="lw">${lw}</div>` : '') + `<div class="st">温度 <b>${s.temp}</b>℃ ・ 集中力 <b>${s.F}</b></div>` + hsRow + h + (why ? `<div class="why">${why}</div>` : '') + btn;
+  const main = `<select class="it" id="pItem" aria-label="商材">${$('item').innerHTML}</select>` + head + (lw ? `<div class="lw">${lw}</div>` : '') + `<div class="st">温度 <b>${s.temp}</b>℃ ・ 集中力 <b>${s.F}</b></div>` + hsRow + critRow + h + (why ? `<div class="why">${why}</div>` : '') + (alts ? `<div class="alts"><div class="ah">ほかの手</div>${alts}</div>` : '') + btn;
+  const hy = hayamiHtml();      // 早見は右に並べる(下だと見にくい)
+  d.body.innerHTML = `<div class="pw${hy ? '' : ' one'}"><div class="pm">${main}</div>${hy}</div>`;
   const pi = d.getElementById('pItem'); pi.value = item;
   pi.onchange = () => { $('item').value = pi.value; setItem(pi.value, false); };
   const go = d.getElementById('pGo'); if(go) go.onclick = () => startAct(a);
+  d.querySelectorAll('.alt').forEach(b => b.onclick = () => startAct(qs[+b.dataset.k].a));
+  const pc = d.getElementById('pCrit'); if(pc) pc.onclick = () => pressCrit();
+  d.querySelectorAll('.cb[data-j]').forEach(x => x.onclick = () => { const j = +x.dataset.j; if(j < 0){ critPick = false; render(); } else applyCrit(j); });
   d.getElementById('pHs').onclick = () => $('hsB').click();     // 本画面の「必殺」と同じ(なし → たまった → 効果中)
   const ch = d.getElementById('pChain'); if(ch) ch.onclick = () => applyChain(a, chainN);
   if(picking) d.querySelectorAll('.c.pick').forEach(e => e.onclick = () => pickLit(+e.dataset.i));
@@ -2105,7 +2176,6 @@ function vUnlock(){
   }catch(e){}
   // 予備: audio 要素も触った時に1回鳴らしておく(Web Audio で流せなかった時に使う)
   try{ if(!VC.el){ VC.el = new Audio(); VC.el.playsInline = true; } if(!VC.primed){ VC.el.src = SILENT_WAV; const p = VC.el.play(); if(p && p.catch) p.catch(() => {}); VC.primed = true; } }catch(e){}
-  try{ if(window.speechSynthesis && !VC.tts){ const u = new SpeechSynthesisUtterance(' '); u.volume = 0; speechSynthesis.speak(u); VC.tts = true; } }catch(e){}
 }
 ['pointerdown', 'touchend', 'click', 'keydown'].forEach(ev => document.addEventListener(ev, vUnlock, { passive: true, capture: true }));
 function clipBytes(text){ const b = atob(AR_CLIPS[text]), u = new Uint8Array(b.length); for(let i = 0; i < b.length; i++) u[i] = b.charCodeAt(i); return u; }
@@ -2121,13 +2191,6 @@ function vStop(){
   try{ if(VC.src){ VC.src.stop(); VC.src = null; } }catch(e){}
   try{ if(VC.el && !VC.el.paused) VC.el.pause(); }catch(e){}
   try{ if(window.speechSynthesis && (speechSynthesis.speaking || speechSynthesis.pending)) speechSynthesis.cancel(); }catch(e){}
-}
-function vTts(text){
-  try{
-    if(!window.speechSynthesis) return false;
-    const u = new SpeechSynthesisUtterance(text), v = speechSynthesis.getVoices().find(x => /^ja/i.test(x.lang));
-    u.lang = 'ja-JP'; u.rate = Math.max(0.5, Math.min(2, voiceRate * 0.95)); if(v) u.voice = v; speechSynthesis.speak(u); return true;
-  }catch(e){ return false; }
 }
 async function vSay(text){
   VC.log.push(text); if(VC.log.length > 40) VC.log.shift();
@@ -2160,8 +2223,7 @@ async function vSay(text){
       VC.el.src = VC.url; VC.el.defaultPlaybackRate = pr; VC.el.playbackRate = pr; await VC.el.play(); VC.how = 'audio'; return;
     }catch(e){}
   }
-  if(seq !== VC.seq) return;
-  if(vTts(text)) VC.how = 'tts';
+  // 録った声(ずんだもん)が無い文は読まない(ブラウザの合成音声は使わない。利用者がずんだもん以外の声を嫌がった)
 }
 // 読み上げの文(収録した文と同じ言い方)
 const YOMI = { tataku: 'たたく', jouge: 'じょうげうち', tekagen: 'てかげんうち', nibai: 'にばいうち', karyoku: 'かりょくあげ',
@@ -2350,6 +2412,8 @@ function commitReels(vals){
   }
   snap(pend.a.t.name + 'の結果');
   const a = pend.a, ov = vals && vals.constructor === Object ? vals : null;
+  // 「今の会心!」用に、叩く前の値・見当を残す(会心だったと後から言われたら、ここから絞り直す)
+  s.lastHit = { name: a.t.name, cells: pend.per.map(p => ({ j: p.j, v0: s.v[p.j], bel0: s.bel[p.j].slice(), rs: GM.hitParams(G, s, a.t, p.j).rs })) };
   const hsCrit = s.hs === 2;      // 必殺の後に叩いたマスは全部会心。会心かどうか見分けられなくても、会心として理想値を絞る
   for(const p of pend.per){
     const w = ov && Number.isFinite(ov[p.j]) ? ov[p.j] : p.its[pend.sel[p.j]].w, z = G.cells[p.j];
@@ -2363,6 +2427,7 @@ function commitReels(vals){
       if(tot > 0) s.bel[p.j] = bel.map(x => x / tot);
     }
     s.v[p.j] = w;
+    const lc = s.lastHit.cells.find(c => c.j === p.j); if(lc){ lc.w = w; lc.done = hsCrit; }
     if(GM.overDead(G, p.j, w)) s.dead = true;
   }
   GM.afterAct(G, s, a, null);      // 集中力・温度。光るマスは候補の一覧になる(盤面で選ぶ)
@@ -2440,6 +2505,7 @@ $('power').value = power;
 $('power').onchange = e => { const v = e.target.value; power = v === 'max' || v === 'strong' || v === 'maxTest' ? v : 'normal'; try{ localStorage.setItem(POWER_KEY, power); }catch(e2){} if(power !== 'normal' && window.KajiPool) KajiPool.start(); net = loadNet(item); recalc(); };
 $('vRate').onchange = e => { setVoiceRate(+e.target.value); VC.saidKey = null; announce(true); };
 // 必殺の状態を手で切り替える(なし → たまった → 効果中 → なし)。戻すで戻せる
+$('critB').onclick = () => pressCrit();
 $('hsB').onclick = () => { if(pend) return; snap(); s.hs = ((s.hs | 0) + 1) % 3; save(); recalc(); };
 
 function doReset(){ s = GM.newState(G); hist = []; pend = null; save(); recalc(); }
