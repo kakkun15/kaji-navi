@@ -109,6 +109,7 @@ fn main(@builtin(workgroup_id) wg: vec3u, @builtin(local_invocation_id) lid: vec
       pu[0] = n; pu[1] = nA; pu[2] = K; pu[3] = seed >>> 0; pf[4] = overPen; pf[5] = toolCrit;
       dev.queue.writeBuffer(bP, 0, pb);
       const T = n * (nA + 1);
+      if (!capL) sizeL(1);
       if (!bg) bindAll();
       // 1) 葉の数
       let e = dev.createCommandEncoder(), ps = e.beginComputePass(); disp(ps, pCount, bg, T); ps.end();
