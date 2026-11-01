@@ -39,6 +39,8 @@ parts = {
     'pool.js': (src / 'pool.js').read_text(),       # PC 向けの並列の読み(Worker)
     'rule0.js': (src / 'rule0.js').read_text(),     # 許容誤差0の商材の仮の打ち方(光のさいほう針)
     'voice.js': (src / 'voice.js').read_text(),     # ずんだもんの声(VOICEVOX:ずんだもん)
+    # GPU 最強(ひだね): WGSL の部品①〜⑤をつないで文字列で埋め込む(gpu/wgsl/)
+    'gpumax.js': 'window.KAJI_GPU_WGSL = ' + json.dumps('\n'.join((root / 'gpu' / 'wgsl' / f'{n}.wgsl').read_text() for n in ['p1_rolls', 'p2_outcomes', 'p3_state', 'p4_features', 'p5_kernel'])) + ';\n' + (src / 'gpumax.js').read_text(),
 }
 wjs = None
 for p in src.glob('*.html'):
