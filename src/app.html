@@ -184,7 +184,7 @@ select{font:inherit;font-weight:700;padding:6px 10px;border:1px solid var(--line
   </div>
   <!--SELF-PANEL-->
   <div class="note">
-    <label class="vrate">計算の強さ <select id="power"><option value="normal">ふつう</option><option value="strong">強(スマホ向け)</option><option value="max">最強(PC向け)</option><option value="maxTest" id="powTest" hidden>最強(テスト中)</option></select></label>
+    <label class="vrate">計算の強さ <select id="power"><option value="normal">ふつう</option><option value="strong">強(スマホ向け)</option><option value="max">最強(PC向け)</option><option value="maxTest" id="powTest" hidden>最強(テスト中)</option><option value="maxGpu" id="powGpu" hidden>最強(GPU)</option></select></label>
     <label class="vrate">声の速さ <select id="vRate"><option value="0.9">ゆっくり</option><option value="1">ややゆっくり</option><option value="1.15">ふつう</option><option value="1.35">はやい</option><option value="1.6">とてもはやい</option><option value="1.9">さらにはやい</option></select></label><br>
     盤面のマス・温度・集中力は押すと手で直せる。<br>
     必殺がたまったら(ゲームのメニューに「ひっさつ」が出たら)「必殺」を押して「たまった」にする。押すたびに なし → たまった → 効果中 と変わる。<br>
@@ -228,6 +228,7 @@ select{font:inherit;font-weight:700;padding:6px 10px;border:1px solid var(--line
 <script src="game.js"></script>
 <script src="value.js"></script>
 <script src="pool.js"></script>
+<script src="gpumax.js"></script>
 <script src="rule0.js"></script>
 <script src="weights.js"></script>
 <script src="voice.js"></script>
@@ -337,7 +338,7 @@ function renderCrit(){
 }
 function renderHs(){ const h = s.hs | 0; $('hsBt').textContent = HS_LABEL[h]; $('hsBn').textContent = HS_NOTE[h]; $('hsB').className = 'hsb' + (h ? ' hs' + h : ''); }
 function renderCfg(){
-  $('powTest').hidden = !W[item + '_test']; renderTres();
+  $('powTest').hidden = !W[item + '_test']; $('powGpu').hidden = !gpuOk(); renderTres();
   $('cfgB2v').textContent = cfg.focus;
   const n = TECH_LIST.length, on = n - offList().length;
   $('techBv').textContent = `${on}/${n}`; $('techB').classList.toggle('cut', on < n);
@@ -610,7 +611,7 @@ const CLIP_BASE = 1.15;
 // 計算の強さ。最強は PC のスレッドを全部使って、上位12手を2手先まで読む(pool.js)
 const POWER_KEY = 'kajiNaviPowerV1';
 let power = 'normal';
-try{ const p = localStorage.getItem(POWER_KEY); if(p === 'max' || p === 'strong' || p === 'maxTest') power = p; }catch(e){}
+try{ const p = localStorage.getItem(POWER_KEY); if(p === 'max' || p === 'strong' || p === 'maxTest' || p === 'maxGpu') power = p; }catch(e){}
 // 最強(テスト中): 最強と同じ読みで、重みだけ試しの物(W[商材+'_test'])にする。試しの重みがある商材だけ選べる
 function isTest(){ return power === 'maxTest' && !!W[item + '_test']; }
 // 超える確率の罰(value.js の overPen)。1 で、同じ局どうしの比べで 大成功はそのまま・超えて失敗が
@@ -742,8 +743,28 @@ function useRule(){ return !net && G && G.T === 0 && !!window.KajiRule0; }
 const PRE = new Map(); PRE.hit = 0;
 function usePool(){ return power !== 'normal' && !MAX_SKIP[item] && !s.hs && window.KajiPool && KajiPool.start(); }
 function preKey(st){ return [item, power, overPen(), G.focus, (G.techs || []).join(','), V.stateKey(st)].join('#'); }
+// ---- 最強(GPU)(2026-11-01): 最強の2段目を GPU でまとめて読む(gpumax.js)。CPU の最強と同じ読み(乱数の引き方だけ違う)。
+// ひだねだけ。WebGPU が無い・失敗した時は CPU の最強で読む
+let GPUM = null, GPUM_KEY = '';
+function gpuOk(){ return typeof navigator !== 'undefined' && !!navigator.gpu && !!window.KajiGPUMax && !!window.KAJI_GPU_WGSL && item === 'hidane' && !!W[item]; }
+function gpuMax(){
+  if(!gpuOk()) return Promise.resolve(null);
+  const k = [item, G.focus, (G.techs || []).join(',')].join('#');
+  if(GPUM && GPUM_KEY === k) return GPUM;
+  GPUM_KEY = k;
+  GPUM = KajiGPUMax.create(window.KAJI_GPU_WGSL, W[item], G).catch(e => { console.error('GPU 最強', e); toast('GPU が使えなかったので、CPU の最強で読む'); return null; });
+  return GPUM;
+}
 function maxFor(st, key){
   const e = PRE.get(key); if(e){ PRE.hit++; return e; }
+  if(power === 'maxGpu' && gpuOk()){
+    const o = Object.assign({}, MAXOPT, { overPen: overPen() }), st2 = GM.cloneState(st), nt = net;
+    const p = gpuMax().then(g => g ? g.evalMax(st2, o, nt).then(r => { r.sort((a, b) => b.q2 - a.q2); return r; })
+      : (KajiPool.start(), KajiPool.setNet(item, W[item]), KajiPool.evalMax({ item, level: G.level, hammer: G.hammer, star: G.star, focus: G.focus, techs: G.techs }, st2, Object.assign({}, o, { tag: key }))).then(r => { if(r) r.sort((a, b) => b.q2 - a.q2); return r; }))
+      .then(r => { if(!r) PRE.delete(key); return r; });
+    PRE.set(key, p); if(PRE.size > 64) PRE.delete(PRE.keys().next().value);
+    return p;
+  }
   const cfgW = { item, level: G.level, hammer: G.hammer, star: G.star, focus: G.focus, techs: G.techs };
   KajiPool.setNet(item, isTest() ? W[item + '_test'] : W[item]);
   const p = KajiPool.evalMax(cfgW, GM.cloneState(st), Object.assign({}, power === 'strong' ? STRONGOPT : MAXOPT, { overPen: overPen(), tag: key }))
@@ -998,7 +1019,7 @@ $('vB').onclick = () => {
 renderVoice();
 $('vRate').value = String(voiceRate);
 $('power').value = power;
-$('power').onchange = e => { const v = e.target.value; power = v === 'max' || v === 'strong' || v === 'maxTest' ? v : 'normal'; try{ localStorage.setItem(POWER_KEY, power); }catch(e2){} if(power !== 'normal' && window.KajiPool) KajiPool.start(); net = loadNet(item); recalc(); };
+$('power').onchange = e => { const v = e.target.value; power = v === 'max' || v === 'strong' || v === 'maxTest' || v === 'maxGpu' ? v : 'normal'; try{ localStorage.setItem(POWER_KEY, power); }catch(e2){} if(power !== 'normal' && window.KajiPool) KajiPool.start(); net = loadNet(item); recalc(); };
 $('vRate').onchange = e => { setVoiceRate(+e.target.value); VC.saidKey = null; announce(true); };
 // 必殺の状態を手で切り替える(なし → たまった → 効果中 → なし)。戻すで戻せる
 $('critB').onclick = () => pressCrit();
