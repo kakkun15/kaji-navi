@@ -64,7 +64,7 @@ fn main(@builtin(workgroup_id) wg: vec3u, @builtin(local_invocation_id) lid: vec
     const C = GPUShaderStage.COMPUTE, RO = { type: 'read-only-storage' }, RW = { type: 'storage' };
     const bgl = dev.createBindGroupLayout({ entries: [{ binding: 0, visibility: C, buffer: { type: 'uniform' } }, { binding: 1, visibility: C, buffer: RO }, { binding: 2, visibility: C, buffer: RO },
       { binding: 3, visibility: C, buffer: RW }, { binding: 4, visibility: C, buffer: RW }, { binding: 5, visibility: C, buffer: RW }, { binding: 6, visibility: C, buffer: RW },
-      { binding: 7, visibility: C, buffer: RW }, { binding: 8, visibility: C, buffer: RO }, { binding: 9, visibility: C, buffer: RW }] });
+      { binding: 7, visibility: C, buffer: RO }, { binding: 8, visibility: C, buffer: RW }] });
     const layout = dev.createPipelineLayout({ bindGroupLayouts: [bgl] });
     const [pCount, pEmit, pComb] = await Promise.all(['count', 'emit', 'combine'].map(e => dev.createComputePipelineAsync({ layout, compute: { module: mod, entryPoint: e } })));
     const mmMod = dev.createShaderModule({ code: MM }), pMM = await dev.createComputePipelineAsync({ layout: 'auto', compute: { module: mmMod, entryPoint: 'main' } });
@@ -79,7 +79,7 @@ fn main(@builtin(workgroup_id) wg: vec3u, @builtin(local_invocation_id) lid: vec
     const bP = dev.createBuffer({ size: 32, usage: GPUBufferUsage.UNIFORM | CD });
     const mmU = [0, 1, 2].map(() => dev.createBuffer({ size: 48, usage: GPUBufferUsage.UNIFORM | CD }));
     const nA = acts.length;
-    let capC = 0, capL = 0, bCH, bCNT, bCST, bOQ, rCNT, rOQ, bX, bLW, bLSP, bH1, bH2, bZ, bg = null, mmBG = null;
+    let capC = 0, capL = 0, bCH, bCNT, bCST, bOQ, rCNT, rOQ, bX, bLWS, bH1, bH2, bZ, bg = null, mmBG = null;
     const sizeC = n => {
       if (n <= capC) return; capC = Math.max(n, 512);
       for (const b of [bCH, bCNT, bCST, bOQ, rCNT, rOQ]) if (b) b.destroy();
@@ -89,11 +89,11 @@ fn main(@builtin(workgroup_id) wg: vec3u, @builtin(local_invocation_id) lid: vec
     };
     const sizeL = L => {
       if (L <= capL) return; capL = Math.max(Math.ceil(L * 1.3), 65536);
-      for (const b of [bX, bLW, bLSP, bH1, bH2, bZ]) if (b) b.destroy();
-      bX = mk(capL * 111, S); bLW = mk(capL, S); bLSP = mk(capL, S); bH1 = mk(capL * H, S); bH2 = mk(capL * H, S); bZ = mk(capL, S); bg = null;
+      for (const b of [bX, bLWS, bH1, bH2, bZ]) if (b) b.destroy();
+      bX = mk(capL * 111, S); bLWS = mk(capL * 2, S); bH1 = mk(capL * H, S); bH2 = mk(capL * H, S); bZ = mk(capL, S); bg = null;
     };
     const bindAll = () => {
-      bg = dev.createBindGroup({ layout: bgl, entries: [bP, bCH, bA, bCNT, bCST, bX, bLW, bLSP, bZ, bOQ].map((b, i) => ({ binding: i, resource: { buffer: b } })) });
+      bg = dev.createBindGroup({ layout: bgl, entries: [bP, bCH, bA, bCNT, bCST, bX, bLWS, bZ, bOQ].map((b, i) => ({ binding: i, resource: { buffer: b } })) });
       const io = [[bX, bH1], [bH1, bH2], [bH2, bZ]];
       mmBG = io.map(([a, c], l) => dev.createBindGroup({ layout: pMM.getBindGroupLayout(0), entries: [mmU[l], a, Wb[l], Bb[l], c].map((b, i) => ({ binding: i, resource: { buffer: b } })) }));
     };

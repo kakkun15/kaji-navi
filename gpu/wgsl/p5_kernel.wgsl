@@ -11,10 +11,9 @@ struct Params { n_child: u32, n_act: u32, k: u32, seed: u32, over_pen: f32, tool
 @group(0) @binding(3) var<storage, read_write> CNT: array<u32>;   // (子 × (手+1)) ごとの葉の数 → emit では始まりの位置
 @group(0) @binding(4) var<storage, read_write> CST: array<f32>;   // (子 × (手+1)) ごとの定数の部分(打てない手は -1e30)
 @group(0) @binding(5) var<storage, read_write> X: array<f32>;     // 葉の特徴(1つ 111)
-@group(0) @binding(6) var<storage, read_write> LW: array<f32>;    // 葉の係数
-@group(0) @binding(7) var<storage, read_write> LSP: array<f32>;   // 葉のやめる確率
-@group(0) @binding(8) var<storage, read> Z: array<f32>;           // 葉のネットの出力(combine で使う)
-@group(0) @binding(9) var<storage, read_write> OQ: array<f32>;    // 答え: (子 × (手+1))。打てない手は -1、最後はやめる確率
+@group(0) @binding(6) var<storage, read_write> LWS: array<f32>;   // 葉の係数(2*i)とやめる確率(2*i+1)
+@group(0) @binding(7) var<storage, read> Z: array<f32>;           // 葉のネットの出力(combine で使う)
+@group(0) @binding(8) var<storage, read_write> OQ: array<f32>;    // 答え: (子 × (手+1))。打てない手は -1、最後はやめる確率
 
 const SW: u32 = 79u;
 fn load_state(i: u32) -> State {
@@ -40,7 +39,7 @@ fn leaf(s: ptr<function, State>, w: f32) {
     let li = base + cnt;
     var f: array<f32, 111>; features(s, &f);
     for (var k = 0u; k < 111u; k++) { X[li * 111u + k] = f[k]; }
-    LW[li] = w; LSP[li] = f[104];          // 特徴の 104 番目がやめる確率(stop_prob)
+    LWS[2u * li] = w; LWS[2u * li + 1u] = f[104];          // 特徴の 104 番目がやめる確率(stop_prob)
   }
   cnt += 1u;
 }
@@ -129,7 +128,7 @@ fn combine(@builtin(global_invocation_id) g: vec3u) {
   var q = c;
   for (var li = CNT[id]; li < CNT[id + 1u]; li++) {      // CNT は emit の前に CPU で累積和(長さ 全体+1)にしてある
     let v = 1.0 / (1.0 + exp(-clamp(Z[li], -30.0, 30.0)));
-    q += LW[li] * max(LSP[li], v);
+    q += LWS[2u * li] * max(LWS[2u * li + 1u], v);
   }
   OQ[id] = q;
 }
