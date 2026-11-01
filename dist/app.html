@@ -2481,7 +2481,7 @@ function maxFor(st, key){
   if(power === 'maxGpu' && gpuOk()){
     const o = Object.assign({}, MAXOPT, { overPen: overPen() }), st2 = GM.cloneState(st), nt = net;
     const p = gpuMax().then(g => g ? g.evalMax(st2, o, nt).then(r => { r.sort((a, b) => b.q2 - a.q2); return r; })
-      : (KajiPool.setNet(item, W[item]), KajiPool.evalMax)({ item, level: G.level, hammer: G.hammer, star: G.star, focus: G.focus, techs: G.techs }, st2, Object.assign({}, o, { tag: key })).then(r => { if(r) r.sort((a, b) => b.q2 - a.q2); return r; }))
+      : (KajiPool.start(), KajiPool.setNet(item, W[item]), KajiPool.evalMax({ item, level: G.level, hammer: G.hammer, star: G.star, focus: G.focus, techs: G.techs }, st2, Object.assign({}, o, { tag: key }))).then(r => { if(r) r.sort((a, b) => b.q2 - a.q2); return r; }))
       .then(r => { if(!r) PRE.delete(key); return r; });
     PRE.set(key, p); if(PRE.size > 64) PRE.delete(PRE.keys().next().value);
     return p;
