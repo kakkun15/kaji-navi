@@ -54,10 +54,16 @@ fn temp_kind(temp: i32) -> i32 {
   return 0;
 }
 
-// 0 -> 倍率1, 1 -> 倍率2
+// 0 -> 倍率1, 1 -> 倍率2, 2 -> 倍率0.5(切り上げ)
 fn power_mult_code(temp: i32, lit: bool, first: bool) -> u32 {
   if (first) { return 0u; }
-  if (lit && temp_kind(temp) != 0) { return 1u; }
+  if (TRAIT == 1u) {                               // たたき変化: 400℃の倍数で2倍・200℃の倍数で半分
+    let k = temp_kind(temp);
+    if (k == 400) { return 1u; }
+    if (k == 200) { return 2u; }
+    return 0u;
+  }
+  if (lit && temp_kind(temp) != 0) { return 1u; }   // 光
   return 0u;
 }
 
@@ -65,6 +71,6 @@ fn crit_rate(ix: u32, temp: i32, lit: bool, first: bool, tool_crit: f32) -> f32 
   if (AREA[ix] == 0) { return 0.0; }
   var bonus: i32 = 0;
   if (AIM[ix] == 1) { bonus = bonus + 6; }
-  if (!first && lit && temp_kind(temp) != 0) { bonus = bonus + 4; }
+  if (TRAIT == 0u && !first && lit && temp_kind(temp) != 0) { bonus = bonus + 4; }   // 光だけ
   return min(1.0, tool_crit * f32(1 + bonus) / 100.0);
 }

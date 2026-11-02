@@ -16,9 +16,7 @@ struct Act {
   cells: array<u32, 4>,
 }
 
-const Z0: array<i32, 6> = array<i32, 6>(180, 250, 210, 250, 210, 145);
-const ZW: array<i32, 6> = array<i32, 6>(11, 9, 7, 9, 7, 11);
-const T_GREAT: i32 = 7;
+// Z0・ZW・T_GREAT・TRAIT は gpumax.js の create() が商材から作って頭に差し込む
 const TEMP_MAX: i32 = 2200;
 
 const MP: array<i32, 16> = array<i32, 16>(
@@ -98,7 +96,7 @@ fn after_act(s: ptr<function, State>, a: Act) {
   (*s).temp = (*s).temp + DT[ix];
   (*s).first = 0u;
   (*s).lit = -1;
-  if ((*s).temp > 0 && ((*s).temp % 200) == 0) {
+  if (TRAIT == 0u && (*s).temp > 0 && ((*s).temp % 200) == 0) {   // 光だけ
     var mask: u32 = 0u;
     for (var i: i32 = 0; i < 6; i = i + 1) {
       if ((*s).v[i] < Z0[i]) { mask = mask | (1u << u32(i)); }
