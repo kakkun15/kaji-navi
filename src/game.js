@@ -122,30 +122,30 @@
   // 火力上げ(+300)の直後の冷やし込み(−300)、冷やし込みの直後の火力上げは、温度が元に戻って集中力を使うだけなので打たない
   // (温度の上限 2200 を越える火力上げは打てないので、この2つを続けると必ず同じ温度に戻る)
   const UNDO = { karyoku: 'hiyashi', hiyashi: 'karyoku' };
+  // 温度が 0℃ になったら強制終了。50℃ で叩く技は打てる(叩いた後に 0℃ で終わる)。叩かない手で 0℃ にするのは意味が無いので打たない
+  function tempOk(t, nt) { return nt >= 0 && nt <= TEMP_MAX && (nt > 0 || !!t.area); }
   function legalActs(G, s) {
-    if (s.dead) return [];
+    if (s.dead || s.temp <= 0) return [];
     const out = [], ban = s.last && UNDO[s.last];
     for (const a of G.acts) {
       if (ban && a.t.id === ban) continue;
       const c = costOf(G, s, a.t);
       if (c > s.F) continue;
-      const nt = s.temp + a.t.dT;
-      if (nt <= 0 || nt > TEMP_MAX) continue;
+      if (!tempOk(a.t, s.temp + a.t.dT)) continue;
       out.push(a);
     }
-    if (s.hs === 1 && s.temp - 50 > 0) out.push(HS_ACT);
+    if (s.hs === 1 && s.temp - 50 > 0) out.push(HS_ACT);   // 必殺は使った後に叩けないと意味が無い
     return out;
   }
   // 打てる手が1つでもあるか(legalActs の早く終わる版。一覧は作らない)
   function hasLegal(G, s) {
-    if (s.dead) return false;
+    if (s.dead || s.temp <= 0) return false;
     if (s.hs === 1 && s.temp - 50 > 0) return true;
     const ban = s.last && UNDO[s.last];
     for (const a of G.acts) {
       if (ban && a.t.id === ban) continue;
       if (costOf(G, s, a.t) > s.F) continue;
-      const nt = s.temp + a.t.dT;
-      if (nt <= 0 || nt > TEMP_MAX) continue;
+      if (!tempOk(a.t, s.temp + a.t.dT)) continue;
       return true;
     }
     return false;

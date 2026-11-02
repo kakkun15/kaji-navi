@@ -70,7 +70,7 @@ fn stop_prob(s: ptr<function, State>) -> f32 {
 }
 
 fn is_legal(s: ptr<function, State>, a: Act) -> bool {
-  if ((*s).dead != 0u) { return false; }
+  if ((*s).dead != 0u || (*s).temp <= 0) { return false; }   // 0℃ で強制終了
   let last: i32 = (*s).last;
   if (last >= 0) {
     if ((last == 4 && a.ix == 10u) || (last == 10 && a.ix == 4u)) { return false; }
@@ -78,7 +78,7 @@ fn is_legal(s: ptr<function, State>, a: Act) -> bool {
   let ix: i32 = i32(a.ix);
   if (MP[ix] > (*s).F) { return false; }
   let nt: i32 = (*s).temp + DT[ix];
-  if (nt <= 0 || nt > TEMP_MAX) { return false; }
+  if (nt < 0 || nt > TEMP_MAX || (nt == 0 && a.ncell == 0u)) { return false; }   // 50℃ で叩く技は打てる
   return true;
 }
 
