@@ -72,7 +72,7 @@ fn stop_prob(s: ptr<function, State>) -> f32 {
 fn is_legal(s: ptr<function, State>, a: Act) -> bool {
   if ((*s).dead != 0u || (*s).temp <= 0) { return false; }   // 0℃ で強制終了
   let last: i32 = (*s).last;
-  if (last >= 0) {
+  if (TRAIT != 0u && last >= 0) {   // 光の地金は火力上げ↔冷やし込みも打つ(光るマスの引き直し)
     if ((last == 4 && a.ix == 10u) || (last == 10 && a.ix == 4u)) { return false; }
   }
   let ix: i32 = i32(a.ix);
