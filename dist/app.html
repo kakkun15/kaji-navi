@@ -1172,6 +1172,10 @@ function featLen(G, ver) { return ver === 1 ? G.active.length * 12 + 14 : G.acti
       if (s.temp - 50 <= 0) return base;
       const s2 = GAME.cloneState(s);
       GAME.afterAct(G, s2, GAME.HS_ACT, null);
+      if (Array.isArray(s2.lit)) {          // 使った後に光る温度なら、光るマスの候補ごとに読んで平均する
+        let m = 0; for (const c of s2.lit) { const t = GAME.cloneState(s2); t.lit = c; m += hsVal(net, G, t, buf, depth, opt); }
+        return Math.max(base, m / s2.lit.length);
+      }
       return Math.max(base, hsVal(net, G, s2, buf, depth, opt));
     }
     // hs === 2
@@ -1286,8 +1290,9 @@ function featLen(G, ver) { return ver === 1 ? G.active.length * 12 + 14 : G.acti
       if (!(pick.a && pick.a.t.area)) {} else pick.q = Math.max(pick.q, actValue(net, G, s, pick.a, deep));
       res.splice(res.indexOf(pick), 1); res.unshift(pick); pick.hsPick = true;
     }
-    // 使った後(−50℃)に叩けない温度で使うことになったら、先に火力上げ(使ってから火力上げするのと集中力は同じ。順番が分かりやすい)
-    if (opt.hsHeat !== false && res[0] && res[0].a && res[0].a.t.hs && s.temp - 100 <= 0) {
+    // 使った後(−50℃)に叩けない温度で使うことになったら、先に火力上げ。50℃ で叩けるようになったので、100℃ では入れ替えない
+    // (100℃ で使えば 50℃ で叩ける。前は火力上げを先に出して、集中力が足りなくなると大成功を逃していた)
+    if (opt.hsHeat !== false && res[0] && res[0].a && res[0].a.t.hs && s.temp - 100 < 0) {
       const k = res.find(x => x.a && x.a.t.id === 'karyoku');
       if (k) { k.q = Math.max(k.q, res[0].q); res.splice(res.indexOf(k), 1); res.unshift(k); k.hsPick = true; }
     }
