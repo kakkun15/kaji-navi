@@ -40,6 +40,7 @@ th{color:var(--sub);font-size:13px}
     <label>スレッド <input id="thr" type="number" min="1" max="32"></label>
     <label>比べる <select id="ma"><option value="normal">ふつう</option><option value="max">最強</option><option value="maxGpu">最強(GPU)</option><option value="wide">超最強(広く)</option><option value="deep">超最強(3手)</option><option value="rule">仮の打ち方</option></select>
       と <select id="mb"><option value="max">最強</option><option value="maxGpu">最強(GPU)</option><option value="normal">ふつう</option><option value="wide">超最強(広く)</option><option value="deep">超最強(3手)</option><option value="rule">仮の打ち方</option></select></label>
+    <label>集中力の余裕 <input id="fma" type="number" min="0" max="30" value="0" style="width:4em"> と <input id="fmb" type="number" min="0" max="30" value="0" style="width:4em"></label>
     <button id="go">始める</button><button class="sec" id="stop" disabled>止める</button>
   </div>
   <div class="bar"><span id="bar"></span></div>
@@ -113,6 +114,8 @@ $('go').onclick = async () => {
   if(W[item]) KajiPool.setNet(item, W[item]);
   const cfg = { item, level: focus >= 253 ? 80 : 79, hammer: 'hikari', star: 3, focus };
   const modes = { normal: $('ma').value, max: $('mb').value };
+  const fmOf = { normal: Math.max(0, +$('fma').value || 0), max: Math.max(0, +$('fmb').value || 0) };   // 集中力の余裕(value.js の focusMargin)
+  const searchOf = (k, mode) => Object.assign(MODES[mode].search(item), fmOf[k] ? { focusMargin: fmOf[k] } : {});
   run = { modes, item, N, seed, focus, hs, thr, t0: performance.now(), res: { normal: blank(), max: blank() }, byG: { normal: [], max: [] }, stopped: false };
   $('go').disabled = true; $('stop').disabled = false;
   const R = run, jobs = [];
@@ -131,12 +134,12 @@ $('go').onclick = async () => {
   };
   for(const k of ['max', 'normal']) if(modes[k] === 'maxGpu'){
     let next = 0;
-    const lane = async () => { while(next < N && R === run && !R.stopped){ const g = next++; await KajiPool.gameGpu({ cfg, seed, g, hs, search: MODES.maxGpu.search(item) }, gpu, W[item], gpuOpt).then(done1(k, g)); } };
+    const lane = async () => { while(next < N && R === run && !R.stopped){ const g = next++; await KajiPool.gameGpu({ cfg, seed, g, hs, search: searchOf(k, 'maxGpu') }, gpu, W[item], gpuOpt).then(done1(k, g)); } };
     for(let i = 0; i < GPU_PAR; i++) jobs.push(lane());
   }
   for(let g = 0; g < N; g++) for(const k of ['max', 'normal']){
     if(modes[k] === 'maxGpu') continue;
-    jobs.push(KajiPool.game({ cfg, seed, g, hs, search: MODES[modes[k]].search(item) }).then(r => {
+    jobs.push(KajiPool.game({ cfg, seed, g, hs, search: searchOf(k, modes[k]) }).then(r => {
       if(R !== run || !r) return;
       const x = R.res[k]; x.n++; x.great += r.great; x.over += r.over; x.under += r.under; x.ms += r.ms; R.byG[k][g] = r.great;
       render();
