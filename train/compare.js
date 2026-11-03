@@ -15,7 +15,7 @@ const t0 = Date.now();
 for (let g = +(process.env.START || 0); g < +(process.env.START || 0) + N; g++) {
   const r = seeded(SEED * 100003 + g);
   const s = GAME.newState(G), ideal = G.cells.map(z => z ? z[0] + Math.floor(r() * (z[1] - z[0] + 1)) : null);
-  const opt = { K: +(process.env.K || 12), N2: +(process.env.N2 || 4), K2: +(process.env.K2 || 8), overPen: +(process.env.OVERPEN || 0), rnd: seeded(SEED * 7 + g), buf: new Float32Array(V.featLen(G, net.ver)) };
+  const opt = { K: +(process.env.K || 12), N2: +(process.env.N2 || 4), K2: +(process.env.K2 || 8), overPen: +(process.env.OVERPEN || 0), focusMargin: +(process.env.FM || 0), rnd: seeded(SEED * 7 + g), buf: new Float32Array(V.featLen(G, net.ver)) };
   for (let k = 0; k < 80 && !s.dead; k++) {
     let best;
     if (DEPTH === 2) { const qs = V.evalActs2(net, G, s, opt); best = qs.reduce((a, b) => b.q2 > a.q2 ? b : a); }
@@ -29,4 +29,4 @@ for (let g = +(process.env.START || 0); g < +(process.env.START || 0) + N; g++) 
 }
 for (const k in st) st[k] = +(st[k] / N).toFixed(3);
 console.log(JSON.stringify({ item, wfile, N, SEED, DEPTH, ...st, sec: ((Date.now() - t0) / N / 1000).toFixed(2) }));
-fs.writeFileSync(`${__dirname}/res_${item}_${require('path').basename(wfile)}_${SEED}_${DEPTH}${process.env.OVERPEN ? '_p' + process.env.OVERPEN : ''}${process.env.START ? '_s' + process.env.START : ''}.txt`, res.join(''));
+fs.writeFileSync(`${__dirname}/res_${item}_${require('path').basename(wfile)}_${SEED}_${DEPTH}${process.env.OVERPEN ? '_p' + process.env.OVERPEN : ''}${process.env.START ? '_s' + process.env.START : ''}${process.env.FM ? '_fm' + process.env.FM : ''}.txt`, res.join(''));

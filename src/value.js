@@ -204,7 +204,7 @@ function featLen(G, ver) { return ver === 1 ? G.active.length * 12 + 14 : G.acti
   // ---- 1手先読み --------------------------------------------------------
   // 手 a を打った後の見積もりの期待値。1マスの手は結果を全部数え、複数マスの手は K 通り引いて平均する。
   function actValue(net, G, s, a, opt) {
-    const K = opt.K || 12, rnd = opt.rnd, buf = opt.buf, leaf = opt.leaf || terminalOr;
+    const K = opt.K || 12, rnd = opt.rnd, buf = opt.buf, leaf = opt.leaf || (opt.focusMargin ? marginLeaf(opt.focusMargin) : terminalOr);
     const evalAfter = (s2) => {
       // 光ったマスは打った後に決まる。候補ごとに平均する
       if (Array.isArray(s2.lit)) {
@@ -261,6 +261,16 @@ function featLen(G, ver) { return ver === 1 ? G.active.length * 12 + 14 : G.acti
     if (s.dead) return 0;
     if (!GAME.hasLegal(G, s)) return GAME.stopProb(G, s);
     return valueOf(net, G, s, buf);
+  }
+  // 集中力を少なめに見積もる(opt.focusMargin = m): 葉の局面だけ集中力を F−m としてネットと打てる手の判定に渡す。実際の局面は変えない
+  const _ml = {};
+  function marginLeaf(m) {
+    return _ml[m] || (_ml[m] = (net, G, s, buf) => {
+      if (s.dead) return 0;
+      const F = s.F; s.F = Math.max(0, F - m);
+      const r = terminalOr(net, G, s, buf);
+      s.F = F; return r;
+    });
   }
   // 全部の手の値。stop は今やめる
   // 「やめる」は最後に置く。同点なら打つ手が選ばれる(見積もりが全部0の時に、何もせずにやめる癖がつかないように)
