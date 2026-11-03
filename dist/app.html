@@ -2098,6 +2098,11 @@ function renderCrit(){
   if(critPick) p.innerHTML = '会心だったマス:' + cs.map(c => `<button data-j="${c.j}">${posName(c.j)}</button>`).join('') + '<button data-j="-1" style="background:var(--chip);color:var(--ink);border-color:var(--line)">やめる</button>';
   p.querySelectorAll('button').forEach(x => x.onclick = () => { const j = +x.dataset.j; if(j < 0){ critPick = false; render(); } else applyCrit(j); });
 }
+// 小窓のマスの下の行: 理想値が絞れていれば「理想値 ○」、そうでなければゾーン(2026-11-03)
+function pipBel(i, z){
+  const nz = s.bel[i].map((p, q) => p > 1e-9 ? z[0] + q : null).filter(x => x !== null);
+  return nz.length && nz.length < s.bel[i].length ? (nz.length === 1 ? `理想値 ${nz[0]}` : `理想値 ${nz[0]}〜${nz[nz.length-1]}`) : `${z[0]}〜${z[1]}`;
+}
 function renderHs(){ const h = s.hs | 0; $('hsBt').textContent = HS_LABEL[h]; $('hsBn').textContent = HS_NOTE[h]; $('hsB').className = 'hsb' + (h ? ' hs' + h : ''); }
 function renderCfg(){
   $('powTest').hidden = !W[item + '_test']; $('powGpu').hidden = !gpuOk(); renderTres();
@@ -2330,7 +2335,7 @@ function renderPip(){
     const i = 2*r + c, z = G.cells[i];
     if(!z){ h += '<div class="c gap"></div>'; continue; }
     const v = s.v[i], cls = ['c', v > z[1] ? 'ov' : v >= z[0] ? 'in' : '', tg.includes(i) ? 'hit' : '', s.lit === i ? 'lit' : '', picking && s.lit.includes(i) ? 'pick' : ''].join(' ');
-    h += `<div class="${cls}" data-i="${i}"><div class="l">${posName(i)}${tg.includes(i) ? ' ◀叩く' : ''}</div><div class="v">${v}</div><div class="zn">${z[0]}〜${z[1]}</div></div>`;
+    h += `<div class="${cls}" data-i="${i}"><div class="l">${posName(i)}${tg.includes(i) ? ' ◀叩く' : ''}</div><div class="v">${v}</div><div class="zn">${pipBel(i, z)}</div></div>`;
   }
   h += '</div>';
   const why = a && !picking && !s.dead && qs ? whyText(a) : '';
@@ -2720,7 +2725,12 @@ $('board').addEventListener('click', e => {
   const c = e.target.closest('.cell'); if(!c || c.classList.contains('gap')) return;
   const i = +c.dataset.i;
   if(Array.isArray(s.lit)){ if(s.lit.includes(i)) pickLit(i); return; }
-  askNum(`${posName(i)}の値`, s.v[i], v => { snap(`${posName(i)}の値の手直し`); s.v[i] = v; s.dead = GM.overDead(G, i, v); s.first = false; save(); recalc(); });
+  askNum(`${posName(i)}の値`, s.v[i], v => { snap(`${posName(i)}の値の手直し`);
+    // 必殺の効果中に値が増えた = 必殺の後のひと打ち(必ず会心)。ゾーン内なら理想値とみなし、必殺は使い終わり(2026-11-03)。
+    // 複数マスの技の結果を1マスずつ直すこともあるので、次に集中力が減る(次の手を打つ)までは、ほかのマスの手直しも同じに扱う
+    const z = G.cells[i], hsHit = (s.hs | 0) === 2 || s.hsEditF === s.F;
+    if(hsHit && v > s.v[i] && v >= z[0] && v <= z[1]){ s.bel[i] = s.bel[i].map((_, q) => z[0] + q === v ? 1 : 0); s.hs = 0; s.hsEditF = s.F; }
+    s.v[i] = v; s.dead = GM.overDead(G, i, v); s.first = false; save(); recalc(); });
 });
 $('stTemp').onclick = () => askNum('温度(℃)', s.temp, v => { snap('温度の手直し'); s.temp = Math.round(v / 50) * 50; s.first = s.first && s.temp === 1000; s.lit = null; s.last = null;
   if(G.trait === 'hikari' && !s.first && s.temp % 200 === 0){ const c = G.active.filter(i => s.v[i] < G.cells[i][0]); if(c.length) s.lit = c; }
