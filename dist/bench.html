@@ -1742,7 +1742,7 @@ function render(){
   const R = run, done = R.res.normal.n + R.res.max.n, total = R.N * 2;
   $('bar').style.width = (done / total * 100) + '%';
   const el = (performance.now() - R.t0) / 1000, eta = done ? el / done * (total - done) : 0;
-  $('prog').textContent = `${done} / ${total} 局(${R.N}局×2通り) 経過 ${Math.round(el / 60)}分` + (done < total && done ? ` ・ 残り約 ${Math.round(eta / 60)}分` : '') + (R.stopped ? ' ・ 止めた' : done >= total ? ' ・ 終わった' : '');
+  $('prog').textContent = `${done} / ${total} 局(${R.N}局×2通り) 経過 ${Math.round(el / 60)}分` + (done < total && done ? ` ・ 残り約 ${Math.round(eta / 60)}分` : '') + (R.gpuReset ? ` ・ GPU を作り直した ${R.gpuReset}回` : '') + (R.stopped ? ' ・ 止めた' : done >= total ? ' ・ 終わった' : '');
   $('tb').innerHTML = ['normal', 'max'].map(k => { const x = R.res[k];
     return `<tr><td>${MODES[R.modes[k]].name}</td><td>${x.n}</td><td class="big">${pct(x.great, x.n)}</td><td>${pct(x.over, x.n)}</td><td>${pct(x.under, x.n)}</td><td>${x.n ? (x.ms / x.n / 1000).toFixed(1) + '秒' : '—'}</td></tr>`; }).join('');
   // 両方打ち終わった局どうしで比べる
@@ -1787,7 +1787,17 @@ $('go').onclick = async () => {
   };
   for(const k of ['max', 'normal']) if(modes[k] === 'maxGpu'){
     let next = 0;
-    const lane = async () => { while(next < N && R === run && !R.stopped){ const g = next++; await KajiPool.gameGpu({ cfg, seed, g, hs, search: searchOf(k, 'maxGpu') }, gpu, W[item], gpuOpt).then(done1(k, g)); } };
+    const lane = async () => { while(next < N && R === run && !R.stopped){ const g = next++;
+      // GPU が止まった時(Windows の GPU のリセット DXGI_ERROR_DEVICE_HUNG など)は、GPU を作り直して同じ局を最初から(局は種で決まるので同じ局になる)
+      for(let tries = 0; ; tries++){
+        const gg = gpu;
+        try{ await KajiPool.gameGpu({ cfg, seed, g, hs, search: searchOf(k, 'maxGpu') }, gg, W[item], gpuOpt).then(done1(k, g)); break; }
+        catch(e){
+          console.error('最強(GPU)', g, e); if(tries >= 3 || R !== run || R.stopped) throw e;
+          if(gpu === gg) gpu = KajiGPUMax.create(window.KAJI_GPU_WGSL, W[item], KajiGame.setup(cfg)).then(x => { R.gpuReset = (R.gpuReset || 0) + 1; return x; });
+          gpu = await gpu;
+        }
+      } } };
     for(let i = 0; i < GPU_PAR; i++) jobs.push(lane());
   }
   for(let g = 0; g < N; g++) for(const k of ['max', 'normal']){

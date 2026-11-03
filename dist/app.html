@@ -2540,8 +2540,11 @@ function maxFor(st, key){
   const e = PRE.get(key); if(e){ PRE.hit++; return e; }
   if(power === 'maxGpu' && gpuOk()){
     const o = Object.assign({}, MAXOPT, { overPen: overPen(), focusMargin: focusMargin() }), st2 = GM.cloneState(st), nt = net;
+    const cpu = () => (KajiPool.start(), KajiPool.setNet(item, W[item]), KajiPool.evalMax({ item, level: G.level, hammer: G.hammer, star: G.star, focus: G.focus, techs: G.techs }, st2, Object.assign({}, o, { tag: key }))).then(r => { if(r) r.sort((a, b) => b.q2 - a.q2); return r; });
+    // GPU が止まった(Windows の GPU のリセットなど)時は、次から作り直すことにして、この局面は CPU の最強で読む
     const p = gpuMax().then(g => g ? g.evalMax(st2, o, nt).then(r => { r.sort((a, b) => b.q2 - a.q2); return r; })
-      : (KajiPool.start(), KajiPool.setNet(item, W[item]), KajiPool.evalMax({ item, level: G.level, hammer: G.hammer, star: G.star, focus: G.focus, techs: G.techs }, st2, Object.assign({}, o, { tag: key }))).then(r => { if(r) r.sort((a, b) => b.q2 - a.q2); return r; }))
+        .catch(e => { console.error('GPU 最強', e); if(GPUM_KEY) { GPUM = null; GPUM_KEY = null; toast('GPU が止まったので CPU で読む'); } return cpu(); })
+      : cpu())
       .then(r => { if(!r) PRE.delete(key); return r; });
     PRE.set(key, p); if(PRE.size > 64) PRE.delete(PRE.keys().next().value);
     return p;
