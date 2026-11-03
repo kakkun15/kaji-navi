@@ -275,9 +275,24 @@ function featLen(G, ver) { return ver === 1 ? G.active.length * 12 + 14 : G.acti
   }
   // 全部の手の値。stop は今やめる
   // 「やめる」は最後に置く。同点なら打つ手が選ばれる(見積もりが全部0の時に、何もせずにやめる癖がつかないように)
+  // 回り道の損(opt.stepPen = λ、試し 2026-11-03): ゾーンに届いていないマスを伸ばす量が少ない手ほど λ まで引く(大胆な手を選びやすく、手数を減らす)。
+  // 温度だけの技は λ。叩く技は、届いていないマスの「ゾーンの下限までの足りない量」を減らす見込みが stepRef(既定 15)以上なら 0。
+  // 叩くマスが全部ゾーンに入っている(合わせる)手は 0。
+  function stepPenalty(G, s, a, opt) {
+    const lam = opt.stepPen; if (!lam) return 0;
+    if (!a.t.area) return lam;
+    let prog = 0, any = false;
+    for (const j of a.tg) {
+      const lo = G.cells[j][0]; if (s.v[j] >= lo) continue;
+      any = true;
+      const { rs, cr } = GAME.hitParams(G, s, a.t, j);
+      for (const o of GAME.massOutcomes(G.cells[j], s.v[j], s.bel[j], rs, cr)) prog += o.p * (Math.min(o.w, lo) - s.v[j]);
+    }
+    return any ? lam * Math.max(0, 1 - prog / (opt.stepRef || 15)) : 0;
+  }
   function evalActs(net, G, s, opt) {
     const res = [];
-    for (const a of GAME.legalActs(G, s)) res.push({ a, q: actValue(net, G, s, a, opt) });
+    for (const a of GAME.legalActs(G, s)) res.push({ a, q: actValue(net, G, s, a, opt) - stepPenalty(G, s, a, opt) });
     res.push({ a: null, q: GAME.stopProb(G, s) });
     return res;
   }

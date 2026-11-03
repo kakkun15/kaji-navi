@@ -10,18 +10,18 @@ const j = JSON.parse(fs.readFileSync(wfile));
 const G = GAME.setup({ item, level: +(process.env.LEVEL || 75), hammer: 'hikari', star: 3, focus: +(process.env.FOCUS || 242) });
 const net = { sizes: j.sizes, L: j.L.map(l => ({ n: l.n, m: l.m, W: Float32Array.from(l.W), b: Float32Array.from(l.b) })) };
 net.ver = j.sizes[0] === V.featLen(G, 1) ? 1 : j.sizes[0] === V.featLen(G, 3) ? 3 : 2;
-const st = { great: 0, over: 0, under: 0, errfail: 0 }; const res = [], kinds = [];
+const st = { great: 0, over: 0, under: 0, errfail: 0, moves: 0 }; const res = [], kinds = [];
 const t0 = Date.now();
 for (let g = +(process.env.START || 0); g < +(process.env.START || 0) + N; g++) {
   const r = seeded(SEED * 100003 + g);
   const s = GAME.newState(G), ideal = G.cells.map(z => z ? z[0] + Math.floor(r() * (z[1] - z[0] + 1)) : null);
-  const opt = { K: +(process.env.K || 12), N2: +(process.env.N2 || 4), K2: +(process.env.K2 || 8), overPen: +(process.env.OVERPEN || 0), focusMargin: +(process.env.FM || 0), rnd: seeded(SEED * 7 + g), buf: new Float32Array(V.featLen(G, net.ver)) };
+  const opt = { K: +(process.env.K || 12), N2: +(process.env.N2 || 4), K2: +(process.env.K2 || 8), overPen: +(process.env.OVERPEN || 0), focusMargin: +(process.env.FM || 0), stepPen: +(process.env.SP || 0), stepRef: +(process.env.SR || 15), rnd: seeded(SEED * 7 + g), buf: new Float32Array(V.featLen(G, net.ver)) };
   for (let k = 0; k < 80 && !s.dead; k++) {
     let best;
     if (DEPTH === 2) { const qs = V.evalActs2(net, G, s, opt); best = qs.reduce((a, b) => b.q2 > a.q2 ? b : a); }
     else { const qs = V.evalActs(net, G, s, opt); best = qs.reduce((a, b) => b.q > a.q ? b : a); }
     if (!best.a) break;
-    GAME.play(G, s, best.a, ideal, r);
+    GAME.play(G, s, best.a, ideal, r); st.moves++;
   }
   const jj = GAME.judge(G, s, ideal);
   res.push(jj.great ? 1 : 0); kinds.push(jj.great ? 'g' : jj.over ? 'o' : !jj.reached ? 'u' : 'e');
@@ -29,5 +29,5 @@ for (let g = +(process.env.START || 0); g < +(process.env.START || 0) + N; g++) 
 }
 for (const k in st) st[k] = +(st[k] / N).toFixed(3);
 console.log(JSON.stringify({ item, wfile, N, SEED, DEPTH, ...st, sec: ((Date.now() - t0) / N / 1000).toFixed(2) }));
-fs.writeFileSync(`${__dirname}/res_${item}_${require('path').basename(wfile)}_${SEED}_${DEPTH}${process.env.OVERPEN ? '_p' + process.env.OVERPEN : ''}${process.env.START ? '_s' + process.env.START : ''}${process.env.FM ? '_fm' + process.env.FM : ''}.txt`, res.join(''));
+fs.writeFileSync(`${__dirname}/res_${item}_${require('path').basename(wfile)}_${SEED}_${DEPTH}${process.env.OVERPEN ? '_p' + process.env.OVERPEN : ''}${process.env.START ? '_s' + process.env.START : ''}${process.env.FM ? '_fm' + process.env.FM : ''}${process.env.SP ? '_sp' + process.env.SP : ''}.txt`, res.join(''));
 if (process.env.KINDS) fs.writeFileSync(process.env.KINDS, kinds.join(''));   // 局ごとの結果の種類 g 大成功・e 誤差で失敗・u 届かず・o 超え
