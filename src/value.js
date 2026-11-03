@@ -204,7 +204,7 @@ function featLen(G, ver) { return ver === 1 ? G.active.length * 12 + 14 : G.acti
   // ---- 1手先読み --------------------------------------------------------
   // 手 a を打った後の見積もりの期待値。1マスの手は結果を全部数え、複数マスの手は K 通り引いて平均する。
   function actValue(net, G, s, a, opt) {
-    const K = opt.K || 12, rnd = opt.rnd, buf = opt.buf, leaf = opt.leaf || terminalOr;
+    const K = opt.K || 12, rnd = opt.rnd, buf = opt.buf, leaf = opt.leaf || (opt.focusMargin ? marginLeaf(opt.focusMargin) : terminalOr);
     const evalAfter = (s2) => {
       // 光ったマスは打った後に決まる。候補ごとに平均する
       if (Array.isArray(s2.lit)) {
@@ -262,6 +262,17 @@ function featLen(G, ver) { return ver === 1 ? G.active.length * 12 + 14 : G.acti
     if (!GAME.hasLegal(G, s)) return GAME.stopProb(G, s);
     return valueOf(net, G, s, buf);
   }
+  // 集中力を少なめに見積もる(opt.focusMargin = m): 葉の局面だけ集中力を F−m としてネットと打てる手の判定に渡す。実際の局面は変えない
+  const cutF = (s, m) => { if (m) s.F = Math.max(0, s.F - m); return s; };
+  const _ml = {};
+  function marginLeaf(m) {
+    return _ml[m] || (_ml[m] = (net, G, s, buf) => {
+      if (s.dead) return 0;
+      const F = s.F; s.F = Math.max(0, F - m);
+      const r = terminalOr(net, G, s, buf);
+      s.F = F; return r;
+    });
+  }
   // 全部の手の値。stop は今やめる
   // 「やめる」は最後に置く。同点なら打つ手が選ばれる(見積もりが全部0の時に、何もせずにやめる癖がつかないように)
   function evalActs(net, G, s, opt) {
@@ -279,7 +290,9 @@ function featLen(G, ver) { return ver === 1 ? G.active.length * 12 + 14 : G.acti
     // 2手読みでは、打った後の局面が同じになることが1〜2割ある(同じ結果を引いた時・会心でない伸びが同じ時など)
     const tt = opt.tt || (opt.tt = new Map());
     // 葉(2手目)の1手読みだけ軽くできる: leafK(複数マスの手の引く数)・leafPen(超える罰。葉は手の比べだけなので切ってよい)
-    const lopt = (opt.leafK || opt.leafPen !== undefined) ? (opt._lopt || (opt._lopt = Object.assign({}, opt, { K: opt.leafK || opt.K, overPen: opt.leafPen !== undefined ? opt.leafPen : opt.overPen }))) : opt;
+    // 集中力の余裕(focusMargin): 1手目の後の局面の集中力を F−m にして、そこから1手読み(葉では引かない)。1手読みの葉で引くのと同じ意味
+    const fm = opt.focusMargin || 0;
+    const lopt = (opt.leafK || opt.leafPen !== undefined || fm) ? (opt._lopt || (opt._lopt = Object.assign({}, opt, { K: opt.leafK || opt.K, overPen: opt.leafPen !== undefined ? opt.leafPen : opt.overPen, focusMargin: 0 }))) : opt;
     const best1 = (s2) => {
       if (s2.dead) return 0;
       if (Array.isArray(s2.lit)) {
@@ -296,14 +309,14 @@ function featLen(G, ver) { return ver === 1 ? G.active.length * 12 + 14 : G.acti
       return m;
     };
     let sum = 0, wsum = 0;
-    if (!a.t.area) { const s2 = GAME.cloneState(s); GAME.afterAct(G, s2, a, null); sum = best1(s2); wsum = 1; }
+    if (!a.t.area) { const s2 = GAME.cloneState(s); GAME.afterAct(G, s2, a, null); sum = best1(cutF(s2, fm)); wsum = 1; }
     else if (a.tg.length === 1) {
       const j = a.tg[0], { rs, cr } = GAME.hitParams(G, s, a.t, j);
       for (const o of GAME.massOutcomes(G.cells[j], s.v[j], s.bel[j], rs, cr)) {
         wsum += o.p;
         if (GAME.overDead(G, j, o.w)) continue;
         const s2 = GAME.cloneState(s); s2.v[j] = o.w; s2.bel[j] = o.bel;
-        GAME.afterAct(G, s2, a, null); sum += o.p * best1(s2);
+        GAME.afterAct(G, s2, a, null); sum += o.p * best1(cutF(s2, fm));
       }
     } else {
       const per = a.tg.map(j => { const { rs, cr } = GAME.hitParams(G, s, a.t, j); return { j, outs: GAME.massOutcomes(G.cells[j], s.v[j], s.bel[j], rs, cr) }; });
@@ -315,7 +328,7 @@ function featLen(G, ver) { return ver === 1 ? G.active.length * 12 + 14 : G.acti
           s2.v[j] = o.w; s2.bel[j] = o.bel; if (GAME.overDead(G, j, o.w)) s2.dead = true;
         }
         wsum += 1;
-        if (!s2.dead) { GAME.afterAct(G, s2, a, null); sum += best1(s2); }
+        if (!s2.dead) { GAME.afterAct(G, s2, a, null); sum += best1(cutF(s2, fm)); }
       }
     }
     // 超える確率の罰(actValue と同じ。2手読みの1手目にも掛ける)
@@ -337,7 +350,8 @@ function featLen(G, ver) { return ver === 1 ? G.active.length * 12 + 14 : G.acti
   }
   function act2Part(net, G, s, a, opt, part) {
     const rnd = opt.rnd, tt = opt.tt || (opt.tt = new Map());
-    const lopt = (opt.leafK || opt.leafPen !== undefined) ? Object.assign({}, opt, { K: opt.leafK || opt.K, overPen: opt.leafPen !== undefined ? opt.leafPen : opt.overPen }) : opt;
+    const fm = opt.focusMargin || 0;
+    const lopt = (opt.leafK || opt.leafPen !== undefined || fm) ? Object.assign({}, opt, { K: opt.leafK || opt.K, overPen: opt.leafPen !== undefined ? opt.leafPen : opt.overPen, focusMargin: 0 }) : opt;
     const best1 = (s2) => {
       if (s2.dead) return 0;
       if (Array.isArray(s2.lit)) { const cand = s2.lit; let sum = 0; for (const c of cand) { s2.lit = c; sum += best1(s2); } s2.lit = cand; return sum / cand.length; }
@@ -346,14 +360,14 @@ function featLen(G, ver) { return ver === 1 ? G.active.length * 12 + 14 : G.acti
       if (tt.size > 200000) tt.clear(); tt.set(key, m); return m;
     };
     let sum = 0, wsum = 0;
-    if (!a.t.area) { const s2 = GAME.cloneState(s); GAME.afterAct(G, s2, a, null); sum = best1(s2); wsum = 1; }
+    if (!a.t.area) { const s2 = GAME.cloneState(s); GAME.afterAct(G, s2, a, null); sum = best1(cutF(s2, fm)); wsum = 1; }
     else if (a.tg.length === 1) {
       const j = a.tg[0], { rs, cr } = GAME.hitParams(G, s, a.t, j), outs = GAME.massOutcomes(G.cells[j], s.v[j], s.bel[j], rs, cr);
       for (let k = part.lo; k < Math.min(part.hi, outs.length); k++) {
         const o = outs[k]; wsum += o.p;
         if (GAME.overDead(G, j, o.w)) continue;
         const s2 = GAME.cloneState(s); s2.v[j] = o.w; s2.bel[j] = o.bel;
-        GAME.afterAct(G, s2, a, null); sum += o.p * best1(s2);
+        GAME.afterAct(G, s2, a, null); sum += o.p * best1(cutF(s2, fm));
       }
     } else {
       const per = a.tg.map(j => { const { rs, cr } = GAME.hitParams(G, s, a.t, j); return { j, outs: GAME.massOutcomes(G.cells[j], s.v[j], s.bel[j], rs, cr) }; });
@@ -365,7 +379,7 @@ function featLen(G, ver) { return ver === 1 ? G.active.length * 12 + 14 : G.acti
           s2.v[j] = o.w; s2.bel[j] = o.bel; if (GAME.overDead(G, j, o.w)) s2.dead = true;
         }
         wsum += 1;
-        if (!s2.dead) { GAME.afterAct(G, s2, a, null); sum += best1(s2); }
+        if (!s2.dead) { GAME.afterAct(G, s2, a, null); sum += best1(cutF(s2, fm)); }
       }
     }
     let pen = 0;
@@ -601,7 +615,7 @@ function featLen(G, ver) { return ver === 1 ? G.active.length * 12 + 14 : G.acti
     return res;
   }
 
-  const VALUE = { trimIdle, act2Value, act2Part, act2Parts, stateKey, act3Value, evalActs3, hsVal, evalActsHS, PER_MASS, GLOBAL, featLen, features, makeNet, forward, sigmoid, valueOf, actValue, evalActs, evalActs2, terminalOr };
+  const VALUE = { cutF, trimIdle, act2Value, act2Part, act2Parts, stateKey, act3Value, evalActs3, hsVal, evalActsHS, PER_MASS, GLOBAL, featLen, features, makeNet, forward, sigmoid, valueOf, actValue, evalActs, evalActs2, terminalOr };
   if (isNode) module.exports = VALUE;
   else root.KajiValue = VALUE;
 })(typeof window !== 'undefined' ? window : globalThis);

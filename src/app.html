@@ -494,7 +494,7 @@ let chainN = 0;
 function calcChain(a){
   let t = GM.cloneState(s), k = 0;
   const rule = useRule();
-  const opt = rule ? null : { K: 8, overPen: overPen(), rnd: seeded(777), buf: new Float32Array(V.featLen(G, net.ver)) };
+  const opt = rule ? null : { K: 8, overPen: overPen(), focusMargin: focusMargin(), rnd: seeded(777), buf: new Float32Array(V.featLen(G, net.ver)) };
   while(k < 6){
     GM.afterAct(G, t, a, null); k++;
     if(Array.isArray(t.lit) || t.F < GM.costOf(G, t, a.t)) break;
@@ -638,6 +638,12 @@ const OVER_PEN = 1;
 // (片方だけ大成功 8局 / 25局)。超えて失敗は 0.5% → 0.8% と少しだけ増える
 const OVER_PEN_MAP = { hidane: 0.6, pot: 0.6, orb: 0 };   // 虹色のオーブは超えても戻りで戻せるので、超える罰は無し
 function overPen(){ return OVER_PEN_MAP[item] ?? OVER_PEN; }
+// 集中力の余裕(value.js の focusMargin): 打った後の局面の集中力を F−m と少なめに見積もる(届かずで火種0個を減らす)。
+// ひだね: 1手読み・同じ局 4000局(種960〜963・Lv80・集中力253): m=10 で 大成功 80.30→80.20%(z −0.1)・届かず+超え 3.45→2.30%(z 3.3)。
+// m=15 は大成功 77.95%(z −2.9)に落ちる。
+// 2手読みの強(1000局・種960・Lv79・集中力251)では m=10 で 大成功 84.8→83.1%(z −1.1)・失敗 2.1→1.7% と得にならないので、ふつう(1手読み)だけ
+const FOCUS_MARGIN_MAP = { hidane: 10 };
+function focusMargin(){ return power === 'normal' ? (FOCUS_MARGIN_MAP[item] ?? 0) : 0; }
 // 開幕の決め打ち: 全マス0でこの温度の時は、計算(最強)を待たずに火力上げを先頭に出す。
 // ひだねは 1000・1300・1900(マスが光らない温度)。1600 は光ったマスで答えが変わるので計算する
 // (最強の2手読みで、右下が光ったら熱風おろし(右下)、左の列なら3倍打ち、右上・右中なら火力上げ)
@@ -759,7 +765,7 @@ function useRule(){ return !net && G && G.T === 0 && !!window.KajiRule0; }
 // 待っている間に最強で読んでおく。押した時・光ったマスが決まった時に、もう答えが出ている。読みの中身は同じ(同じ局面なら同じ答え)
 const PRE = new Map(); PRE.hit = 0;
 function usePool(){ return power !== 'normal' && !MAX_SKIP[item] && !s.hs && window.KajiPool && KajiPool.start(); }
-function preKey(st){ return [item, power, overPen(), G.focus, (G.techs || []).join(','), V.stateKey(st, G)].join('#'); }
+function preKey(st){ return [item, power, overPen(), focusMargin(), G.focus, (G.techs || []).join(','), V.stateKey(st, G)].join('#'); }
 // ---- 最強(GPU)(2026-11-01): 最強の2段目を GPU でまとめて読む(gpumax.js)。CPU の最強と同じ読み(乱数の引き方だけ違う)。
 // ひだねだけ。WebGPU が無い・失敗した時は CPU の最強で読む
 let GPUM = null, GPUM_KEY = '';
@@ -776,16 +782,19 @@ function gpuMax(){
 function maxFor(st, key){
   const e = PRE.get(key); if(e){ PRE.hit++; return e; }
   if(power === 'maxGpu' && gpuOk()){
-    const o = Object.assign({}, MAXOPT, { overPen: overPen() }), st2 = GM.cloneState(st), nt = net;
+    const o = Object.assign({}, MAXOPT, { overPen: overPen(), focusMargin: focusMargin() }), st2 = GM.cloneState(st), nt = net;
+    const cpu = () => (KajiPool.start(), KajiPool.setNet(item, W[item]), KajiPool.evalMax({ item, level: G.level, hammer: G.hammer, star: G.star, focus: G.focus, techs: G.techs }, st2, Object.assign({}, o, { tag: key }))).then(r => { if(r) r.sort((a, b) => b.q2 - a.q2); return r; });
+    // GPU が止まった(Windows の GPU のリセットなど)時は、次から作り直すことにして、この局面は CPU の最強で読む
     const p = gpuMax().then(g => g ? g.evalMax(st2, o, nt).then(r => { r.sort((a, b) => b.q2 - a.q2); return r; })
-      : (KajiPool.start(), KajiPool.setNet(item, W[item]), KajiPool.evalMax({ item, level: G.level, hammer: G.hammer, star: G.star, focus: G.focus, techs: G.techs }, st2, Object.assign({}, o, { tag: key }))).then(r => { if(r) r.sort((a, b) => b.q2 - a.q2); return r; }))
+        .catch(e => { console.error('GPU 最強', e); if(GPUM_KEY) { GPUM = null; GPUM_KEY = null; toast('GPU が止まったので CPU で読む'); } return cpu(); })
+      : cpu())
       .then(r => { if(!r) PRE.delete(key); return r; });
     PRE.set(key, p); if(PRE.size > 64) PRE.delete(PRE.keys().next().value);
     return p;
   }
   const cfgW = { item, level: G.level, hammer: G.hammer, star: G.star, focus: G.focus, techs: G.techs };
   KajiPool.setNet(item, isTest() ? W[item + '_test'] : W[item]);
-  const p = KajiPool.evalMax(cfgW, GM.cloneState(st), Object.assign({}, power === 'strong' ? STRONGOPT : MAXOPT, { overPen: overPen(), tag: key }))
+  const p = KajiPool.evalMax(cfgW, GM.cloneState(st), Object.assign({}, power === 'strong' ? STRONGOPT : MAXOPT, { overPen: overPen(), focusMargin: focusMargin(), tag: key }))
     .then(r => { if(!r){ PRE.delete(key); return null; } r.sort((a, b) => b.q2 - a.q2); return r; });
   PRE.set(key, p); if(PRE.size > 64) PRE.delete(PRE.keys().next().value);
   return p;
@@ -809,7 +818,7 @@ function recalc(){
       lastCalc = null; finishCalc(id, res); return;
     }
     const sp = SEARCH[item] || { depth: 1 };
-    const opt = { K: sp.K || 12, N2: sp.N2, K2: sp.K2, overPen: overPen(), rnd: seeded(12345), buf: new Float32Array(V.featLen(G, net.ver)) };
+    const opt = { K: sp.K || 12, N2: sp.N2, K2: sp.K2, overPen: overPen(), focusMargin: focusMargin(), rnd: seeded(12345), buf: new Float32Array(V.featLen(G, net.ver)) };
     let res;
     if(!s.hs && OPEN_BOOK[item] && OPEN_BOOK[item].includes(s.temp) && G.active.every(i => s.v[i] === 0)){
       res = V.evalActs(net, G, s, opt); res.sort((a, b) => b.q - a.q);
@@ -842,7 +851,7 @@ function finishCalc(id, res){
     const qv = x => x.q2 !== undefined ? x.q2 : x.q, stop = res.find(x => !x.a);
     if(stop && res[0] !== stop && res[0].a && !res[0].a.t.area && qv(stop) >= qv(res[0]) - 1e-6){ res.splice(res.indexOf(stop), 1); res.unshift(stop); }
     // 余った集中力で火力上げ・冷やし込みを打つだけで、結局どこも叩かずに終わるなら、ここで仕上げる
-    else if(net && !s.hs) res = V.trimIdle(net, G, s, res, { overPen: overPen(), buf: new Float32Array(V.featLen(G, net.ver)) });
+    else if(net && !s.hs) res = V.trimIdle(net, G, s, res, { overPen: overPen(), focusMargin: focusMargin(), buf: new Float32Array(V.featLen(G, net.ver)) });
     qs = res; busy = false; chainN = 0; render();
     // 一番良い手が火力上げ・冷やし込み(結果が決まっている)なら、打った後の局面を先に読んでおく
     try{ const b0 = res[0] && res[0].a; if(b0 && !b0.t.area && !b0.t.hs){ const t = GM.cloneState(s); GM.afterAct(G, t, b0, null); prefetch(t); } }catch(e){}

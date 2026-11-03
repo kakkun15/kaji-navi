@@ -141,12 +141,12 @@ const TRAIT: u32 = ${G.trait === 'hikari' ? 0 : 1}u;
     }
     // 最強の読み(pool.js の evalMax と同じ形で返す)
     async function evalMaxRaw(s, opt, net) {
-      const o1 = { K: opt.K || 12, overPen: opt.overPen, rnd: seeded(opt.seed), buf: new Float32Array(111) };
+      const o1 = { K: opt.K || 12, overPen: opt.overPen, focusMargin: opt.focusMargin || 0, rnd: seeded(opt.seed), buf: new Float32Array(111) };
       const res = V.evalActs(net, G, s, o1);              // 1段目(CPU)。最後が「やめる」
       for (const x of res) if (!x.a) x.q2 = x.q;
       const top = res.filter(x => x.a).sort((a, b) => b.q - a.q).slice(0, opt.N2);
       // 2段目の子の局面を集める(act2Value と同じ作り方)
-      const keyIx = new Map(), children = [], plans = [];
+      const keyIx = new Map(), children = [], plans = [], fm = opt.focusMargin || 0;   // 集中力の余裕: 子の集中力を F−m に(act2Value と同じ)
       const addChild = (s2, wt, terms) => {
         if (s2.dead) return;
         if (Array.isArray(s2.lit)) { const cand = s2.lit; for (const c of cand) { const t = GAME.cloneState(s2); t.lit = c; addChild(t, wt / cand.length, terms); } return; }
@@ -156,19 +156,19 @@ const TRAIT: u32 = ${G.trait === 'hikari' ? 0 : 1}u;
       };
       top.forEach((x, ti) => {
         const a = x.a, rnd = seeded(opt.seed + 7919 * (ti + 1)), terms = []; let wsum = 0;
-        if (!a.t.area) { const s2 = GAME.cloneState(s); GAME.afterAct(G, s2, a, null); addChild(s2, 1, terms); wsum = 1; }
+        if (!a.t.area) { const s2 = GAME.cloneState(s); GAME.afterAct(G, s2, a, null); addChild(V.cutF(s2, fm), 1, terms); wsum = 1; }
         else if (a.tg.length === 1) {
           const j = a.tg[0], { rs, cr } = GAME.hitParams(G, s, a.t, j);
           for (const o of GAME.massOutcomes(G.cells[j], s.v[j], s.bel[j], rs, cr)) {
             wsum += o.p; if (GAME.overDead(G, j, o.w)) continue;
-            const s2 = GAME.cloneState(s); s2.v[j] = o.w; s2.bel[j] = o.bel; GAME.afterAct(G, s2, a, null); addChild(s2, o.p, terms);
+            const s2 = GAME.cloneState(s); s2.v[j] = o.w; s2.bel[j] = o.bel; GAME.afterAct(G, s2, a, null); addChild(V.cutF(s2, fm), o.p, terms);
           }
         } else {
           const per = a.tg.map(j => { const { rs, cr } = GAME.hitParams(G, s, a.t, j); return { j, outs: GAME.massOutcomes(G.cells[j], s.v[j], s.bel[j], rs, cr) }; });
           for (let k = 0; k < (opt.K2 || 8); k++) {
             const s2 = GAME.cloneState(s);
             for (const { j, outs } of per) { let u = rnd(), o = outs[outs.length - 1]; for (const y of outs) { u -= y.p; if (u <= 0) { o = y; break; } } s2.v[j] = o.w; s2.bel[j] = o.bel; if (GAME.overDead(G, j, o.w)) s2.dead = true; }
-            wsum += 1; if (!s2.dead) { GAME.afterAct(G, s2, a, null); addChild(s2, 1, terms); }
+            wsum += 1; if (!s2.dead) { GAME.afterAct(G, s2, a, null); addChild(V.cutF(s2, fm), 1, terms); }
           }
         }
         let pen = 0;
