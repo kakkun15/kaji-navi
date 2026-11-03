@@ -204,6 +204,7 @@ th{color:var(--sub);font-size:13px}
       const to = v + 2 * r;
       if (to < zone[0] || v >= zone[1]) crit.add(to);         // ゾーンに届かない(または既に超えている)なら2倍
       else for (let x = Math.max(v + 1, zone[0]); x <= Math.min(to, zone[1]); x++) crit.add(x);
+      if (v >= zone[0] && v <= zone[1]) crit.add(v);          // 理想値が今の値以下なら動かない(画面は「Miss!」、2026-11-03 の録画で確認)
       if (to > zone[1] && v < zone[0]) { /* 理想値で必ず止まるので超えない */ }
     }
     return { normal, crit: [...crit].sort((a, b) => a - b) };
