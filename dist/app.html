@@ -2083,7 +2083,7 @@ function applyCrit(j){
   const c = critCells().find(x => x.j === j); if(!c) return;
   snap(`${posName(j)}は会心だった`);
   const z = G.cells[j], k = s.lastHit.cells.find(x => x.j === j);
-  s.bel[j] = GM.critBelief(z, c.v0, c.w, c.bel0, c.rs); k.done = true;
+  s.bel[j] = GM.critBelief(z, c.v0, c.w, c.bel0, c.rs); k.done = true; markCrit([j]);
   critPick = false; save(); recalc(); toast(`${posName(j)}を会心として理想値を絞った`);
 }
 function pressCrit(){
@@ -2097,6 +2097,17 @@ function renderCrit(){
   p.hidden = !critPick;
   if(critPick) p.innerHTML = '会心だったマス:' + cs.map(c => `<button data-j="${c.j}">${posName(c.j)}</button>`).join('') + '<button data-j="-1" style="background:var(--chip);color:var(--ink);border-color:var(--line)">やめる</button>';
   p.querySelectorAll('button').forEach(x => x.onclick = () => { const j = +x.dataset.j; if(j < 0){ critPick = false; render(); } else applyCrit(j); });
+}
+// 会心だったマスの印(小窓に小さく出す)。次に集中力が減る(次の手を打つ)まで出す。add: 前の印に足す(2026-11-03)
+function markCrit(cells, add){
+  const old = add && s.critMark && s.critMark.F === s.F ? s.critMark.cells : [];
+  s.critMark = { cells: [...new Set(old.concat(cells))], F: s.F };
+}
+function critLine(){
+  const m = s.critMark; if(!m || m.F !== s.F || !m.cells.length) return '';
+  // any: 複数マスの技で「かいしんの てごたえ！」が出た(どのマスかは分からない)
+  return `<div class="ck">会心 ${m.cells.map(j => { const z = G.cells[j], nz = s.bel[j].map((p, q) => p > 1e-9 ? z[0] + q : null).filter(x => x !== null);
+    return posName(j) + (nz.length === 1 ? `(理想値 ${nz[0]})` : ''); }).join(m.any ? 'か' : '・')}</div>`;
 }
 // 小窓のマスの下の行: 理想値が絞れていれば「理想値 ○」、そうでなければゾーン(2026-11-03)
 function pipBel(i, z){
@@ -2284,6 +2295,7 @@ button{font:inherit;font-weight:800;width:100%;min-height:40px;border-radius:8px
 .hyr{display:flex;flex-direction:column;gap:4px}.hb{border:2px solid;border-radius:8px;background:#20242c;padding:2px 3px;text-align:center}
 .hb .hv{font-size:18px;font-weight:800;font-variant-numeric:tabular-nums;line-height:1.15;white-space:nowrap}.hb .hl{font-size:13px;font-weight:800;color:#ffcf5c;font-variant-numeric:tabular-nums;white-space:nowrap}
 .hb .hn{font-size:10px;color:#adb6c5;font-weight:700;line-height:1.2}
+.ck{font-size:12px;font-weight:800;color:#ffd166;margin:-2px 0 4px}
 .cr{display:flex;flex-wrap:wrap;gap:4px;align-items:center;margin:0 0 6px;font-size:12px;font-weight:700;color:#adb6c5}
 .cb{width:auto;flex:1 1 auto;min-height:32px;font-size:13px;color:#0f1115;background:#ff7ad1;border-color:#ff7ad1;padding:2px 8px}.cb.no{flex:none;background:#272c36;border-color:#566074;color:#f4f6f9}
 .hs.hs1{color:#0f1115;background:#ffcf5c;border-color:#ffcf5c}.hs.hs2{color:#0f1115;background:#ff7ad1;border-color:#ff7ad1}`;
@@ -2353,7 +2365,7 @@ function renderPip(){
   let btn = '';
   if(a && !a.t.area && !picking && !busy && qs) btn = `<div class="row"><button id="pGo">打った</button>${chainN > 1 ? `<button id="pChain">×${chainN}</button>` : ''}</div>`;
   else if(a && a.t.area && !picking && qs) btn = '<div class="why">結果は元の画面で入れる</div>';
-  const main = `<select class="it" id="pItem" aria-label="商材">${$('item').innerHTML}</select>` + head + (lw ? `<div class="lw">${lw}</div>` : '') + `<div class="st">温度 <b>${s.temp}</b>℃ ・ 集中力 <b>${s.F}</b></div>` + hsRow + critRow + h + (why ? `<div class="why">${why}</div>` : '') + (alts ? `<div class="alts"><div class="ah">ほかの手</div>${alts}</div>` : '') + btn;
+  const main = `<select class="it" id="pItem" aria-label="商材">${$('item').innerHTML}</select>` + head + (lw ? `<div class="lw">${lw}</div>` : '') + `<div class="st">温度 <b>${s.temp}</b>℃ ・ 集中力 <b>${s.F}</b></div>` + critLine() + hsRow + critRow + h + (why ? `<div class="why">${why}</div>` : '') + (alts ? `<div class="alts"><div class="ah">ほかの手</div>${alts}</div>` : '') + btn;
   const hy = hayamiHtml();      // 早見は右に並べる(下だと見にくい)
   d.body.innerHTML = `<div class="pw${hy ? '' : ' one'}"><div class="pm">${main}</div>${hy}</div>`;
   const pi = d.getElementById('pItem'); pi.value = item;
@@ -2716,6 +2728,7 @@ function commitReels(vals){
     if(GM.overDead(G, p.j, w)) s.dead = true;
   }
   GM.afterAct(G, s, a, null);      // 集中力・温度。光るマスは候補の一覧になる(盤面で選ぶ)
+  if(hsCrit) markCrit(pend.per.map(p => p.j));
   closeReels(); save();
   if(!askRet()) recalc();
 }
@@ -2729,7 +2742,7 @@ $('board').addEventListener('click', e => {
     // 必殺の効果中に値が増えた = 必殺の後のひと打ち(必ず会心)。ゾーン内なら理想値とみなし、必殺は使い終わり(2026-11-03)。
     // 複数マスの技の結果を1マスずつ直すこともあるので、次に集中力が減る(次の手を打つ)までは、ほかのマスの手直しも同じに扱う
     const z = G.cells[i], hsHit = (s.hs | 0) === 2 || s.hsEditF === s.F;
-    if(hsHit && v > s.v[i] && v >= z[0] && v <= z[1]){ s.bel[i] = s.bel[i].map((_, q) => z[0] + q === v ? 1 : 0); s.hs = 0; s.hsEditF = s.F; }
+    if(hsHit && v > s.v[i] && v >= z[0] && v <= z[1]){ s.bel[i] = s.bel[i].map((_, q) => z[0] + q === v ? 1 : 0); s.hs = 0; s.hsEditF = s.F; markCrit([i], true); }
     s.v[i] = v; s.dead = GM.overDead(G, i, v); s.first = false; save(); recalc(); });
 });
 $('stTemp').onclick = () => askNum('温度(℃)', s.temp, v => { snap('温度の手直し'); s.temp = Math.round(v / 50) * 50; s.first = s.first && s.temp === 1000; s.lit = null; s.last = null;
