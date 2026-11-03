@@ -133,7 +133,7 @@
       const chunks = [], per = Math.max(1, Math.ceil(acts.length / (this.size * 3)));
       for (let i = 0; i < acts.length; i += per) chunks.push([...Array(Math.min(per, acts.length - i)).keys()].map(k => i + k));
       const q = new Array(acts.length).fill(0);
-      await Promise.all(chunks.map(idx => this.run(Object.assign({ type: 'job', phase: 1, idx, opt: { K: opt.K, overPen: opt.overPen, seed: opt.seed } }, sc))
+      await Promise.all(chunks.map(idx => this.run(Object.assign({ type: 'job', phase: 1, idx, opt: { K: opt.K, overPen: opt.overPen, focusMargin: opt.focusMargin, seed: opt.seed } }, sc))
         .then(chk).then(r => { for (const [i, v] of r.out) q[i] = v; })));
       if (cancelled) return null;
       const res = acts.map((a, i) => ({ a, q: q[i] }));
@@ -142,7 +142,7 @@
       const srt = res.filter(x => x.a).sort((x, y) => y.q - x.q);
       const cut = opt.margin && srt.length ? srt[0].q - opt.margin : -Infinity;   // 1位から margin より下は2手読みしない
       const top = srt.slice(0, opt.N2).filter(x => x.q >= cut);
-      const o2 = { K: opt.Ki || 8, K2: opt.K2, overPen: opt.overPen, leafPen: opt.leafPen, seed: opt.seed };
+      const o2 = { K: opt.Ki || 8, K2: opt.K2, overPen: opt.overPen, leafPen: opt.leafPen, focusMargin: opt.focusMargin, seed: opt.seed };
       if (opt.split === false) {     // 前の配り方: 1つの手を1つの Worker に
         await Promise.all(top.map(x => this.run(Object.assign({ type: 'job', phase: 2, idx: [acts.indexOf(x.a)], opt: o2 }, sc))
           .then(chk).then(r => { for (const [, v] of r.out) x.q2 = v; })));
@@ -172,7 +172,7 @@
       while (!st.done) {
         const { s, sp, opt: o } = st.value; let best;
         if (s.hs) best = V.evalActsHS(net, G, s, o)[0];
-        else { const r = await gpu.evalMax(GAME.cloneState(s), Object.assign({}, opt, { overPen: sp.overPen }), net); best = r.reduce((a, b) => b.q2 > a.q2 ? b : a); }
+        else { const r = await gpu.evalMax(GAME.cloneState(s), Object.assign({}, opt, { overPen: sp.overPen, focusMargin: sp.focusMargin || 0 }), net); best = r.reduce((a, b) => b.q2 > a.q2 ? b : a); }
         st = it.next(best);
       }
       return st.value;
