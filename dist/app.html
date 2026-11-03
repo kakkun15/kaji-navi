@@ -1016,7 +1016,7 @@ function featLen(G, ver) { return ver === 1 ? G.active.length * 12 + 14 : G.acti
         for (const c of cand) { s2.lit = c; sum += best1(s2); }
         s2.lit = cand; return sum / cand.length;
       }
-      const key = stateKey(s2);
+      const key = stateKey(s2, G);
       const hit = tt.get(key); if (hit !== undefined) return hit;
       const qs = evalActs(net, G, s2, lopt);
       let m = 0; for (const x of qs) if (x.q > m) m = x.q;
@@ -1070,7 +1070,7 @@ function featLen(G, ver) { return ver === 1 ? G.active.length * 12 + 14 : G.acti
     const best1 = (s2) => {
       if (s2.dead) return 0;
       if (Array.isArray(s2.lit)) { const cand = s2.lit; let sum = 0; for (const c of cand) { s2.lit = c; sum += best1(s2); } s2.lit = cand; return sum / cand.length; }
-      const key = stateKey(s2), hit = tt.get(key); if (hit !== undefined) return hit;
+      const key = stateKey(s2, G), hit = tt.get(key); if (hit !== undefined) return hit;
       let m = 0; for (const x of evalActs(net, G, s2, lopt)) if (x.q > m) m = x.q;
       if (tt.size > 200000) tt.clear(); tt.set(key, m); return m;
     };
@@ -1106,8 +1106,10 @@ function featLen(G, ver) { return ver === 1 ? G.active.length * 12 + 14 : G.acti
     return { sum, wsum, pen };
   }
   // 局面の鍵(置き換え表用)。値・温度・集中力・光ったマス・1手目か・必殺・理想値の見当(会心でしぼられた物)
-  function stateKey(s) {
+  // 光の地金でない商材は、前の手が火力上げ/冷やし込みだと打てる手が変わるので鍵に入れる(G が無い時も入れる)
+  function stateKey(s, G) {
     let k = s.v.join(',') + '|' + s.temp + '|' + s.F + '|' + s.lit + '|' + (s.first ? 1 : 0) + '|' + (s.hs | 0);
+    if ((!G || G.trait !== 'hikari') && (s.last === 'karyoku' || s.last === 'hiyashi')) k += '|' + s.last;
     for (const b of s.bel) { if (!b) continue; let uni = true; for (const x of b) if (Math.abs(x - b[0]) > 1e-12) { uni = false; break; } k += '|' + (uni ? 'u' : b.map(x => x.toFixed(5)).join(',')); }
     return k;
   }
@@ -1673,7 +1675,7 @@ const TRAIT: u32 = ${G.trait === 'hikari' ? 0 : 1}u;
       const addChild = (s2, wt, terms) => {
         if (s2.dead) return;
         if (Array.isArray(s2.lit)) { const cand = s2.lit; for (const c of cand) { const t = GAME.cloneState(s2); t.lit = c; addChild(t, wt / cand.length, terms); } return; }
-        const key = V.stateKey(s2); let i = keyIx.get(key);
+        const key = V.stateKey(s2, G); let i = keyIx.get(key);
         if (i === undefined) { i = children.length; keyIx.set(key, i); children.push(GAME.cloneState(s2)); }
         terms.push([i, wt]);
       };
@@ -2501,7 +2503,7 @@ function useRule(){ return !net && G && G.T === 0 && !!window.KajiRule0; }
 // 待っている間に最強で読んでおく。押した時・光ったマスが決まった時に、もう答えが出ている。読みの中身は同じ(同じ局面なら同じ答え)
 const PRE = new Map(); PRE.hit = 0;
 function usePool(){ return power !== 'normal' && !MAX_SKIP[item] && !s.hs && window.KajiPool && KajiPool.start(); }
-function preKey(st){ return [item, power, overPen(), G.focus, (G.techs || []).join(','), V.stateKey(st)].join('#'); }
+function preKey(st){ return [item, power, overPen(), G.focus, (G.techs || []).join(','), V.stateKey(st, G)].join('#'); }
 // ---- 最強(GPU)(2026-11-01): 最強の2段目を GPU でまとめて読む(gpumax.js)。CPU の最強と同じ読み(乱数の引き方だけ違う)。
 // ひだねだけ。WebGPU が無い・失敗した時は CPU の最強で読む
 let GPUM = null, GPUM_KEY = '';

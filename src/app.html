@@ -742,7 +742,7 @@ function useRule(){ return !net && G && G.T === 0 && !!window.KajiRule0; }
 // 待っている間に最強で読んでおく。押した時・光ったマスが決まった時に、もう答えが出ている。読みの中身は同じ(同じ局面なら同じ答え)
 const PRE = new Map(); PRE.hit = 0;
 function usePool(){ return power !== 'normal' && !MAX_SKIP[item] && !s.hs && window.KajiPool && KajiPool.start(); }
-function preKey(st){ return [item, power, overPen(), G.focus, (G.techs || []).join(','), V.stateKey(st)].join('#'); }
+function preKey(st){ return [item, power, overPen(), G.focus, (G.techs || []).join(','), V.stateKey(st, G)].join('#'); }
 // ---- 最強(GPU)(2026-11-01): 最強の2段目を GPU でまとめて読む(gpumax.js)。CPU の最強と同じ読み(乱数の引き方だけ違う)。
 // ひだねだけ。WebGPU が無い・失敗した時は CPU の最強で読む
 let GPUM = null, GPUM_KEY = '';
