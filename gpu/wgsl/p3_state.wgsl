@@ -16,9 +16,7 @@ struct Act {
   cells: array<u32, 4>,
 }
 
-const Z0: array<i32, 6> = array<i32, 6>(180, 250, 210, 250, 210, 145);
-const ZW: array<i32, 6> = array<i32, 6>(11, 9, 7, 9, 7, 11);
-const T_GREAT: i32 = 7;
+// Z0・ZW・T_GREAT・TRAIT は gpumax.js の create() が商材から作って頭に差し込む
 const TEMP_MAX: i32 = 2200;
 
 const MP: array<i32, 16> = array<i32, 16>(
@@ -72,15 +70,15 @@ fn stop_prob(s: ptr<function, State>) -> f32 {
 }
 
 fn is_legal(s: ptr<function, State>, a: Act) -> bool {
-  if ((*s).dead != 0u) { return false; }
+  if ((*s).dead != 0u || (*s).temp <= 0) { return false; }   // 0℃ で強制終了
   let last: i32 = (*s).last;
-  if (last >= 0) {
+  if (TRAIT != 0u && last >= 0) {   // 光の地金は火力上げ↔冷やし込みも打つ(光るマスの引き直し)
     if ((last == 4 && a.ix == 10u) || (last == 10 && a.ix == 4u)) { return false; }
   }
   let ix: i32 = i32(a.ix);
   if (MP[ix] > (*s).F) { return false; }
   let nt: i32 = (*s).temp + DT[ix];
-  if (nt <= 0 || nt > TEMP_MAX) { return false; }
+  if (nt < 0 || nt > TEMP_MAX || (nt == 0 && a.ncell == 0u)) { return false; }   // 50℃ で叩く技は打てる
   return true;
 }
 
@@ -98,7 +96,7 @@ fn after_act(s: ptr<function, State>, a: Act) {
   (*s).temp = (*s).temp + DT[ix];
   (*s).first = 0u;
   (*s).lit = -1;
-  if ((*s).temp > 0 && ((*s).temp % 200) == 0) {
+  if (TRAIT == 0u && (*s).temp > 0 && ((*s).temp % 200) == 0) {   // 光だけ
     var mask: u32 = 0u;
     for (var i: i32 = 0; i < 6; i = i + 1) {
       if ((*s).v[i] < Z0[i]) { mask = mask | (1u << u32(i)); }

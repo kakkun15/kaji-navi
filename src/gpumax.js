@@ -56,7 +56,14 @@ fn main(@builtin(workgroup_id) wg: vec3u, @builtin(local_invocation_id) lid: vec
 }`;
   async function create(wgsl, j, G, dev) {
     if (!dev) { const ad = await navigator.gpu.requestAdapter({ powerPreference: 'high-performance' }); dev = await ad.requestDevice({ requiredLimits: { maxStorageBufferBindingSize: ad.limits.maxStorageBufferBindingSize, maxBufferSize: ad.limits.maxBufferSize } }); }
-    if (G.cells.length !== 6 || G.trait !== 'hikari' || j.sizes.length !== 4 || j.sizes[0] !== 111) throw new Error('GPU 最強はひだね(111×H×H×1)だけ');
+    if (G.cells.length !== 6 || !G.cells.every(z => z) || (G.trait !== 'hikari' && G.trait !== 'tataki') || j.sizes.length !== 4 || j.sizes[0] !== 111)
+      throw new Error('GPU 最強は6マス・光かたたき変化の商材(111×H×H×1)だけ');
+    // 商材のゾーン・誤差・地金を WGSL の頭に定数で差し込む(uniform にしないのは、ひだねの速さを落とさないため)
+    wgsl = `const Z0: array<i32, 6> = array<i32, 6>(${G.cells.map(z => z[0]).join(', ')});
+const ZW: array<i32, 6> = array<i32, 6>(${G.cells.map(z => z[1] - z[0] + 1).join(', ')});
+const T_GREAT: i32 = ${G.T};
+const TRAIT: u32 = ${G.trait === 'hikari' ? 0 : 1}u;
+` + wgsl;
     const H = j.sizes[1];
     const mod = dev.createShaderModule({ code: wgsl });
     const info = await mod.getCompilationInfo(); const errs = info.messages.filter(m => m.type === 'error');
@@ -143,7 +150,7 @@ fn main(@builtin(workgroup_id) wg: vec3u, @builtin(local_invocation_id) lid: vec
       const addChild = (s2, wt, terms) => {
         if (s2.dead) return;
         if (Array.isArray(s2.lit)) { const cand = s2.lit; for (const c of cand) { const t = GAME.cloneState(s2); t.lit = c; addChild(t, wt / cand.length, terms); } return; }
-        const key = V.stateKey(s2); let i = keyIx.get(key);
+        const key = V.stateKey(s2, G); let i = keyIx.get(key);
         if (i === undefined) { i = children.length; keyIx.set(key, i); children.push(GAME.cloneState(s2)); }
         terms.push([i, wt]);
       };

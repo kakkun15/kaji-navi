@@ -287,7 +287,7 @@ function featLen(G, ver) { return ver === 1 ? G.active.length * 12 + 14 : G.acti
         for (const c of cand) { s2.lit = c; sum += best1(s2); }
         s2.lit = cand; return sum / cand.length;
       }
-      const key = stateKey(s2);
+      const key = stateKey(s2, G);
       const hit = tt.get(key); if (hit !== undefined) return hit;
       const qs = evalActs(net, G, s2, lopt);
       let m = 0; for (const x of qs) if (x.q > m) m = x.q;
@@ -341,7 +341,7 @@ function featLen(G, ver) { return ver === 1 ? G.active.length * 12 + 14 : G.acti
     const best1 = (s2) => {
       if (s2.dead) return 0;
       if (Array.isArray(s2.lit)) { const cand = s2.lit; let sum = 0; for (const c of cand) { s2.lit = c; sum += best1(s2); } s2.lit = cand; return sum / cand.length; }
-      const key = stateKey(s2), hit = tt.get(key); if (hit !== undefined) return hit;
+      const key = stateKey(s2, G), hit = tt.get(key); if (hit !== undefined) return hit;
       let m = 0; for (const x of evalActs(net, G, s2, lopt)) if (x.q > m) m = x.q;
       if (tt.size > 200000) tt.clear(); tt.set(key, m); return m;
     };
@@ -377,8 +377,10 @@ function featLen(G, ver) { return ver === 1 ? G.active.length * 12 + 14 : G.acti
     return { sum, wsum, pen };
   }
   // 局面の鍵(置き換え表用)。値・温度・集中力・光ったマス・1手目か・必殺・理想値の見当(会心でしぼられた物)
-  function stateKey(s) {
+  // 光の地金でない商材は、前の手が火力上げ/冷やし込みだと打てる手が変わるので鍵に入れる(G が無い時も入れる)
+  function stateKey(s, G) {
     let k = s.v.join(',') + '|' + s.temp + '|' + s.F + '|' + s.lit + '|' + (s.first ? 1 : 0) + '|' + (s.hs | 0);
+    if ((!G || G.trait !== 'hikari') && (s.last === 'karyoku' || s.last === 'hiyashi')) k += '|' + s.last;
     for (const b of s.bel) { if (!b) continue; let uni = true; for (const x of b) if (Math.abs(x - b[0]) > 1e-12) { uni = false; break; } k += '|' + (uni ? 'u' : b.map(x => x.toFixed(5)).join(',')); }
     return k;
   }
@@ -445,6 +447,10 @@ function featLen(G, ver) { return ver === 1 ? G.active.length * 12 + 14 : G.acti
       if (s.temp - 50 <= 0) return base;
       const s2 = GAME.cloneState(s);
       GAME.afterAct(G, s2, GAME.HS_ACT, null);
+      if (Array.isArray(s2.lit)) {          // 使った後に光る温度なら、光るマスの候補ごとに読んで平均する
+        let m = 0; for (const c of s2.lit) { const t = GAME.cloneState(s2); t.lit = c; m += hsVal(net, G, t, buf, depth, opt); }
+        return Math.max(base, m / s2.lit.length);
+      }
       return Math.max(base, hsVal(net, G, s2, buf, depth, opt));
     }
     // hs === 2
@@ -559,8 +565,9 @@ function featLen(G, ver) { return ver === 1 ? G.active.length * 12 + 14 : G.acti
       if (!(pick.a && pick.a.t.area)) {} else pick.q = Math.max(pick.q, actValue(net, G, s, pick.a, deep));
       res.splice(res.indexOf(pick), 1); res.unshift(pick); pick.hsPick = true;
     }
-    // 使った後(−50℃)に叩けない温度で使うことになったら、先に火力上げ(使ってから火力上げするのと集中力は同じ。順番が分かりやすい)
-    if (opt.hsHeat !== false && res[0] && res[0].a && res[0].a.t.hs && s.temp - 100 <= 0) {
+    // 使った後(−50℃)に叩けない温度で使うことになったら、先に火力上げ。50℃ で叩けるようになったので、100℃ では入れ替えない
+    // (100℃ で使えば 50℃ で叩ける。前は火力上げを先に出して、集中力が足りなくなると大成功を逃していた)
+    if (opt.hsHeat !== false && res[0] && res[0].a && res[0].a.t.hs && s.temp - 100 < 0) {
       const k = res.find(x => x.a && x.a.t.id === 'karyoku');
       if (k) { k.q = Math.max(k.q, res[0].q); res.splice(res.indexOf(k), 1); res.unshift(k); k.hsPick = true; }
     }

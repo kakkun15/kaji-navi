@@ -25,7 +25,9 @@
     orb:    { name: '虹色のオーブ', trait: 'modori', T: 7,
               cells: [[85, 95], [140, 148], [115, 121], [140, 148], [115, 121], [85, 95]] },
     needle: { name: '光のさいほう針', trait: 'tataki', T: 0,
-              cells: [[460, 474], null, [376, 382], null] },
+              cells: [[460, 474], null, [376, 382], null] },    // あくまの錬金ツボ: ゾーンは利用者が確かめた値(2026-11-02)。地金はたたき変化(400℃の倍数で威力2倍・200℃の倍数で半分、切り上げ)。誤差合計7以下
+    pot:    { name: 'あくまの錬金ツボ', trait: 'tataki', T: 7,
+              cells: [[190, 200], [130, 136], [130, 136], [190, 200], [130, 138], [130, 138]] },
   };
 
   const START_TEMP = 1000;
@@ -119,31 +121,33 @@
   function costOf(G, s, t) { return t.hs ? 0 : CORE.cost(t.id, s.temp, G.trait, s.first); }
   // 火力上げ(+300)の直後の冷やし込み(−300)、冷やし込みの直後の火力上げは、温度が元に戻って集中力を使うだけなので打たない
   // (温度の上限 2200 を越える火力上げは打てないので、この2つを続けると必ず同じ温度に戻る)
+  // 光の地金(ひだね)は打つ: 200℃ の倍数に戻るともう一度光る抽選があり、光るマスを引き直せる(1手読み 4000局 種960〜963: 80.13% → 80.30%、片方だけ 4/11)
   const UNDO = { karyoku: 'hiyashi', hiyashi: 'karyoku' };
+  const undoBan = (G, s) => G.trait !== 'hikari' && s.last && UNDO[s.last];
+  // 温度が 0℃ になったら強制終了。50℃ で叩く技は打てる(叩いた後に 0℃ で終わる)。叩かない手で 0℃ にするのは意味が無いので打たない
+  function tempOk(t, nt) { return nt >= 0 && nt <= TEMP_MAX && (nt > 0 || !!t.area); }
   function legalActs(G, s) {
-    if (s.dead) return [];
-    const out = [], ban = s.last && UNDO[s.last];
+    if (s.dead || s.temp <= 0) return [];
+    const out = [], ban = undoBan(G, s);
     for (const a of G.acts) {
       if (ban && a.t.id === ban) continue;
       const c = costOf(G, s, a.t);
       if (c > s.F) continue;
-      const nt = s.temp + a.t.dT;
-      if (nt <= 0 || nt > TEMP_MAX) continue;
+      if (!tempOk(a.t, s.temp + a.t.dT)) continue;
       out.push(a);
     }
-    if (s.hs === 1 && s.temp - 50 > 0) out.push(HS_ACT);
+    if (s.hs === 1 && s.temp - 50 > 0) out.push(HS_ACT);   // 必殺は使った後に叩けないと意味が無い
     return out;
   }
   // 打てる手が1つでもあるか(legalActs の早く終わる版。一覧は作らない)
   function hasLegal(G, s) {
-    if (s.dead) return false;
+    if (s.dead || s.temp <= 0) return false;
     if (s.hs === 1 && s.temp - 50 > 0) return true;
-    const ban = s.last && UNDO[s.last];
+    const ban = undoBan(G, s);
     for (const a of G.acts) {
       if (ban && a.t.id === ban) continue;
       if (costOf(G, s, a.t) > s.F) continue;
-      const nt = s.temp + a.t.dT;
-      if (nt <= 0 || nt > TEMP_MAX) continue;
+      if (!tempOk(a.t, s.temp + a.t.dT)) continue;
       return true;
     }
     return false;

@@ -15,6 +15,33 @@
     return n;
   }
 
+  // 性能テストの1局。種が同じなら、理想値・伸び・会心の乱数は打ち方によらず同じ並びになる(打った回数が同じ間は)。
+  // 手番ごとに { s, sp, opt } を yield し、打つ手(best)を受け取る。CPU(Worker)と最強(GPU)で同じ局を作るため共通にしてある。
+  function* gameSteps(GAME, V, net, G, m) {
+    const r = seeded(m.seed * 100003 + m.g), rc = seeded(m.seed * 31 + m.g);
+    const s = GAME.newState(G), ideal = G.cells.map(z => z ? z[0] + Math.floor(r() * (z[1] - z[0] + 1)) : null);
+    const sp = m.search, opt = Object.assign({}, sp, { rnd: seeded(m.seed * 7 + m.g), buf: net ? new Float32Array(V.featLen(G, net.ver)) : null });
+    let charged = false, moves = 0; const t0 = Date.now();
+    if (m.hs === 'start') { s.hs = 1; charged = true; }
+    for (let k = 0; k < 80 && !s.dead; k++) {
+      const best = yield { s, sp, opt };
+      if (!best || !best.a) break;
+      GAME.play(G, s, best.a, ideal, r); moves++;
+      if (Array.isArray(s.lit)) s.lit = s.lit[Math.floor(r() * s.lit.length)];
+      const u = rc();
+      if (m.hs === 'mid' && !charged && best.a.t.area && u < 0.1) { s.hs = 1; charged = true; }
+    }
+    const j = GAME.judge(G, s, ideal);
+    return { great: j.great ? 1 : 0, over: j.over ? 1 : 0, under: !j.reached && !j.over ? 1 : 0, F: s.F, moves, ms: Date.now() - t0 };
+  }
+  function chooseCpu(V, net, G, s, sp, opt) {
+    if (sp.rule) return { a: root.KajiRule0.policy(G, s) };          // 許容誤差0の商材の仮の打ち方(rule0.js)
+    if (s.hs) return V.evalActsHS(net, G, s, opt)[0];
+    if (sp.depth === 3) { const qs = V.evalActs3(net, G, s, opt); return qs.reduce((a, b) => b.q2 > a.q2 ? b : a); }
+    if (sp.depth === 2) { const qs = V.evalActs2(net, G, s, opt); return qs.reduce((a, b) => b.q2 > a.q2 ? b : a); }
+    const qs = V.evalActs(net, G, s, opt); return qs.reduce((a, b) => b.q > a.q ? b : a);
+  }
+
   // ---------------- Worker の側 ----------------
   if (isWorker) {
     const GAME = self.KajiGame, V = self.KajiValue;
@@ -54,28 +81,10 @@
         self.postMessage({ id: m.id, res });
       }
     };
-    // 性能テストの1局。種が同じなら、理想値・伸び・会心の乱数は打ち方によらず同じ並びになる(打った回数が同じ間は)
     function playGame(GAME, V, net, G, m) {
-      const r = seeded(m.seed * 100003 + m.g), rc = seeded(m.seed * 31 + m.g);
-      const s = GAME.newState(G), ideal = G.cells.map(z => z ? z[0] + Math.floor(r() * (z[1] - z[0] + 1)) : null);
-      const sp = m.search, opt = Object.assign({}, sp, { rnd: seeded(m.seed * 7 + m.g), buf: net ? new Float32Array(V.featLen(G, net.ver)) : null });
-      let charged = false, moves = 0; const t0 = Date.now();
-      if (m.hs === 'start') { s.hs = 1; charged = true; }
-      for (let k = 0; k < 80 && !s.dead; k++) {
-        let best;
-        if (sp.rule) best = { a: self.KajiRule0.policy(G, s) };          // 許容誤差0の商材の仮の打ち方(rule0.js)
-        else if (s.hs) best = V.evalActsHS(net, G, s, opt)[0];
-        else if (sp.depth === 3) { const qs = V.evalActs3(net, G, s, opt); best = qs.reduce((a, b) => b.q2 > a.q2 ? b : a); }
-        else if (sp.depth === 2) { const qs = V.evalActs2(net, G, s, opt); best = qs.reduce((a, b) => b.q2 > a.q2 ? b : a); }
-        else { const qs = V.evalActs(net, G, s, opt); best = qs.reduce((a, b) => b.q > a.q ? b : a); }
-        if (!best.a) break;
-        GAME.play(G, s, best.a, ideal, r); moves++;
-        if (Array.isArray(s.lit)) s.lit = s.lit[Math.floor(r() * s.lit.length)];
-        const u = rc();
-        if (m.hs === 'mid' && !charged && best.a.t.area && u < 0.1) { s.hs = 1; charged = true; }
-      }
-      const j = GAME.judge(G, s, ideal);
-      return { great: j.great ? 1 : 0, over: j.over ? 1 : 0, under: !j.reached && !j.over ? 1 : 0, F: s.F, moves, ms: Date.now() - t0 };
+      const it = gameSteps(GAME, V, net, G, m); let st = it.next();
+      while (!st.done) st = it.next(chooseCpu(V, net, G, st.value.s, st.value.sp, st.value.opt));
+      return st.value;
     }
     return;
   }
@@ -155,6 +164,19 @@
     },
     // 性能テストの1局
     game(m) { return this.run(Object.assign({ type: 'game' }, m)).then(r => r.res); },
+    // 性能テストの1局を最強(GPU)で(メインのスレッドで打つ)。gpu は KajiGPUMax.create の結果、j は重み。
+    // 局は Worker の game() と同じ(種が同じなら同じ理想値・乱数)。必殺がたまった後だけ CPU の読み(evalActsHS)。
+    async gameGpu(m, gpu, j, opt) {
+      const GAME = root.KajiGame, V = root.KajiValue, G = GAME.setup(m.cfg), net = toNet(j, V.featLen, G);
+      const it = gameSteps(GAME, V, net, G, m); let st = it.next();
+      while (!st.done) {
+        const { s, sp, opt: o } = st.value; let best;
+        if (s.hs) best = V.evalActsHS(net, G, s, o)[0];
+        else { const r = await gpu.evalMax(GAME.cloneState(s), Object.assign({}, opt, { overPen: sp.overPen }), net); best = r.reduce((a, b) => b.q2 > a.q2 ? b : a); }
+        st = it.next(best);
+      }
+      return st.value;
+    },
   };
   root.KajiPool = Pool;
 })(typeof self !== 'undefined' ? self : globalThis);

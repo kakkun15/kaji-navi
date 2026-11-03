@@ -236,7 +236,7 @@ select{font:inherit;font-weight:700;padding:6px 10px;border:1px solid var(--line
 (function(){
 'use strict';
 const C = KajiCore, GM = KajiGame, V = KajiValue, W = window.KAJI_WEIGHTS || {};
-const ITEM_ORDER = ['lamp', 'hidane', 'hammer', 'pan', 'orb', 'needle'];
+const ITEM_ORDER = ['lamp', 'hidane', 'pot', 'hammer', 'pan', 'orb', 'needle'];
 const SEARCH = { lamp: { depth: 2, K: 6, N2: 3, K2: 4 } };       // ランプだけ軽い2手読み(1000局で +4pt)
 const $ = id => document.getElementById(id);
 const STORE = 'kajiNaviV1', CFG_STORE = 'kajiNaviCfgV1';
@@ -619,7 +619,7 @@ function isTest(){ return power === 'maxTest' && !!W[item + '_test']; }
 const OVER_PEN = 1;
 // 商材ごとの罰。ひだねは 0.6: 1手読み・同じ局 2000局(種960・961)で 罰1 72.45% / 0.6 73.3%
 // (片方だけ大成功 8局 / 25局)。超えて失敗は 0.5% → 0.8% と少しだけ増える
-const OVER_PEN_MAP = { hidane: 0.6, orb: 0 };   // 虹色のオーブは超えても戻りで戻せるので、超える罰は無し
+const OVER_PEN_MAP = { hidane: 0.6, pot: 0.6, orb: 0 };   // 虹色のオーブは超えても戻りで戻せるので、超える罰は無し
 function overPen(){ return OVER_PEN_MAP[item] ?? OVER_PEN; }
 // 開幕の決め打ち: 全マス0でこの温度の時は、計算(最強)を待たずに火力上げを先頭に出す。
 // ひだねは 1000・1300・1900(マスが光らない温度)。1600 は光ったマスで答えが変わるので計算する
@@ -742,11 +742,12 @@ function useRule(){ return !net && G && G.T === 0 && !!window.KajiRule0; }
 // 待っている間に最強で読んでおく。押した時・光ったマスが決まった時に、もう答えが出ている。読みの中身は同じ(同じ局面なら同じ答え)
 const PRE = new Map(); PRE.hit = 0;
 function usePool(){ return power !== 'normal' && !MAX_SKIP[item] && !s.hs && window.KajiPool && KajiPool.start(); }
-function preKey(st){ return [item, power, overPen(), G.focus, (G.techs || []).join(','), V.stateKey(st)].join('#'); }
+function preKey(st){ return [item, power, overPen(), G.focus, (G.techs || []).join(','), V.stateKey(st, G)].join('#'); }
 // ---- 最強(GPU)(2026-11-01): 最強の2段目を GPU でまとめて読む(gpumax.js)。CPU の最強と同じ読み(乱数の引き方だけ違う)。
 // ひだねだけ。WebGPU が無い・失敗した時は CPU の最強で読む
 let GPUM = null, GPUM_KEY = '';
-function gpuOk(){ return typeof navigator !== 'undefined' && !!navigator.gpu && !!window.KajiGPUMax && !!window.KAJI_GPU_WGSL && item === 'hidane' && !!W[item]; }
+const GPU_ITEMS = ['hidane', 'pot'];     // GPU 最強が使える商材(6マス・光かたたき変化)
+function gpuOk(){ return typeof navigator !== 'undefined' && !!navigator.gpu && !!window.KajiGPUMax && !!window.KAJI_GPU_WGSL && GPU_ITEMS.includes(item) && !!W[item]; }
 function gpuMax(){
   if(!gpuOk()) return Promise.resolve(null);
   const k = [item, G.focus, (G.techs || []).join(',')].join('#');

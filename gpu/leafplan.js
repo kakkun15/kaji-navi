@@ -23,7 +23,7 @@
     const addState = (s2, wt) => {
       if (s2.dead) return;
       if (Array.isArray(s2.lit)) { const cand = s2.lit; for (const c of cand) { s2.lit = c; addState(s2, wt / cand.length); } s2.lit = cand; return; }
-      const key = V.stateKey(s2), k = seen.get(key);
+      const key = V.stateKey(s2, G), k = seen.get(key);
       if (k !== undefined) { out.pw.a[k] += wt; return; }
       seen.set(key, out.pw.n);
       push(out.pl, out.sp.n); push(out.pc, out.c.n);

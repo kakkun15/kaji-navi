@@ -8,3 +8,5 @@ train/w_*ft*.json
 train/w_hammera4*.json
 train/w_hammerx4*.json
 train/w_hammerc4*.json
+train/w_pota*.json
+train/w_pot_avg4.json
