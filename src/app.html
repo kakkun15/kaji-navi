@@ -76,6 +76,16 @@ select{font:inherit;font-weight:700;padding:6px 10px;border:1px solid var(--line
 .cell.over{border-color:var(--bad)}
 .cell.over .v{color:var(--bad)}
 .cell.litc{box-shadow:0 0 0 3px var(--lit),var(--shadow)}
+.board{position:relative}
+.board.aim .cell:not(.hit){opacity:.42;filter:saturate(.55)}
+.board.aim .cell.hit{border-width:3px;animation:aimP 1.2s ease-in-out infinite}
+@keyframes aimP{0%,100%{box-shadow:0 0 0 2px rgba(255,122,20,.35),var(--shadow)}50%{box-shadow:0 0 0 6px rgba(255,122,20,.55),0 0 20px rgba(255,122,20,.55)}}
+.board.hsfx::after{content:'';position:absolute;inset:-8px;border-radius:18px;pointer-events:none;z-index:2;
+  background:radial-gradient(ellipse at 50% 50%,rgba(255,150,40,0) 45%,rgba(255,130,30,.22) 80%,rgba(255,110,20,.38) 100%);
+  box-shadow:inset 0 0 28px rgba(255,140,40,.55),0 0 18px rgba(255,120,30,.35);animation:hsHaze 2.6s ease-in-out infinite}
+@keyframes hsHaze{0%,100%{opacity:.55}50%{opacity:1}}
+.hsb.hs1{box-shadow:0 0 12px rgba(95,211,255,.55)}
+@media (prefers-reduced-motion:reduce){.board.aim .cell.hit,.board.hsfx::after{animation:none}}
 .cell.pick{outline:3px dashed var(--lit);outline-offset:2px;animation:blink 1.2s ease-in-out infinite}
 @keyframes blink{50%{outline-color:transparent}}
 .foot{position:fixed;left:0;right:0;bottom:0;background:linear-gradient(180deg,#1c2028,#15181d);border-top:1px solid var(--line);box-shadow:0 -4px 12px rgba(0,0,0,.5);padding-block:10px calc(10px + env(safe-area-inset-bottom,0px));padding-left:max(12px,env(safe-area-inset-left,0px));padding-right:max(12px,env(safe-area-inset-right,0px));z-index:10}
@@ -387,6 +397,9 @@ function render(){
     h += '</div>';
   }
   $('board').innerHTML = h;
+  // 叩くマスを強調して、ほかのマス(光ったマスも)を薄くする。必殺の効果中は盤面の縁に橙のモヤ(2026-11-03)
+  $('board').classList.toggle('aim', tg.length > 0 && !picking && !s.dead);
+  $('board').classList.toggle('hsfx', (s.hs | 0) === 2);
   renderFoot();
 }
 function actName(a){ return a ? a.t.name : 'ここでやめる(仕上げ)'; }
@@ -536,7 +549,12 @@ button{font:inherit;font-weight:800;width:100%;min-height:40px;border-radius:8px
 .ck{font-size:12px;font-weight:800;color:#ffd166;margin:-2px 0 4px}
 .cr{display:flex;flex-wrap:wrap;gap:4px;align-items:center;margin:0 0 6px;font-size:12px;font-weight:700;color:#adb6c5}
 .cb{width:auto;flex:1 1 auto;min-height:32px;font-size:13px;color:#0f1115;background:#ff7ad1;border-color:#ff7ad1;padding:2px 8px}.cb.no{flex:none;background:#272c36;border-color:#566074;color:#f4f6f9}
-.hs.hs1{color:#0f1115;background:#ffcf5c;border-color:#ffcf5c}.hs.hs2{color:#0f1115;background:#ff7ad1;border-color:#ff7ad1}`;
+.hs.hs1{color:#0f1115;background:#5fd3ff;border-color:#5fd3ff;box-shadow:0 0 10px rgba(95,211,255,.6)}.hs.hs2{color:#0f1115;background:#ff9a3c;border-color:#ff9a3c}
+.bd.aim .c:not(.hit){opacity:.4;filter:saturate(.55)}.bd.aim .c.hit{border-width:3px;animation:aimP 1.2s ease-in-out infinite}
+@keyframes aimP{0%,100%{box-shadow:0 0 0 2px #ff7a14}50%{box-shadow:0 0 0 5px rgba(255,122,20,.6),0 0 14px rgba(255,122,20,.6)}}
+body.hsfx::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:9;background:radial-gradient(ellipse at 50% 45%,rgba(255,150,40,0) 50%,rgba(255,130,30,.2) 82%,rgba(255,110,20,.36) 100%);box-shadow:inset 0 0 26px rgba(255,140,40,.55);animation:hsHaze 2.6s ease-in-out infinite}
+@keyframes hsHaze{0%,100%{opacity:.55}50%{opacity:1}}
+@media (prefers-reduced-motion:reduce){.bd.aim .c.hit,body.hsfx::after{animation:none}}`;
 async function openPip(){
   if(pipW){ pipW.focus(); return; }
   try{ pipW = await documentPictureInPicture.requestWindow({ width: 380, height: 420 }); }catch(e){ return; }
@@ -580,7 +598,7 @@ function renderPip(){
   else if(!a) head = '<div class="nm">仕上げる</div>';
   else head = `<div><span class="nm">${a.t.name}</span><span class="tg">${tgName(a)}</span></div>`;
   const cols = [0, 1].filter(c => G.cells.some((z, i) => z && i % 2 === c));
-  let h = `<div class="bd" style="grid-template-columns:repeat(${cols.length},1fr)">`;
+  let h = `<div class="bd${tg.length && !s.dead ? ' aim' : ''}" style="grid-template-columns:repeat(${cols.length},1fr)">`;
   for(const r of rowList()) for(const c of cols){
     const i = 2*r + c, z = G.cells[i];
     if(!z){ h += '<div class="c gap"></div>'; continue; }
@@ -606,6 +624,7 @@ function renderPip(){
   const main = `<select class="it" id="pItem" aria-label="商材">${$('item').innerHTML}</select>` + head + (lw ? `<div class="lw">${lw}</div>` : '') + `<div class="st">温度 <b>${s.temp}</b>℃ ・ 集中力 <b>${s.F}</b></div>` + critLine() + hsRow + critRow + h + (why ? `<div class="why">${why}</div>` : '') + (alts ? `<div class="alts"><div class="ah">ほかの手</div>${alts}</div>` : '') + btn;
   const hy = hayamiHtml();      // 早見は右に並べる(下だと見にくい)
   d.body.innerHTML = `<div class="pw${hy ? '' : ' one'}"><div class="pm">${main}</div>${hy}</div>`;
+  d.body.classList.toggle('hsfx', (s.hs | 0) === 2);
   const pi = d.getElementById('pItem'); pi.value = item;
   pi.onchange = () => { $('item').value = pi.value; setItem(pi.value, false); };
   const go = d.getElementById('pGo'); if(go) go.onclick = () => startAct(a);
