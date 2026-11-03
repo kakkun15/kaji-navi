@@ -10,7 +10,7 @@ const j = JSON.parse(fs.readFileSync(wfile));
 const G = GAME.setup({ item, level: +(process.env.LEVEL || 75), hammer: 'hikari', star: 3, focus: +(process.env.FOCUS || 242) });
 const net = { sizes: j.sizes, L: j.L.map(l => ({ n: l.n, m: l.m, W: Float32Array.from(l.W), b: Float32Array.from(l.b) })) };
 net.ver = j.sizes[0] === V.featLen(G, 1) ? 1 : j.sizes[0] === V.featLen(G, 3) ? 3 : 2;
-const st = { great: 0, over: 0, under: 0, errfail: 0 }; const res = [];
+const st = { great: 0, over: 0, under: 0, errfail: 0 }; const res = [], kinds = [];
 const t0 = Date.now();
 for (let g = +(process.env.START || 0); g < +(process.env.START || 0) + N; g++) {
   const r = seeded(SEED * 100003 + g);
@@ -24,9 +24,10 @@ for (let g = +(process.env.START || 0); g < +(process.env.START || 0) + N; g++) 
     GAME.play(G, s, best.a, ideal, r);
   }
   const jj = GAME.judge(G, s, ideal);
-  res.push(jj.great ? 1 : 0);
+  res.push(jj.great ? 1 : 0); kinds.push(jj.great ? 'g' : jj.over ? 'o' : !jj.reached ? 'u' : 'e');
   if (jj.great) st.great++; else if (jj.over) st.over++; else if (!jj.reached) st.under++; else st.errfail++;
 }
 for (const k in st) st[k] = +(st[k] / N).toFixed(3);
 console.log(JSON.stringify({ item, wfile, N, SEED, DEPTH, ...st, sec: ((Date.now() - t0) / N / 1000).toFixed(2) }));
 fs.writeFileSync(`${__dirname}/res_${item}_${require('path').basename(wfile)}_${SEED}_${DEPTH}${process.env.OVERPEN ? '_p' + process.env.OVERPEN : ''}${process.env.START ? '_s' + process.env.START : ''}${process.env.FM ? '_fm' + process.env.FM : ''}.txt`, res.join(''));
+if (process.env.KINDS) fs.writeFileSync(process.env.KINDS, kinds.join(''));   // 局ごとの結果の種類 g 大成功・e 誤差で失敗・u 届かず・o 超え
