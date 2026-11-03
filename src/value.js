@@ -409,7 +409,7 @@ function featLen(G, ver) { return ver === 1 ? G.active.length * 12 + 14 : G.acti
   // 光の地金でない商材は、前の手が火力上げ/冷やし込みだと打てる手が変わるので鍵に入れる(G が無い時も入れる)
   function stateKey(s, G) {
     let k = s.v.join(',') + '|' + s.temp + '|' + s.F + '|' + s.lit + '|' + (s.first ? 1 : 0) + '|' + (s.hs | 0);
-    if ((!G || G.trait !== 'hikari') && (s.last === 'karyoku' || s.last === 'hiyashi')) k += '|' + s.last;
+    if (s.last === 'karyoku' || s.last === 'hiyashi') k += '|' + s.last;   // 続けて打てない手が変わる(光の地金も、200℃の倍数に戻らない時は打てない)
     for (const b of s.bel) { if (!b) continue; let uni = true; for (const x of b) if (Math.abs(x - b[0]) > 1e-12) { uni = false; break; } k += '|' + (uni ? 'u' : b.map(x => x.toFixed(5)).join(',')); }
     return k;
   }

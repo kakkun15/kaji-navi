@@ -121,9 +121,15 @@
   function costOf(G, s, t) { return t.hs ? 0 : CORE.cost(t.id, s.temp, G.trait, s.first); }
   // 火力上げ(+300)の直後の冷やし込み(−300)、冷やし込みの直後の火力上げは、温度が元に戻って集中力を使うだけなので打たない
   // (温度の上限 2200 を越える火力上げは打てないので、この2つを続けると必ず同じ温度に戻る)
-  // 光の地金(ひだね)は打つ: 200℃ の倍数に戻るともう一度光る抽選があり、光るマスを引き直せる(1手読み 4000局 種960〜963: 80.13% → 80.30%、片方だけ 4/11)
+  // 光の地金(ひだね)は、戻る温度が200℃ の倍数の時だけ打つ: もう一度光る抽選があり、光るマスを引き直せる(1手読み 4000局 種960〜963: 80.13% → 80.30%、片方だけ 4/11)。
+  // 200℃ の倍数でない温度に戻るのは光らないので、集中力を使うだけ(2026-11-03: 350℃↔650℃ を見込み100%のまま往復していた)
   const UNDO = { karyoku: 'hiyashi', hiyashi: 'karyoku' };
-  const undoBan = (G, s) => G.trait !== 'hikari' && s.last && UNDO[s.last];
+  const undoBan = (G, s) => {
+    const u = s.last && UNDO[s.last]; if (!u) return null;
+    if (G.trait !== 'hikari') return u;
+    const back = s.temp + (u === 'karyoku' ? 300 : -300);
+    return back % 200 === 0 ? null : u;
+  };
   // 温度が 0℃ になったら強制終了。50℃ で叩く技は打てる(叩いた後に 0℃ で終わる)。叩かない手で 0℃ にするのは意味が無いので打たない
   function tempOk(t, nt) { return nt >= 0 && nt <= TEMP_MAX && (nt > 0 || !!t.area); }
   function legalActs(G, s) {
