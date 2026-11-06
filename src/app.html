@@ -647,7 +647,7 @@ const CLIP_BASE = 1.15;
 // 計算の強さ。最強は PC のスレッドを全部使って、上位12手を2手先まで読む(pool.js)
 const POWER_KEY = 'kajiNaviPowerV1';
 let power = 'normal';
-try{ const p = localStorage.getItem(POWER_KEY); if(p === 'max' || p === 'strong' || p === 'maxTest' || p === 'maxGpu') power = p; }catch(e){}
+try{ const p = localStorage.getItem(POWER_KEY); if(p === 'max' || p === 'strong' || p === 'maxGpu') power = p; else if(p === 'maxTest') power = 'max'; }catch(e){}   // 最強(テスト中)と記録は 2026-11-07 に外した(試しの重みを入れていない)
 // 最強(テスト中): 最強と同じ読みで、重みだけ試しの物(W[商材+'_test'])にする。試しの重みがある商材だけ選べる
 function isTest(){ return power === 'maxTest' && !!W[item + '_test']; }
 // 超える確率の罰(value.js の overPen)。1 で、同じ局どうしの比べで 大成功はそのまま・超えて失敗が
