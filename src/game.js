@@ -228,7 +228,8 @@
     }
     if (G.trait === 'hikari' && s.temp > 0 && s.temp % 200 === 0) {
       const cand = G.active.filter(i => s.v[i] < G.cells[i][0]);
-      if (cand.length) s.lit = rnd ? cand[Math.floor(rnd() * cand.length)] : cand;   // rnd 無しなら候補の一覧を返す
+      // 候補が1マスだけなら選ぶまでもない(2026-11-07: 5マス届いていると毎回「光ったマスを選んで」を出していた)
+      if (cand.length) s.lit = cand.length === 1 ? cand[0] : rnd ? cand[Math.floor(rnd() * cand.length)] : cand;   // rnd 無しなら候補の一覧を返す
     }
   }
 
