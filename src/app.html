@@ -872,6 +872,10 @@ function finishCalc(id, res){
     const qv = x => x.q2 !== undefined ? x.q2 : x.q, stop = res.find(x => !x.a);
     if(stop && res[0] !== stop && res[0].a && (!res[0].a.t.area || qv(stop) > 0) && qv(stop) >= qv(res[0]) - 1e-6){ res.splice(res.indexOf(stop), 1); res.unshift(stop); }
     // 余った集中力で火力上げ・冷やし込みを打つだけで、結局どこも叩かずに終わるなら、ここで仕上げる
+    // 見込みがほぼ100%なのに火力上げ・冷やし込み(会心待ち)が1位なら、同じくらいの叩く技を先に出す(手数が増えて遅いので。2026-11-07)
+    else if(res[0] && res[0].a && !res[0].a.t.area && qv(res[0]) >= 0.995 && res.find(x => x.a && x.a.t.area && qv(x) >= qv(res[0]) - 0.005)){
+      const h = res.find(x => x.a && x.a.t.area && qv(x) >= qv(res[0]) - 0.005); res.splice(res.indexOf(h), 1); res.unshift(h);
+    }
     else if(net && !s.hs) res = V.trimIdle(net, G, s, res, { overPen: overPen(), focusMargin: focusMargin(), buf: new Float32Array(V.featLen(G, net.ver)) });
     qs = res; busy = false; chainN = 0; render();
     // 一番良い手が火力上げ・冷やし込み(結果が決まっている)なら、打った後の局面を先に読んでおく
