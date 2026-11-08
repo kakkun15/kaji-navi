@@ -11,9 +11,10 @@
 - GitHub に PC の細かいスペックは書かない(部品名まで)。
 
 ## ファイル
-- `src/`: アプリ(`app.html` 画面・`game.js` ゲームの決まり・`core.js` 伸びと誤差・`value.js` 読みとネット・`gpumax.js` GPU 最強・`pool.js` Worker と性能テストの局・`bench.html` 性能テスト・`voice.js` 声)。直すのは src だけ。
+- `src/`: アプリ(`app.html` 画面・`game.js` ゲームの決まり・`core.js` 伸びと誤差・`value.js` 読みとネット・`gpumax.js` GPU 最強・`pool.js` Worker と性能テストの局・`voice.js` 声・`wgsl/` GPU 最強の部品)。直すのは src だけ。
 - `dist/`: `python3 build.py` が作る(読まない)。`train/w_*.json`: 重み(読まない)。
-- `train/`: 学習・成績の道具。`gpu/`: GPU の試し(学習はやめた)。`tests/`: 試験。
+- `train/`: 学習・成績の道具。`tests/`: 試験。
+- 早見表は `kakkun15/kaji-hayami`、性能テストは `kakkun15/kaji-bench` に分けた(2026-11-07)。GPU の学習室は消した(最強(GPU)の部品は `src/wgsl/`)。
 - `src/app.html`・`src/value.js` は大きいので名前で grep して周りだけ読む(`finishCalc`・`recalc`・`OVER_PEN_MAP`・`MAXOPT`・`evalActs`・`act2Value`・`evalActsHS`)。
 
 ## ひだねの要点
