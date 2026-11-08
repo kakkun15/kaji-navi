@@ -120,6 +120,7 @@ select{font:inherit;font-weight:700;padding:6px 10px;border:1px solid var(--line
 .stats .startf b{color:var(--ink)}
 .msg{font-size:14px;color:var(--sub);margin:10px 2px}
 .tres{border:1px dashed var(--amb);border-radius:12px;padding:10px 12px;margin:10px 0;display:grid;gap:8px}
+.tres[hidden]{display:none}
 .tres-h{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13px;color:var(--sub)}.tres-h b{color:var(--amb)}
 .tres-h button{margin-left:auto;min-height:32px;padding:2px 10px;font-size:12px;box-shadow:none}
 .tres-q{font-size:13px;font-weight:700}
@@ -149,6 +150,32 @@ select{font:inherit;font-weight:700;padding:6px 10px;border:1px solid var(--line
 .reel button.on{color:var(--ink);font-size:27px;font-weight:800}
 .reel button.c.on{color:var(--crit)} .reel button.a.on{color:var(--amb)}
 .reel button.ov{text-decoration:line-through;color:var(--bad)}
+/* ボタンで入れる(テスト): 値のボタン・小さい盤面 */
+.vbh{font-size:13px;font-weight:700;color:var(--sub);margin:2px 2px 6px}.vbh b{color:var(--ink);font-size:15px}
+.vbs{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:10px}
+.vbs button{min-height:48px;padding:0;font-size:20px;font-weight:800;font-variant-numeric:tabular-nums;background:var(--sunk)}
+.vbs button.top{border:2px solid var(--accent)}
+.vbs button.a{color:var(--amb)} .vbs button.c{color:var(--crit);border-color:var(--crit)}
+.vbs button.ov{color:var(--bad);text-decoration:line-through}
+.vbs button.on{background:var(--card2);box-shadow:0 0 0 2px var(--ink)}
+.vbl{font-size:12px;font-weight:800;color:var(--crit);margin:-2px 2px 6px}
+.mboard{display:flex;flex-direction:column;gap:6px;margin-bottom:12px}
+.mrow{display:grid;gap:6px}
+.mb{min-height:48px;padding:2px 4px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;line-height:1.15;box-shadow:none;background:var(--card)}
+.mb small{font-size:11px;color:var(--sub);font-weight:700}.mb small em{font-style:normal;color:var(--blue);margin-left:4px}
+.mb b{font-size:19px;font-variant-numeric:tabular-nums}
+.mb.gap{visibility:hidden}
+.mb.still{opacity:.45}.mb:disabled{opacity:.45}
+.mb.done b{color:var(--good)}
+.mb.cur{border:2px solid var(--btn1);box-shadow:0 0 0 3px rgba(255,122,20,.45),0 0 14px rgba(255,122,20,.5)}
+/* 戻りのシート: 叩いた結果のシートと見分けやすいよう青にする */
+.sheet.ret{border-top:4px solid var(--blue);background:linear-gradient(180deg,#14233a,var(--bg2) 140px)}
+.bigh{font-size:26px;font-weight:800;color:var(--blue);text-align:center;margin:0 0 2px}
+.bigh[hidden]{display:none}
+.sheet.ret .mb.cur{border-color:var(--blue);box-shadow:0 0 0 3px rgba(88,166,255,.45),0 0 14px rgba(88,166,255,.5)}
+.seg{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:12px}
+.seg button{min-height:44px;font-size:14px;background:var(--sunk);color:var(--sub);box-shadow:none}
+.seg button[aria-pressed="true"]{border:2px solid var(--good);color:var(--ink)}
 .techs{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:12px}
 .techs button{font:inherit;font-size:14px;font-weight:800;min-height:44px;border-radius:10px;border:2px solid var(--good);background:var(--sunk);color:var(--ink);display:flex;justify-content:space-between;align-items:center;padding:0 10px;touch-action:manipulation}
 .techs button small{font-size:11px;color:var(--sub);font-weight:700}
@@ -213,6 +240,7 @@ select{font:inherit;font-weight:700;padding:6px 10px;border:1px solid var(--line
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <div class="modal" id="reelM"><div class="sheet" onclick="event.stopPropagation()">
+  <div class="bigh" id="reelBig" hidden></div>
   <h2 id="reelT">ゲームと同じ位置のマスを合わせて「決定」</h2>
   <div class="reels" id="reels"></div>
   <div class="row2"><button id="reelCancel">やめる</button><button class="main" id="reelOk">決定</button></div>
@@ -225,6 +253,10 @@ select{font:inherit;font-weight:700;padding:6px 10px;border:1px solid var(--line
   <h2 style="margin-top:6px">使う技</h2>
   <div class="hint" style="font-size:12px;color:var(--sub);margin:0 2px 8px">覚えていない技は押して外す(もう一度押すと戻る)。Lv は覚える職人レベル。外すと見込み% は少し甘めに出る(全部の技を使える前提で学んだ計算なので)。</div>
   <div class="techs" id="cfT"></div>
+  <h2 style="margin-top:6px">入れ方</h2>
+  <div class="hint" style="font-size:12px;color:var(--sub);margin:0 2px 8px">叩いた後の値の入れ方。ボタンは値を押すだけ(1マスなら押したら決まる)。</div>
+  <div class="seg" id="cfIn"><button type="button" data-v="reel">リール</button><button type="button" data-v="btn">ボタン(テスト)</button></div>
+  <button type="button" id="retLogB" style="width:100%;margin-bottom:12px;font-size:13px;box-shadow:none">戻りの記録をコピー</button>
   <div class="row2"><button id="cfgCancel">やめる</button><button class="main" id="cfgOk">決める</button></div>
 </div></div>
 
@@ -254,11 +286,12 @@ const STORE = 'kajiNaviV1', CFG_STORE = 'kajiNaviCfgV1';
 // 打てる技は集中力から決める: 253 以上(光★3 の Lv80)なら左右打ちまで、それより下は弱ねらい打ちまで
 const CFG_STORE2 = 'kajiNaviCfgV2';
 // off: 使わない(覚えていない)技の id。たたくは外せない。みだれ打ちは一覧に出さず、いつも外す
-let cfg = { focus: 245, off: null }, cfgSaved = false;     // cfgSaved: 開始の集中力を一度でも決めたか(初めての人には最初に聞く)
+// input: 叩いた後の値の入れ方('reel' リール・既定 / 'btn' ボタン(テスト))。古い保存には無いのでリールにする
+let cfg = { focus: 245, off: null, input: 'reel' }, cfgSaved = false;     // cfgSaved: 開始の集中力を一度でも決めたか(初めての人には最初に聞く)
 const TECH_LIST = C.TECHS.filter(t => t.id !== 'midare');
 try{
   const j2 = JSON.parse(localStorage.getItem(CFG_STORE2) || 'null');
-  if(j2 && j2.focus >= 1){ cfg.focus = j2.focus | 0; cfgSaved = true; if(Array.isArray(j2.off)) cfg.off = j2.off.filter(id => C.TECH[id] && id !== 'tataku'); }
+  if(j2 && j2.focus >= 1){ cfg.focus = j2.focus | 0; cfgSaved = true; if(Array.isArray(j2.off)) cfg.off = j2.off.filter(id => C.TECH[id] && id !== 'tataku'); if(j2.input === 'btn') cfg.input = 'btn'; }
   else {      // 前の版の保存(職人Lv・ハンマー)から引き継ぐ
     const j = JSON.parse(localStorage.getItem(CFG_STORE) || 'null');
     if(j && j.level >= 75){ cfg.focus = 243 + 2 * (j.level - 75) + (j.fadj | 0); cfgSaved = true; }
@@ -266,7 +299,8 @@ try{
 }catch(e){}
 // 技を選んだことが無い時は、前と同じく集中力から決める(253 未満なら左右打ち(Lv80)を外す)
 function offList(){ return cfg.off || (cfg.focus >= 253 ? [] : ['sayuu']); }
-function saveCfg(){ cfgSaved = true; try{ localStorage.setItem(CFG_STORE2, JSON.stringify(cfg.off ? { focus: cfg.focus, off: cfg.off } : { focus: cfg.focus })); }catch(e){} }
+function saveCfg(){ cfgSaved = true; try{ const o = cfg.off ? { focus: cfg.focus, off: cfg.off } : { focus: cfg.focus }; if(cfg.input === 'btn') o.input = 'btn'; localStorage.setItem(CFG_STORE2, JSON.stringify(o)); }catch(e){} }
+const isBtn = () => cfg.input === 'btn';
 function mkG(key){ const off = offList();
   return GM.setup({ item: key, level: cfg.focus >= 253 ? 80 : 79, hammer: 'hikari', star: 3, focus: cfg.focus,
     techs: TECH_LIST.filter(t => !off.includes(t.id)).map(t => t.id) }); }
@@ -463,12 +497,12 @@ function renderFoot(){
     $('rec').innerHTML = '<span class="nm">光ったマスを押す</span>';
     go.textContent = '盤面の点滅しているマスから選ぶ'; go.disabled = true; return;
   }
-  if(s.dead){ $('rec').innerHTML = '<span class="nm" style="color:var(--bad)">ゾーンを超えた</span>'; go.textContent = '最初から'; go.disabled = false; go.onclick = () => doReset(); return; }
+  if(s.dead){ $('rec').innerHTML = '<span class="nm" style="color:var(--bad)">ゾーンを超えた</span>'; go.textContent = '最初から'; go.disabled = false; go.onclick = askReset; return; }
   if(busy || !qs){ $('rec').innerHTML = '<span class="tg">計算中…</span>'; go.textContent = '計算中…'; go.disabled = true; return; }
   const best = qs[0];
   if(!best.a){
     $('rec').innerHTML = `<span><span class="nm">仕上げる</span></span><span class="p">大成功の見込み <b>${pct(best.q)}</b></span>`;
-    go.textContent = 'この局を終えて最初から'; go.disabled = false; go.onclick = () => doReset();
+    go.textContent = 'この局を終えて最初から'; go.disabled = false; go.onclick = askReset;
     msg.textContent = best.idleCut ? 'この後は温度を変えても叩く所が無いので、ここで仕上げる(火力上げ・冷やし込みは打たなくていい)。' : 'これ以上打つより、ここで仕上げる方が大成功しやすい。'; return;
   }
   const c = GM.costOf(G, s, best.a.t);
@@ -915,7 +949,33 @@ function reelItems(outs, z){
   const ns = its.filter(x => x.tag !== 'c'); const base = ns.length ? ns : its;
   return { its, start: its.indexOf(base[Math.floor((base.length - 1) / 2)]) };
 }
+// リール1つ分(1マス)
+function reelHtml(p, vis){
+  return `<div class="rcell"><div class="rl">${posName(p.j)}<b id="rt${p.j}"></b></div><div class="reel" id="rl${p.j}" style="height:${44*vis}px;padding:${22*(vis-1)}px 0">`
+       + p.its.map((x, k) => `<button class="${x.tag}${x.ov ? ' ov' : ''}" data-k="${k}">${x.w}</button>`).join('') + '</div></div>';
+}
+function wireReel(p){
+  const el = $('rl' + p.j); if(!el) return;
+  el.scrollTop = pend.sel[p.j] * 44;
+  let tm = null;
+  el.addEventListener('scroll', () => { mark(p.j); clearTimeout(tm); tm = setTimeout(() => mark(p.j), 120); }, { passive: true });
+  el.querySelectorAll('button').forEach(b => b.onclick = () => { el.scrollTo({ top: +b.dataset.k * 44, behavior: 'smooth' }); });
+  mark(p.j);
+}
+const REEL_T = 'ゲームと同じ位置のマスを合わせて「決定」';
 function openReels(){
+  const sh = $('reelM').querySelector('.sheet');
+  sh.classList.toggle('ret', !!pend.ret); $('reelBig').hidden = !pend.ret;
+  $('reelOk').hidden = false; $('reelOk').disabled = false;
+  $('reelM').classList.add('show');
+  if(pend.ret){ renderRet(); return; }
+  if(isBtn()){
+    // ボタン: 候補はリールと同じ。sel は最初はリールと同じ所(外から一部のマスだけ入れられても困らないように)、filled が押したマス
+    for(const p of pend.per){ const ri = reelItems(p.outs, G.cells[p.j]); p.its = ri.its; pend.sel[p.j] = ri.start; }
+    pend.filled = {}; pend.cur = pend.per.map(p => p.j).sort((a, b) => a - b)[0];
+    renderBtns(); return;
+  }
+  $('reelT').textContent = REEL_T;
   const rows = G.cells.length / 2, tgs = pend.per.map(p => p.j);
   const usedRows = [...Array(rows).keys()].filter(r => G.cells[2*r] || G.cells[2*r+1]);
   const cols = [0, 1].filter(c => G.cells.some((z, i) => z && i % 2 === c));
@@ -929,21 +989,57 @@ function openReels(){
       if(!tgs.includes(i)){ h += `<div class="rcell still"><div class="rl">${posName(i)}</div><b>${s.v[i]}</b></div>`; continue; }
       const p = pend.per.find(x => x.j === i), ri = reelItems(p.outs, z);
       p.its = ri.its; pend.sel[i] = ri.start;
-      h += `<div class="rcell"><div class="rl">${posName(i)}<b id="rt${i}"></b></div><div class="reel" id="rl${i}" style="height:${44*vis}px;padding:${22*(vis-1)}px 0">`
-         + ri.its.map((x, k) => `<button class="${x.tag}${x.ov ? ' ov' : ''}" data-k="${k}">${x.w}</button>`).join('') + '</div></div>';
+      h += reelHtml(p, vis);
     }
     h += '</div>';
   }
   $('reels').innerHTML = h;
-  $('reelM').classList.add('show');
-  for(const p of pend.per){
-    const el = $('rl' + p.j);
-    el.scrollTop = pend.sel[p.j] * 44;
-    let tm = null;
-    el.addEventListener('scroll', () => { mark(p.j); clearTimeout(tm); tm = setTimeout(() => mark(p.j), 120); }, { passive: true });
-    el.querySelectorAll('button').forEach(b => b.onclick = () => { el.scrollTo({ top: +b.dataset.k * 44, behavior: 'smooth' }); });
-    mark(p.j);
+  for(const p of pend.per) wireReel(p);
+}
+// 小さい盤面(ゲームと同じ並び i = 2*行 + 列)。sel: 押せるマス、cur: 光らせるマス、lab(i): { v, cls, tag }
+function miniBoard(sel, cur, lab){
+  const rows = G.cells.length / 2, usedRows = [...Array(rows).keys()].filter(r => G.cells[2*r] || G.cells[2*r+1]);
+  const cols = [0, 1].filter(c => G.cells.some((z, i) => z && i % 2 === c));
+  let h = '<div class="mboard">';
+  for(const r of usedRows){
+    h += `<div class="mrow" style="grid-template-columns:repeat(${cols.length},1fr)">`;
+    for(const c of cols){
+      const i = 2*r + c;
+      if(!G.cells[i]){ h += '<div class="mb gap"></div>'; continue; }
+      const L = lab(i), on = sel.includes(i);
+      h += `<button type="button" class="mb${on ? '' : ' still'}${i === cur ? ' cur' : ''}${L.cls ? ' ' + L.cls : ''}" data-j="${i}"${on ? '' : ' disabled'}><small>${posName(i)}${L.tag || ''}</small><b>${L.v}</b></button>`;
+    }
+    h += '</div>';
   }
+  return h + '</div>';
+}
+// 値のボタン(5列)。会心の値は別の行。一番出やすい値(会心でない中で確率が一番高く、並んでいない時)を縁取り
+function valBtns(p){
+  const its = p.its.map((x, k) => ({ x, k })), ns = its.filter(o => o.x.tag !== 'c'), cs = its.filter(o => o.x.tag === 'c');
+  const mx = Math.max(0, ...ns.map(o => o.x.p)), tops = ns.filter(o => o.x.p >= mx - 1e-12), top = ns.length > 1 && tops.length === 1 ? tops[0].k : -1;
+  const done = pend.filled && pend.filled[p.j];
+  const b = o => `<button type="button" class="${o.x.tag}${o.x.ov ? ' ov' : ''}${o.k === top ? ' top' : ''}${done && pend.sel[p.j] === o.k ? ' on' : ''}" data-k="${o.k}">${o.x.w}</button>`;
+  return `<div class="vbs">${ns.map(b).join('')}</div>` + (cs.length ? `<div class="vbl">会心</div><div class="vbs">${cs.map(b).join('')}</div>` : '');
+}
+function renderBtns(){
+  const tgs = pend.per.map(p => p.j).sort((a, b) => a - b), multi = tgs.length > 1, j = pend.cur, p = pend.per.find(x => x.j === j);
+  $('reelT').textContent = multi ? `${pend.a.t.name}: マスを選んで値を押す。全部入れたら「決定」` : `${pend.a.t.name}: ${posName(j)}の値を押す`;
+  let h = '';
+  if(multi) h += miniBoard(tgs, j, i => {
+    if(!tgs.includes(i)) return { v: s.v[i] };
+    const q = pend.per.find(x => x.j === i); return pend.filled[i] ? { v: q.its[pend.sel[i]].w, cls: 'done' } : { v: '?' };
+  });
+  h += `<div class="vbh"><b>${posName(j)}</b> 今 ${s.v[j]} → 叩いた後</div>` + valBtns(p);
+  $('reels').innerHTML = h;
+  $('reels').querySelectorAll('.mb[data-j]').forEach(b => b.onclick = () => { pend.cur = +b.dataset.j; renderBtns(); });
+  $('reels').querySelectorAll('.vbs button').forEach(b => b.onclick = () => {
+    pend.sel[j] = +b.dataset.k; pend.filled[j] = true;
+    if(!multi){ commitReels(); return; }
+    const nx = tgs.find(i => i > j && !pend.filled[i]); const n2 = nx !== undefined ? nx : tgs.find(i => !pend.filled[i]);
+    if(n2 !== undefined) pend.cur = n2;
+    renderBtns();
+  });
+  $('reelOk').hidden = !multi; $('reelOk').disabled = !tgs.every(i => pend.filled[i]);
 }
 function mark(j){
   const el = $('rl' + j), p = pend && pend.per.find(x => x.j === j); if(!el || !p) return;
@@ -955,28 +1051,54 @@ function mark(j){
 }
 function closeReels(){
   // 戻りの値を入れずに閉じた時は、平均(14)で減らしておく(あとで盤面のマスを押して直せる)
-  if(pend && pend.ret){ const { j, from } = s.ret || {}; if(s.ret){ s.v[j] = Math.max(0, from - 14); s.ret = null; } pend = null; $('reelM').classList.remove('show'); $('reelT').textContent = 'ゲームと同じ位置のマスを合わせて「決定」'; save(); recalc(); return; }
-  $('reelM').classList.remove('show'); pend = null; $('reelT').textContent = 'ゲームと同じ位置のマスを合わせて「決定」';
+  if(pend && pend.ret){ const { j, from } = s.ret || {}; if(s.ret){ s.v[j] = Math.max(0, from - 14); s.ret = null; toast(`${posName(j)}を平均の−14で入れた。マスを押して直せる`); } pend = null; $('reelM').classList.remove('show'); $('reelT').textContent = REEL_T; save(); recalc(); return; }
+  $('reelM').classList.remove('show'); pend = null; $('reelT').textContent = REEL_T;
 }
-// 戻りの地金: 温度が200の倍数になって1マスが減った時、実際の値をリールで入れてもらう(12〜16 減る。最初は真ん中の14)
+// 戻りの地金: 温度が200の倍数になって1マスが減った時、実際の値を入れてもらう(12〜16 減る。最初は真ん中の14)
+const RETLOG = 'kajiNaviRetLog', RETLOG_MAX = 500;
+function retOuts(j){ const from = s.v[j], outs = []; for(let d = GM.RET_MAX; d >= GM.RET_MIN; d--){ const w = Math.max(0, from - d); if(!outs.some(o => o.w === w)) outs.push({ w, p: 1, crit: false, bel: s.bel[j] }); } return outs; }
+// 減ったマスを j にする(s.v[j] は減る前の値)。値の候補を作り直し、平均(−14)に合わせる
+function setRetCell(j){
+  const p = { j, outs: retOuts(j) }; p.its = reelItems(p.outs, G.cells[j]).its;
+  const k = p.its.findIndex(x => x.w === Math.max(0, s.v[j] - 14));
+  pend.per = [p]; pend.a.tg = [j]; pend.sel = { [j]: k >= 0 ? k : Math.floor((p.its.length - 1) / 2) };
+  s.ret = { j, from: s.v[j] };
+}
 function askRet(){
   if(!s.ret) return false;
-  const { j, from } = s.ret, z = G.cells[j];
-  const outs = []; for(let d = GM.RET_MAX; d >= GM.RET_MIN; d--){ const w = Math.max(0, from - d); if(!outs.some(o => o.w === w)) outs.push({ w, p: 1, crit: false, bel: s.bel[j] }); }
-  pend = { a: { t: { name: '戻り' }, tg: [j] }, per: [{ j, outs }], sel: {}, ret: true };
-  s.v[j] = from;                       // 入れるまでは減る前の値で見せる(リールの「やめる」でも、平均で減らした値に戻す)
+  const { j, from } = s.ret;
+  s.v[j] = from;                       // 入れるまでは減る前の値で見せる(「やめる」なら平均で減らした値にする)
+  pend = { a: { t: { name: '戻り' }, tg: [j] }, per: [], sel: {}, ret: true, retPred: j };
+  setRetCell(j);
+  qs = null; render();                 // 後ろの盤面を今の値で描き直す
   openReels();
-  const k = outs.findIndex(o => o.w === Math.max(0, from - 14)); if(k >= 0){ pend.sel[j] = k; $('rl' + j).scrollTop = k * 44; mark(j); }
-  $('reelT').textContent = `戻り: ${posName(j)}が減った。今の値を選んで「決定」`;
   if(voiceOn) vSay('もどり、' + posName(j));
   return true;
+}
+function renderRet(){
+  const p = pend.per[0], j = p.j, btn = isBtn();
+  $('reelBig').textContent = `戻り ${posName(j)}`;
+  $('reelT').textContent = btn ? 'ゲームで減った後の値を押す' : 'ゲームで減った後の値を合わせて「決定」';
+  let h = `<div class="vbh">減ったマス(違ったら押して選び直す)</div>`
+    + miniBoard(G.active, j, i => ({ v: s.v[i], tag: i === pend.retPred ? '<em>予想</em>' : '' }))
+    + `<div class="vbh"><b>${posName(j)}</b> ${s.v[j]} → 減った後(12〜16 減る)</div>`;
+  h += btn ? valBtns(p) : `<div class="rrow" style="grid-template-columns:1fr">${reelHtml(p, 5)}</div>`;
+  $('reels').innerHTML = h;
+  $('reels').querySelectorAll('.mb[data-j]').forEach(b => b.onclick = () => { const i = +b.dataset.j; if(i === pend.per[0].j) return; setRetCell(i); renderRet(); });
+  if(btn) $('reels').querySelectorAll('.vbs button').forEach(b => b.onclick = () => { pend.sel[j] = +b.dataset.k; commitReels(); });
+  else wireReel(p);
+  $('reelOk').hidden = btn; $('reelOk').disabled = false;
 }
 // vals: 外から実際の値を渡す時(画面読み取りなど){マスの番号: 値}。リールの候補に無い値でもそのまま入れる。画面のボタンからはイベントが来るので使わない
 function commitReels(vals){
   if(!pend) return;
   if(pend.ret){        // 戻りの値: 温度・集中力は打った時に済んでいる。値だけ入れる
     const p = pend.per[0], ov = vals && vals.constructor === Object ? vals : null;
-    s.v[p.j] = ov && Number.isFinite(ov[p.j]) ? ov[p.j] : p.its[pend.sel[p.j]].w; s.ret = null;
+    const w = ov && Number.isFinite(ov[p.j]) ? ov[p.j] : p.its[pend.sel[p.j]].w;
+    // 戻りの記録(減るマスの決まりを確かめる用): 予想したマス・選んだマス・減る前の盤面・減った後の値・温度
+    try{ const L = retLog(); L.push({ at: new Date().toISOString(), item, pred: pend.retPred, pick: p.j, before: s.v.slice(), after: w, temp: s.temp });
+      localStorage.setItem(RETLOG, JSON.stringify(L.slice(-RETLOG_MAX))); }catch(e){}
+    s.v[p.j] = w; s.ret = null;
     pend = null; closeReels(); save(); recalc(); return;
   }
   snap(pend.a.t.name + 'の結果');
@@ -1015,6 +1137,9 @@ $('board').addEventListener('click', e => {
     // 複数マスの技の結果を1マスずつ直すこともあるので、次に集中力が減る(次の手を打つ)までは、ほかのマスの手直しも同じに扱う
     const z = G.cells[i], hsHit = (s.hs | 0) === 2 || s.hsEditF === s.F;
     if(hsHit && v > s.v[i] && v >= z[0] && v <= z[1]){ s.bel[i] = s.bel[i].map((_, q) => z[0] + q === v ? 1 : 0); s.hs = 0; s.hsEditF = s.F; markCrit([i], true); }
+    // 値を直したら、前の値から絞った理想値の見当は当てにならないので、ゾーン全体の一様に戻す
+    else if(v !== s.v[i]){ const n = z[1] - z[0] + 1; s.bel[i] = new Array(n).fill(1 / n);
+      const lc = s.lastHit && s.lastHit.cells.find(c => c.j === i); if(lc && Number.isFinite(lc.w)) lc.w = v; }   // 「今の会心!」は直した値で絞る
     s.v[i] = v; s.dead = GM.overDead(G, i, v); s.first = false; save(); recalc(); });
 });
 $('stTemp').onclick = () => askNum('温度(℃)', s.temp, v => { snap('温度の手直し'); s.temp = Math.round(v / 50) * 50; s.first = s.first && s.temp === 1000; s.lit = null; s.last = null;
@@ -1028,7 +1153,7 @@ $('numCancel').onclick = () => { $('numM').classList.remove('show'); numCb = nul
 $('numM').onclick = $('numCancel').onclick;
 $('reelOk').onclick = commitReels;
 $('reelCancel').onclick = closeReels;
-$('reelM').onclick = closeReels;
+// 入力のシートは外(暗い所)を触っても閉じない(押し間違いで入れた値が消えないように)。閉じるのは「やめる」だけ
 
 // ---- 自分の条件 ----
 let offDraft = [];
@@ -1044,7 +1169,22 @@ $('cfT').addEventListener('click', e => {
   if(k >= 0) offDraft.splice(k, 1); else offDraft.push(id);
   renderTechs();
 });
-function openCfg(){ $('cfF').value = cfg.focus; offDraft = offList().slice(); renderTechs(); $('cfgM').classList.add('show'); setTimeout(() => $('cfF').select(), 50); }
+// 入れ方(リール / ボタン)。「決める」で保存する
+let inDraft = 'reel';
+function renderIn(){ $('cfIn').querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === inDraft))); }
+$('cfIn').addEventListener('click', e => { const b = e.target.closest('button'); if(!b) return; inDraft = b.dataset.v === 'btn' ? 'btn' : 'reel'; renderIn(); });
+// 戻りの記録をコピー(JSON)
+function retLog(){ try{ const a = JSON.parse(localStorage.getItem(RETLOG) || '[]'); return Array.isArray(a) ? a : []; }catch(e){ return []; } }
+function renderRetLogB(){ $('retLogB').textContent = `戻りの記録をコピー(${retLog().length}件)`; }
+$('retLogB').onclick = async () => {
+  const t = JSON.stringify(retLog());
+  let ok = false;
+  try{ await navigator.clipboard.writeText(t); ok = true; }catch(e){
+    try{ const ta = document.createElement('textarea'); ta.value = t; ta.style.position = 'fixed'; ta.style.opacity = '0'; document.body.appendChild(ta); ta.select(); ok = document.execCommand('copy'); ta.remove(); }catch(e2){ ok = false; }
+  }
+  toast(ok ? `戻りの記録をコピーした(${retLog().length}件)` : 'コピーできなかった');
+};
+function openCfg(){ $('cfF').value = cfg.focus; offDraft = offList().slice(); inDraft = cfg.input === 'btn' ? 'btn' : 'reel'; renderIn(); renderRetLogB(); renderTechs(); $('cfgM').classList.add('show'); setTimeout(() => $('cfF').select(), 50); }
 $('cfgB2').onclick = openCfg;
 // 使う技のボタン: 同じ画面を開いて、技の一覧まで送る
 $('techB').onclick = () => { openCfg(); setTimeout(() => { $('cfT').scrollIntoView({ block: 'start' }); $('cfF').blur(); }, 80); };
@@ -1054,7 +1194,7 @@ $('cfgOk').onclick = () => {
   const f = parseInt($('cfF').value, 10);
   if(!(f >= 1 && f <= 999)) return;
   const fresh = !hist.length && s.first;                  // まだ打っていなければ、新しい集中力で始め直す
-  cfg = { focus: f, off: offDraft.slice() }; saveCfg();
+  cfg = { focus: f, off: offDraft.slice(), input: inDraft }; saveCfg();
   $('cfgM').classList.remove('show');
   G = mkG(item); net = loadNet(item);
   if(fresh) s = GM.newState(G);
@@ -1084,6 +1224,8 @@ $('critB').onclick = () => pressCrit();
 $('hsB').onclick = () => { if(pend) return; snap(); s.hs = ((s.hs | 0) + 1) % 3; save(); recalc(); };
 
 function doReset(){ s = GM.newState(G); hist = []; pend = null; save(); recalc(); }
+// 画面の「最初から」は確かめてから(押し間違いで局が消えないように)。外から呼ぶ reset は確かめない
+function askReset(){ if(confirm('最初からやり直す?(今の局は消える。戻すでは戻せない)')) doReset(); }
 
 // ---- テスト中の記録をメモに書く(Chrome・Edge: 選んだフォルダに自動で書く。選べない時はこの端末に残す) ----
 const TDB = { get(k){ return new Promise(res => { try{ const o = indexedDB.open('kajiNaviTest', 1); o.onupgradeneeded = () => o.result.createObjectStore('kv');
@@ -1129,7 +1271,7 @@ async function finishTest(res){
 }
 $('tresPick').onclick = () => pickDir();
 document.querySelectorAll('#tres .tres-b button').forEach(bt => bt.onclick = () => finishTest(bt.dataset.r));
-$('reset').onclick = doReset;
+$('reset').onclick = askReset;
 if('documentPictureInPicture' in window){ $('pipB').hidden = false; $('pipB').onclick = openPip; }
 $('undo').onclick = () => { if(!hist.length){ toast('これ以上は戻せない'); return; } s = hist.pop(); const u = s._u; delete s._u; pend = null; save(); recalc(); toast('戻した: ' + u); };
 $('item').innerHTML = ITEM_ORDER.filter(k => GM.ITEMS[k]).map(k => `<option value="${k}">${GM.ITEMS[k].name}${W[k] ? '' : GM.ITEMS[k].T === 0 ? '(仮の計算)' : '(準備中)'}</option>`).join('');
@@ -1145,7 +1287,7 @@ window.__navi = { get s(){ return s; }, get qs(){ return qs; }, get G(){ return 
   mut(fn){ snap(); fn(s); pend = null; if($('reelM').classList.contains('show')) $('reelM').classList.remove('show'); save(); recalc(); },
   reset(F){ s = GM.newState(G); if(Number.isFinite(F)) s.F = F; hist = []; pend = null; save(); recalc(); },
   // 画面で見た打ち始めの集中力を覚える
-  setStartFocus(f){ if(cfg.focus === f) return; cfg = { focus: f, off: cfg.off }; saveCfg(); G = mkG(item); net = loadNet(item); renderCfg(); },
+  setStartFocus(f){ if(cfg.focus === f) return; cfg = { focus: f, off: cfg.off, input: cfg.input }; saveCfg(); G = mkG(item); net = loadNet(item); renderCfg(); },
   setHs(h){ if((s.hs | 0) === h) return; snap(); s.hs = h; save(); recalc(); },
   get power(){ return power; }, get lastCalc(){ return lastCalc; },
   setVoiceRate, get voiceRate(){ return voiceRate; }, get vel(){ return VC.el ? { rate: VC.el.playbackRate, pitch: VC.el.preservesPitch, src: !!VC.el.src } : null; },
