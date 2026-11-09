@@ -91,13 +91,14 @@ def run(b, mode):
     bel = pg.evaluate('__navi.s.bel[0]')
     chk(f'[{mode}] 手直しで見当が一様に戻る(候補 {sum(1 for x in bel if x > 1e-9)}/{len(bel)})', pg.evaluate('__navi.s.v[0]') == 160 and max(bel) - min(bel) < 1e-12)
 
-    # --- 「最初から」の確認 ---
-    n0 = pg.evaluate('__navi.hist.length')
-    pg.once('dialog', lambda d: d.dismiss()); pg.click('#gearB'); pg.click('#reset'); pg.wait_for_timeout(200)
-    chk(f'[{mode}] 最初から: やめたら消えない', pg.evaluate('__navi.hist.length') == n0 and not pg.evaluate('__navi.s.first'))
-    msg = []
-    pg.once('dialog', lambda d: (msg.append(d.message), d.accept())); pg.click('#gearB'); pg.click('#reset'); idle(pg)
-    chk(f'[{mode}] 最初から: はいで始め直す({msg[0] if msg else "確認なし"})', bool(msg) and pg.evaluate('__navi.s.first'))
+    # --- 「最初から」: 確認なし・「戻す」で元の局に戻る ---
+    n0 = pg.evaluate('__navi.hist.length'); v0 = pg.evaluate('JSON.stringify(__navi.s.v)')
+    dlg = []; pg.on('dialog', lambda d: (dlg.append(d.message), d.accept()))
+    pg.click('#reset'); idle(pg)
+    chk(f'[{mode}] 最初から: 確認なしで始め直す', not dlg and pg.evaluate('__navi.s.first') and n0 > 0)
+    pg.click('#undo'); idle(pg)
+    chk(f'[{mode}] 最初から: 戻すで元の局に戻る', pg.evaluate('JSON.stringify(__navi.s.v)') == v0 and pg.evaluate('__navi.hist.length') == n0)
+    pg.click('#reset'); idle(pg)
     pg.evaluate('__navi.reset(250)'); idle(pg)
     chk(f'[{mode}] 外からの reset は確認なし', pg.evaluate('__navi.s.F') == 250)
 
