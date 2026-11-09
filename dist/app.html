@@ -17,7 +17,9 @@
   --zone:rgba(63,217,139,.28); --fill:#7d8aa3; --lit:#ffcf5c;
   --raise:0 2px 0 rgba(0,0,0,.55); --shadow:0 1px 0 rgba(0,0,0,.4),0 3px 8px rgba(0,0,0,.35);
   color-scheme:dark;
+  --k:1;   /* 文字の大きさ(⚙ の「大きさ」: 小 0.9・中 1・大 1.25)。盤面の値・推奨の技・打ったボタン・値ボタン・リール・小窓だけに効かせる */
 }
+[hidden]{display:none!important}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,-apple-system,"Hiragino Sans","Yu Gothic UI",sans-serif;touch-action:manipulation}
 main{max-width:620px;margin:0 auto;padding-block:10px calc(190px + env(safe-area-inset-bottom,0px));padding-left:max(12px,env(safe-area-inset-left,0px));padding-right:max(12px,env(safe-area-inset-right,0px))}
@@ -28,47 +30,63 @@ button.main{background:linear-gradient(180deg,var(--btn1),var(--btn2));color:#ff
 button.main:active{box-shadow:0 1px 0 #8a3a00}
 button:disabled{opacity:.45}
 select{font:inherit;font-weight:700;padding:6px 10px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink);min-height:44px;max-width:100%}
-.top{display:flex;gap:6px;align-items:center}
-.top select{flex:1;min-width:0;color:var(--gold);font-size:16px;padding:6px 6px}
-.top button{white-space:nowrap;padding:8px 10px;flex:none}
-.stats{display:grid;grid-template-columns:1fr 1fr auto;gap:8px;margin:10px 0}
+.top{display:flex;gap:3px;align-items:stretch}
+.top select{flex:1 1 auto;min-width:0;color:var(--gold);font-size:14px;padding:4px 11px 4px 4px;-webkit-appearance:none;appearance:none;
+  background:var(--card) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5'%3E%3Cpath d='M0 0h8L4 5z' fill='%23adb6c5'/%3E%3C/svg%3E") no-repeat right 3px center}
+.top button{white-space:nowrap;flex:none}
+.stats{display:flex;gap:3px;flex:none}
+.top .stat{min-height:52px;padding:2px 6px;flex-direction:column;align-items:flex-start;justify-content:center;gap:0;flex-wrap:nowrap;line-height:1.1}
+.top .stat small{display:flex;gap:4px;align-items:center;white-space:nowrap}
+.top .stat b{font-size:22px}
+.top .stat .u{font-size:13px;margin-left:1px}
+#stTemp{position:relative;min-width:66px}
+#stTemp .k{position:absolute;top:3px;left:4px;line-height:1.3}
+#stTemp.kd small{visibility:hidden}   /* 温度の特徴(光る など)が出る時は「温度℃」の所に出す */
+.gear{width:42px;padding:0;font-size:24px;line-height:1;color:var(--sub)}
+.hsslot{display:flex}
+.hsslot .hsb{margin:0;width:auto;min-height:52px;flex-direction:column;justify-content:center;align-items:center;gap:0;padding:2px 4px;line-height:1.15}
+.hsslot .hsb small,.hsslot .hsb b{font-size:13px}
+.hsslot .hsb #hsBn{display:none}
+.hsrow .hsb{margin:8px 0 0}
 .vbtn{flex-direction:column;justify-content:center;align-items:center;gap:0;padding:4px 10px;min-width:58px}
 .vbtn b{font-size:15px}
 .vbtn.off b{color:var(--sub)}
 .vbtn.on b{color:var(--good)}
-.hsrow{display:flex;gap:8px;margin:-2px 0 10px}.critb{flex:none;min-height:44px;padding:2px 10px;font-weight:800;font-size:13px;line-height:1.15;color:#0f1115;background:var(--crit);border:1px solid var(--crit);border-radius:10px}
-.critp{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:-4px 0 10px;font-size:13px;font-weight:700;color:var(--sub)}.critp button{min-height:36px;padding:2px 12px;font-weight:800;color:#0f1115;background:var(--crit);border:1px solid var(--crit);border-radius:8px}
+/* 今の会心!: 叩いて結果を入れた直後だけ、下の帯に小さく出す(ピンクは縁取りだけ) */
+.critrow{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:0 0 8px}
+.critb{flex:none;min-height:44px;padding:2px 14px;font-weight:800;font-size:14px;color:var(--crit);background:var(--card);border:2px solid var(--crit);border-radius:10px;box-shadow:none}
+.critp{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:14px;font-weight:700;color:var(--sub)}.critp button{min-height:44px;padding:2px 12px;font-weight:800;color:var(--crit);background:var(--card);border:2px solid var(--crit);border-radius:10px;box-shadow:none}
 .hsrow .hsb{margin:0;flex:1;min-width:0}
 .techb{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:44px;padding:4px 12px;gap:0}
-.techb small{color:var(--sub);font-size:11px;font-weight:700}.techb b{font-size:16px;font-weight:800}.techb.cut b{color:var(--amb)}
+.techb small{color:var(--sub);font-size:13px;font-weight:700}.techb b{font-size:16px;font-weight:800}.techb.cut b{color:var(--amb)}
 .hsb{display:flex;width:100%;align-items:center;justify-content:space-between;gap:8px;margin:-2px 0 10px;min-height:44px;padding:6px 12px;text-align:left}
 .hsb small{color:var(--sub);font-size:13px;font-weight:700}
 .hsb b{font-size:17px;font-weight:800;color:var(--sub)}
-.hsb span{font-size:12px;color:var(--sub);font-weight:700}
+.hsb span{font-size:13px;color:var(--sub);font-weight:700}
 .hsb.hs1{border-color:#5fd3ff} .hsb.hs1 b{color:#5fd3ff}
 .hsb.hs2{border-color:var(--btn1);background:linear-gradient(180deg,#5a2a08,#3a1c06)} .hsb.hs2 b{color:#ffb070}
 .stat{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:4px 10px;text-align:left;min-height:56px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .stat small{color:var(--sub);font-size:13px;font-weight:700}
 .stat b{font-size:28px;font-weight:800;font-variant-numeric:tabular-nums;letter-spacing:.01em}
 .stat .u{font-size:13px;color:var(--sub)}
-.stat .k{font-size:12px;padding:1px 8px;border-radius:999px;background:var(--chip);color:var(--sub);font-weight:700}
+.stat .k{font-size:13px;padding:0 6px;border-radius:999px;background:var(--chip);color:var(--sub);font-weight:700}
 .stat .k.on{background:var(--gold);color:#1a1405}
 .board{display:flex;flex-direction:column;gap:8px}
 .brow{display:grid;gap:8px}
-.cell{position:relative;background:linear-gradient(180deg,var(--card2),var(--card));border:2px solid var(--ink2);border-radius:12px;padding:4px 8px 8px;min-width:0;text-align:center;cursor:pointer;box-shadow:var(--shadow)}
+.cell{position:relative;background:linear-gradient(180deg,var(--card2),var(--card));border:2px solid var(--ink2);border-radius:12px;padding:4px 4px 6px;min-width:0;text-align:center;cursor:pointer;box-shadow:var(--shadow)}
 .cell.gap{visibility:hidden}
-.cell .lbl{font-size:12px;color:var(--sub);font-weight:700;display:flex;justify-content:center;align-items:center;gap:4px;flex-wrap:wrap;min-height:20px}
-.cell .lbl i{font-style:normal;font-size:12px;padding:0 7px;border-radius:6px;background:var(--btn1);color:#fff;font-weight:800}
+.cell .lbl{font-size:14px;color:var(--sub);font-weight:700;display:flex;justify-content:center;align-items:center;gap:4px;flex-wrap:wrap;min-height:20px}
+.cell .lbl i{font-style:normal;font-size:13px;padding:0 7px;border-radius:6px;background:var(--btn1);color:#fff;font-weight:800}
 .cell .lbl i.lit{background:var(--gold);color:#1a1405}
-.cell .v{font-size:40px;font-weight:800;font-variant-numeric:tabular-nums;line-height:1.1;letter-spacing:.01em}
-.cell .z{display:grid;grid-template-columns:1fr 1fr;font-size:15px;font-weight:700;color:var(--sub);font-variant-numeric:tabular-nums;border-top:1px solid var(--line);margin-top:2px}
+.cell .v{font-size:calc(40px * var(--k));font-weight:800;font-variant-numeric:tabular-nums;line-height:1.1;letter-spacing:.01em}
+.cell .z{display:none;grid-template-columns:1fr 1fr;font-size:15px;font-weight:700;color:var(--sub);font-variant-numeric:tabular-nums;border-top:1px solid var(--line);margin-top:2px}
 .cell .z span+span{border-left:1px solid var(--line)}
-.cell .need{font-size:13px;font-weight:700;color:var(--sub);font-variant-numeric:tabular-nums;min-height:19px}
+.cell .need{font-size:13px;letter-spacing:-.02em;font-feature-settings:'palt';font-weight:700;color:var(--sub);font-variant-numeric:tabular-nums;min-height:19px}
 .cell .bar{position:relative;height:10px;border-radius:5px;background:var(--sunk);overflow:hidden;margin-top:5px;border:1px solid var(--line)}
 .cell .bar span{position:absolute;top:0;bottom:0}
 .cell .bar .f{left:0;background:var(--fill)}
 .cell .bar .zn{background:var(--zone);border-left:2px solid var(--good);border-right:2px solid var(--good)}
-.cell .bel{font-size:12px;font-weight:700;color:var(--good);min-height:18px}
+.cell .bel{font-size:14px;font-weight:700;color:var(--good);min-height:20px;margin-top:2px;font-variant-numeric:tabular-nums}
 .cell.hit{border-color:var(--btn1);box-shadow:0 0 0 2px rgba(255,122,20,.35),var(--shadow)}
 .cell.in{border-color:var(--good)}
 .cell.in .v{color:var(--good)}
@@ -91,38 +109,38 @@ select{font:inherit;font-weight:700;padding:6px 10px;border:1px solid var(--line
 .foot{position:fixed;left:0;right:0;bottom:0;background:linear-gradient(180deg,#1c2028,#15181d);border-top:1px solid var(--line);box-shadow:0 -4px 12px rgba(0,0,0,.5);padding-block:10px calc(10px + env(safe-area-inset-bottom,0px));padding-left:max(12px,env(safe-area-inset-left,0px));padding-right:max(12px,env(safe-area-inset-right,0px));z-index:10}
 .foot .in{max-width:620px;margin:0 auto}
 .rec{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:6px;min-height:34px;flex-wrap:wrap}
-.rec .nm{font-size:24px;font-weight:800;color:var(--accent)}
-.rec .tg{font-size:15px;font-weight:700;color:var(--ink)}
+.rec .nm{font-size:calc(24px * var(--k));font-weight:800;color:var(--accent)}
+.rec .tg{font-size:calc(15px * var(--k));font-weight:700;color:var(--ink)}
 .rec .p{font-size:14px;color:var(--sub);white-space:nowrap;font-variant-numeric:tabular-nums}
 .rec .p b{color:var(--ink);font-size:19px}
 .rec .why{flex-basis:100%;font-size:14px;font-weight:700;color:var(--ink);line-height:1.45;margin-top:0}
 .rec .lw{flex-basis:100%;background:#5a1414;border:2px solid var(--bad);color:#fff;font-size:16px;font-weight:800;border-radius:8px;padding:4px 10px;margin-top:2px}
-.rec .det{font:inherit;font-size:12px;font-weight:700;color:var(--sub);min-height:30px;padding:2px 10px;box-shadow:none;border-radius:8px;white-space:nowrap}
+.rec .det{font:inherit;font-size:14px;font-weight:700;color:var(--sub);min-height:44px;padding:2px 10px;box-shadow:none;border-radius:8px;white-space:nowrap}
 .foot.fold .rec .why,.foot.fold #alts{display:none}
 .mm{display:inline-grid;gap:2px;margin-right:8px;vertical-align:middle;position:relative;top:-3px}
 .mm i{width:9px;height:9px;border-radius:2px;background:var(--chip);border:1px solid var(--ink2)}
 .mm i.on{background:var(--btn1);border-color:var(--btn1)}
 .mm i.gap{visibility:hidden}
 .acts{display:flex;gap:8px}
-.acts .main{flex:1;min-height:56px;font-size:19px}
+.acts .main{flex:1;min-height:56px;font-size:calc(19px * var(--k))}
 .acts .undo{flex:none;min-height:56px;min-width:64px;font-size:16px;font-weight:800;padding:6px 10px}
 .relit{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:700;color:var(--sub);margin:0 2px 8px}.relit b{color:#ffcf5c}
 .relit[hidden]{display:none}
-.relit button{margin-left:auto;min-height:40px;padding:4px 12px;font-weight:800}
+.relit button{margin-left:auto;min-height:44px;padding:4px 12px;font-weight:800}
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(var(--footH,140px) + 10px);background:#2b313c;color:#f4f6f9;border:1px solid var(--line);border-radius:10px;padding:8px 14px;font-weight:800;font-size:15px;opacity:0;pointer-events:none;transition:opacity .2s;z-index:30;white-space:nowrap}
 .toast.show{opacity:1}
 .acts .chain{flex:none;min-height:56px;font-size:15px;padding:6px 12px;line-height:1.2}
 .alts{display:flex;gap:6px;margin:-2px 0 8px;overflow-x:auto;scrollbar-width:none;overscroll-behavior-x:contain}
 .alts::-webkit-scrollbar{display:none}
-.alts button{min-height:38px;padding:4px 10px;font-size:13px;color:var(--sub);box-shadow:none;white-space:nowrap;flex:none}
-.cfgb{min-height:32px;padding:2px 10px;font-size:12px;margin:2px 0 4px;box-shadow:none}
-.stats .startf{grid-column:2;margin:-4px 0 0;min-height:34px;font-size:12px;color:var(--sub);white-space:nowrap;padding:2px 6px}
-.stats .startf b{color:var(--ink)}
+.alts button{min-height:44px;padding:4px 10px;font-size:14px;color:var(--sub);box-shadow:none;white-space:nowrap;flex:none}
+.cfgb{min-height:44px;padding:2px 10px;font-size:14px;box-shadow:none}
+.startf{color:var(--sub);white-space:nowrap}
+.startf b{color:var(--ink)}
 .msg{font-size:14px;color:var(--sub);margin:10px 2px}
 .tres{border:1px dashed var(--amb);border-radius:12px;padding:10px 12px;margin:10px 0;display:grid;gap:8px}
 .tres[hidden]{display:none}
 .tres-h{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13px;color:var(--sub)}.tres-h b{color:var(--amb)}
-.tres-h button{margin-left:auto;min-height:32px;padding:2px 10px;font-size:12px;box-shadow:none}
+.tres-h button{margin-left:auto;min-height:44px;padding:2px 10px;font-size:13px;box-shadow:none}
 .tres-q{font-size:13px;font-weight:700}
 .tres-b{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.tres-b button{min-height:46px;font-weight:800;font-size:15px}
 .tres-b .r-great{border-color:var(--good);color:var(--good)}.tres-b .r-fail{border-color:var(--bad);color:var(--bad)}
@@ -136,7 +154,7 @@ select{font:inherit;font-weight:700;padding:6px 10px;border:1px solid var(--line
 .rcell{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:4px 4px 2px;min-width:0}
 .rcell.gap{visibility:hidden}
 .rcell.still{opacity:.55;text-align:center;padding:10px 4px}
-.rcell .rl{font-size:12px;color:var(--sub);font-weight:700;text-align:center;height:18px}
+.rcell .rl{font-size:13px;color:var(--sub);font-weight:700;text-align:center;height:18px}
 .rcell .rl b{margin-left:4px}
 .rl b.c{color:var(--crit)} .rl b.a{color:var(--amb)}
 .reel{overflow-y:auto;scroll-snap-type:y mandatory;overscroll-behavior:contain;scrollbar-width:none;
@@ -144,25 +162,27 @@ select{font:inherit;font-weight:700;padding:6px 10px;border:1px solid var(--line
   background:linear-gradient(transparent calc(50% - 22px),#353c4a calc(50% - 22px),#353c4a calc(50% + 22px),transparent calc(50% + 22px))}
 .reel::-webkit-scrollbar{display:none}
 .reel button{display:block;width:100%;height:44px;min-height:0;border:0;background:none;border-radius:0;padding:0;scroll-snap-align:center;box-shadow:none;
-  font-size:21px;font-weight:700;color:var(--sub);font-variant-numeric:tabular-nums}
+  font-size:calc(21px * var(--k));font-weight:700;color:var(--sub);font-variant-numeric:tabular-nums}
 .reel button:active{transform:none;background:none}
 .reel button.c{color:var(--crit)} .reel button.a{color:var(--amb)}
-.reel button.on{color:var(--ink);font-size:27px;font-weight:800}
+.reel button.on{color:var(--ink);font-size:calc(27px * var(--k));font-weight:800}
 .reel button.c.on{color:var(--crit)} .reel button.a.on{color:var(--amb)}
 .reel button.ov{text-decoration:line-through;color:var(--bad)}
 /* ボタンで入れる(テスト): 値のボタン・小さい盤面 */
 .vbh{font-size:13px;font-weight:700;color:var(--sub);margin:2px 2px 6px}.vbh b{color:var(--ink);font-size:15px}
 .vbs{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:10px}
-.vbs button{min-height:48px;padding:0;font-size:20px;font-weight:800;font-variant-numeric:tabular-nums;background:var(--sunk)}
+.vbs button{min-height:48px;padding:0;font-size:calc(20px * var(--k));font-weight:800;font-variant-numeric:tabular-nums;background:var(--sunk)}
+/* 値のボタン: ゾーン内は緑・会心でしか出ない値は縁を薄いピンク・超える値は赤の取り消し線・一番出やすい値は橙の縁 */
+.vbs button.zn{background:#123a26;border-color:var(--good);color:#d9ffe9}
+.vbs button.c{border-color:rgba(255,122,209,.5)}
 .vbs button.top{border:2px solid var(--accent)}
-.vbs button.a{color:var(--amb)} .vbs button.c{color:var(--crit);border-color:var(--crit)}
 .vbs button.ov{color:var(--bad);text-decoration:line-through}
 .vbs button.on{background:var(--card2);box-shadow:0 0 0 2px var(--ink)}
-.vbl{font-size:12px;font-weight:800;color:var(--crit);margin:-2px 2px 6px}
+.vbl{font-size:13px;font-weight:800;color:var(--crit);margin:-2px 2px 6px}
 .mboard{display:flex;flex-direction:column;gap:6px;margin-bottom:12px}
 .mrow{display:grid;gap:6px}
 .mb{min-height:48px;padding:2px 4px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;line-height:1.15;box-shadow:none;background:var(--card)}
-.mb small{font-size:11px;color:var(--sub);font-weight:700}.mb small em{font-style:normal;color:var(--blue);margin-left:4px}
+.mb small{font-size:13px;color:var(--sub);font-weight:700}.mb small em{font-style:normal;color:var(--blue);margin-left:4px}
 .mb b{font-size:19px;font-variant-numeric:tabular-nums}
 .mb.gap{visibility:hidden}
 .mb.still{opacity:.45}.mb:disabled{opacity:.45}
@@ -178,40 +198,54 @@ select{font:inherit;font-weight:700;padding:6px 10px;border:1px solid var(--line
 .seg button[aria-pressed="true"]{border:2px solid var(--good);color:var(--ink)}
 .techs{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:12px}
 .techs button{font:inherit;font-size:14px;font-weight:800;min-height:44px;border-radius:10px;border:2px solid var(--good);background:var(--sunk);color:var(--ink);display:flex;justify-content:space-between;align-items:center;padding:0 10px;touch-action:manipulation}
-.techs button small{font-size:11px;color:var(--sub);font-weight:700}
+.techs button small{font-size:13px;color:var(--sub);font-weight:700}
 .techs button.off{border-color:var(--line);color:var(--sub);text-decoration:line-through;opacity:.6}
 .techs button:disabled{opacity:1}
 .num{display:flex;gap:8px;align-items:center;margin:8px 0 12px}
 .num input{flex:1;font:inherit;font-size:30px;font-weight:800;text-align:center;padding:8px;border:1px solid var(--line);border-radius:10px;background:var(--sunk);color:var(--ink);min-width:0}
 .row2{display:flex;gap:8px}
 .row2 button{flex:1}
-.note{font-size:12px;color:var(--sub);margin-top:16px;line-height:1.7}
+.note{font-size:13px;color:var(--sub);margin-top:16px;line-height:1.7}
 .note b{color:var(--ink)}
 .note a.gh{display:inline-block;margin-top:6px;padding:8px 0;color:var(--accent);font-weight:700;font-size:13px}
-.vrate select{min-height:34px;padding:2px 8px;font-size:13px;margin:4px 0 2px}
+.vrate{display:flex;align-items:center;gap:6px;font-size:14px;font-weight:700;color:var(--sub);flex:1;min-width:0}
+.vrate select{min-height:44px;padding:2px 8px;font-size:14px;flex:1;min-width:0}
 .note .warn{color:var(--amb);font-weight:700}
 .form{display:grid;grid-template-columns:auto 1fr;gap:10px 12px;align-items:center;margin:4px 0 14px}
 .form label{font-size:14px;color:var(--sub);font-weight:700}
 .form input,.form select{font:inherit;font-size:18px;font-weight:700;padding:6px 10px;border:1px solid var(--line);border-radius:10px;background:var(--sunk);color:var(--ink);min-height:44px;width:100%;min-width:0}
-.form .hint{grid-column:1/-1;font-size:12px;color:var(--sub);margin-top:-4px}
-@media (max-width:380px){ .cell .v{font-size:34px} .stat b{font-size:24px} .top select{font-size:15px} }
+.form .hint{grid-column:1/-1;font-size:13px;color:var(--sub);margin-top:-4px}
+.hint{font-size:13px;color:var(--sub)}
+/* 入力のシートの上の端: 題(短く1行)と「リール ⇄ ボタン」の切り替え */
+.shhead{display:flex;align-items:center;gap:8px;margin:-4px 0 8px}
+.shhead h2{flex:1;min-width:0;margin:0;text-align:left;font-size:16px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.intog{flex:none;min-height:44px;padding:2px 10px;font-size:13px;box-shadow:none;color:var(--ink2);background:var(--sunk)}
+.intog span.on{color:var(--ink);text-decoration:underline;text-underline-offset:3px}
+/* 設定(⚙) */
+.setg{display:grid;gap:8px;margin-bottom:6px}
+.setr{display:flex;align-items:center;gap:8px}
+.setr .sl{flex:none;width:52px;font-size:14px;font-weight:700;color:var(--sub)}
+.setr>button{flex:1;min-width:0}
+#setM .vbtn{flex:none;flex-direction:row;gap:6px;min-height:44px;min-width:96px;border-radius:10px}
+#setM .vbtn small{font-size:14px}
+#setM .vbtn b{font-size:16px}
+#setM .techb{flex-direction:row;justify-content:space-between;gap:8px}
+.seg3{grid-template-columns:repeat(3,1fr);margin:0;flex:1}
+@media (max-width:380px){ .cell .v{font-size:calc(34px * var(--k))} .top .stat b{font-size:20px} .top select{font-size:14px} }
 </style>
 </head>
 <body>
 <main>
   <div class="top">
     <select id="item" aria-label="商材"></select>
-    <button id="pipB" hidden aria-label="いつも最前面に出る小窓を開く">小窓</button>
-    <button id="reset">最初から</button>
+    <div class="stats">
+      <button class="stat" id="stTemp" aria-label="温度を直す"><small>温度<span class="u">℃</span></small><span class="sv"><b id="temp">1000</b></span><span class="k" id="kind"></span></button>
+      <span class="hsslot" id="hsSlot"><button class="hsb" id="hsB" aria-label="必殺(ヘパイトスの炎)の状態"><small>必殺</small><b id="hsBt">なし</b><span id="hsBn">たまったら押す</span></button></span>
+      <button class="stat" id="stFocus" aria-label="今の集中力を直す"><small>集中力</small><span class="sv"><b id="focus">242</b></span></button>
+    </div>
+    <button class="gear" id="gearB" aria-label="設定を開く">⚙</button>
   </div>
-  <div class="stats">
-    <button class="stat" id="stTemp"><small>温度</small><b id="temp">1000</b><span class="u">℃</span><span class="k" id="kind"></span></button>
-    <button class="stat" id="stFocus" aria-label="今の集中力を直す"><small>集中力</small><b id="focus">242</b></button>
-    <button class="stat vbtn" id="vB" aria-label="声のオン・オフ"><small>声</small><b id="vBt">オン</b></button>
-    <button class="cfgb startf" id="cfgB2" aria-label="最初の集中力を変える">最初の値 <b id="cfgB2v">245</b> を変える</button>
-  </div>
-  <div class="hsrow"><button class="hsb" id="hsB" aria-label="必殺(ヘパイトスの炎)の状態"><small>必殺</small><b id="hsBt">なし</b><span id="hsBn">たまったら押す</span></button><button class="critb" id="critB" hidden aria-label="直前に叩いたマスが会心だった">今の<br>会心!</button><button class="techb" id="techB" aria-label="使う技を選ぶ"><small>使う技</small><b id="techBv">15/15</b></button></div>
-  <div class="critp" id="critP" hidden></div>
+  <div class="hsrow" id="hsRow" hidden></div>
   <div class="board" id="board"></div>
   <div class="msg" id="msg"></div>
   <div class="tres" id="tres" hidden>
@@ -220,43 +254,54 @@ select{font:inherit;font-weight:700;padding:6px 10px;border:1px solid var(--line
     <div class="tres-b"><button type="button" data-r="大成功" class="r-great">大成功</button><button type="button" data-r="成功" class="r-ok">成功</button><button type="button" data-r="失敗" class="r-fail">失敗</button></div>
   </div>
   <!--SELF-PANEL-->
-  <div class="note">
-    <label class="vrate">計算の強さ <select id="power"><option value="normal">ふつう</option><option value="strong">強(スマホ向け)</option><option value="max">最強(PC向け)</option><option value="maxTest" id="powTest" hidden>最強(テスト中)</option><option value="maxGpu" id="powGpu" hidden>最強(GPU)</option></select></label>
-    <label class="vrate">声の速さ <select id="vRate"><option value="0.9">ゆっくり</option><option value="1">ややゆっくり</option><option value="1.15">ふつう</option><option value="1.35">はやい</option><option value="1.6">とてもはやい</option><option value="1.9">さらにはやい</option></select></label><br>
-    盤面のマス・温度・集中力は押すと手で直せる。<br>
-    必殺がたまったら(ゲームのメニューに「ひっさつ」が出たら)「必殺」を押して「たまった」にする。押すたびに なし → たまった → 効果中 と変わる。<br>
-    推奨手は、打てる手を全部ためして、その後の大成功の見込みが一番高い手。見込みはゲームを再現して学習した計算で、元のツールのコードは使っていない。<br>
-    声は「声」ボタンでオン・オフ(スマホは最初に画面に触った後から鳴る)。声: VOICEVOX:ずんだもん
-    <br><a class="gh" href="https://github.com/kakkun15/kaji-navi" target="_blank" rel="noopener">GitHub のページ(説明・更新・ソース)</a>
-  </div>
 </main>
 
 <div class="foot fold"><div class="in">
   <div class="rec" id="rec"></div>
   <div class="alts" id="alts"></div>
   <div class="relit" id="relit" hidden></div>
+  <div class="critrow" id="critRow" hidden><button class="critb" id="critB" hidden aria-label="直前に叩いたマスが会心だった">今の会心!</button><div class="critp" id="critP" hidden></div></div>
   <div class="acts"><button class="undo" id="undo" aria-label="1手戻す">戻す</button><button class="main" id="go">計算中…</button><button class="chain" id="chainB" hidden></button></div>
 </div></div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <div class="modal" id="reelM"><div class="sheet" onclick="event.stopPropagation()">
+  <div class="shhead"><h2 id="reelT">ゲームと同じ位置のマスを合わせて「決定」</h2><button type="button" class="intog" id="inTog" aria-label="入れ方を切り替える(リール・ボタン)"><span data-v="reel">リール</span> ⇄ <span data-v="btn">ボタン</span></button></div>
   <div class="bigh" id="reelBig" hidden></div>
-  <h2 id="reelT">ゲームと同じ位置のマスを合わせて「決定」</h2>
   <div class="reels" id="reels"></div>
   <div class="row2"><button id="reelCancel">やめる</button><button class="main" id="reelOk">決定</button></div>
+</div></div>
+
+<div class="modal" id="setM"><div class="sheet setsh" onclick="event.stopPropagation()">
+  <h2>設定</h2>
+  <div class="setg">
+    <div class="setr"><span class="sl">声</span><button class="stat vbtn" id="vB" aria-label="声のオン・オフ"><small>声</small><b id="vBt">オン</b></button><label class="vrate">声の速さ <select id="vRate"><option value="0.9">ゆっくり</option><option value="1">ややゆっくり</option><option value="1.15">ふつう</option><option value="1.35">はやい</option><option value="1.6">とてもはやい</option><option value="1.9">さらにはやい</option></select></label></div>
+    <div class="setr"><span class="sl">計算</span><label class="vrate">計算の強さ <select id="power"><option value="normal">ふつう</option><option value="strong">強(スマホ向け)</option><option value="max">最強(PC向け)</option><option value="maxTest" id="powTest" hidden>最強(テスト中)</option><option value="maxGpu" id="powGpu" hidden>最強(GPU)</option></select></label></div>
+    <div class="setr"><span class="sl">大きさ</span><div class="seg seg3" id="sizeSeg"><button type="button" data-v="s">小</button><button type="button" data-v="m">中</button><button type="button" data-v="l">大</button></div></div>
+    <div class="setr"><span class="sl">集中力</span><button class="cfgb startf" id="cfgB2" aria-label="最初の集中力を変える">最初の値 <b id="cfgB2v">245</b> を変える</button></div>
+    <div class="setr"><span class="sl">技</span><button class="techb" id="techB" aria-label="使う技を選ぶ"><small>使う技</small><b id="techBv">15/15</b></button></div>
+    <div class="setr" id="pipRow" hidden><span class="sl">小窓</span><button id="pipB" hidden aria-label="いつも最前面に出る小窓を開く">小窓を開く</button></div>
+    <div class="setr"><span class="sl">記録</span><button type="button" id="retLogB">戻りの記録をコピー</button></div>
+    <div class="setr"><span class="sl">局</span><button id="reset">最初から</button></div>
+  </div>
+  <div class="note">
+    盤面のマス・温度・集中力は押すと手で直せる。<br>
+    必殺がたまったら(ゲームのメニューに「ひっさつ」が出たら)「必殺」を押して「たまった」にする。押すたびに なし → たまった → 効果中 と変わる。<br>
+    推奨手は、打てる手を全部ためして、その後の大成功の見込みが一番高い手。見込みはゲームを再現して学習した計算で、元のツールのコードは使っていない。<br>
+    声は「声」ボタンでオン・オフ(スマホは最初に画面に触った後から鳴る)。声: VOICEVOX:ずんだもん
+    <br><a class="gh" href="https://github.com/kakkun15/kaji-navi" target="_blank" rel="noopener">GitHub のページ(説明・更新・ソース)</a>
+  </div>
+  <div class="row2" style="margin-top:12px"><button id="setClose" class="main">閉じる</button></div>
 </div></div>
 
 <div class="modal" id="cfgM"><div class="sheet" onclick="event.stopPropagation()">
   <h2>最初の集中力</h2>
   <div class="num"><input id="cfF" type="number" inputmode="numeric" min="1" max="999" aria-label="最初の集中力"></div>
-  <div class="hint" style="font-size:12px;color:var(--sub);margin:-4px 2px 12px">ゲームで打ち始める前に出ている集中力の数字(職人レベルとハンマーで変わる)。一度決めれば次からも使う。あとで変える時は、集中力の下にある「最初の値を変える」を押す。打っている途中の数字のまちがいは、集中力の数字そのものを押して直す。光の鍛冶ハンマー★3 で計算する。</div>
+  <div class="hint" style="margin:-4px 2px 12px">ゲームで打ち始める前に出ている集中力の数字(職人レベルとハンマーで変わる)。一度決めれば次からも使う。あとで変える時は、⚙ の「最初の値を変える」を押す。打っている途中の数字のまちがいは、集中力の数字そのものを押して直す。光の鍛冶ハンマー★3 で計算する。</div>
   <h2 style="margin-top:6px">使う技</h2>
-  <div class="hint" style="font-size:12px;color:var(--sub);margin:0 2px 8px">覚えていない技は押して外す(もう一度押すと戻る)。Lv は覚える職人レベル。外すと見込み% は少し甘めに出る(全部の技を使える前提で学んだ計算なので)。</div>
+  <div class="hint" style="margin:0 2px 8px">覚えていない技は押して外す(もう一度押すと戻る)。Lv は覚える職人レベル。外すと見込み% は少し甘めに出る(全部の技を使える前提で学んだ計算なので)。</div>
   <div class="techs" id="cfT"></div>
-  <h2 style="margin-top:6px">入れ方</h2>
-  <div class="hint" style="font-size:12px;color:var(--sub);margin:0 2px 8px">叩いた後の値の入れ方。ボタンは値を押すだけ(1マスなら押したら決まる)。</div>
-  <div class="seg" id="cfIn"><button type="button" data-v="reel">リール</button><button type="button" data-v="btn">ボタン(テスト)</button></div>
-  <button type="button" id="retLogB" style="width:100%;margin-bottom:12px;font-size:13px;box-shadow:none">戻りの記録をコピー</button>
+  <div class="seg" id="cfIn" hidden><button type="button" data-v="reel">リール</button><button type="button" data-v="btn">ボタン(テスト)</button></div>
   <div class="row2"><button id="cfgCancel">やめる</button><button class="main" id="cfgOk">決める</button></div>
 </div></div>
 
@@ -2064,11 +2109,13 @@ const STORE = 'kajiNaviV1', CFG_STORE = 'kajiNaviCfgV1';
 const CFG_STORE2 = 'kajiNaviCfgV2';
 // off: 使わない(覚えていない)技の id。たたくは外せない。みだれ打ちは一覧に出さず、いつも外す
 // input: 叩いた後の値の入れ方('reel' リール・既定 / 'btn' ボタン(テスト))。古い保存には無いのでリールにする
-let cfg = { focus: 245, off: null, input: 'reel' }, cfgSaved = false;     // cfgSaved: 開始の集中力を一度でも決めたか(初めての人には最初に聞く)
+// size: 文字の大きさ('s' 小・'m' 中(既定)・'l' 大)。古い保存には無いので中にする
+let cfg = { focus: 245, off: null, input: 'reel', size: 'm' }, cfgSaved = false;
+const SIZE_K = { s: 0.9, m: 1, l: 1.25 };     // cfgSaved: 開始の集中力を一度でも決めたか(初めての人には最初に聞く)
 const TECH_LIST = C.TECHS.filter(t => t.id !== 'midare');
 try{
   const j2 = JSON.parse(localStorage.getItem(CFG_STORE2) || 'null');
-  if(j2 && j2.focus >= 1){ cfg.focus = j2.focus | 0; cfgSaved = true; if(Array.isArray(j2.off)) cfg.off = j2.off.filter(id => C.TECH[id] && id !== 'tataku'); if(j2.input === 'btn') cfg.input = 'btn'; }
+  if(j2 && j2.focus >= 1){ cfg.focus = j2.focus | 0; cfgSaved = true; if(Array.isArray(j2.off)) cfg.off = j2.off.filter(id => C.TECH[id] && id !== 'tataku'); if(j2.input === 'btn') cfg.input = 'btn'; if(SIZE_K[j2.size]) cfg.size = j2.size; }
   else {      // 前の版の保存(職人Lv・ハンマー)から引き継ぐ
     const j = JSON.parse(localStorage.getItem(CFG_STORE) || 'null');
     if(j && j.level >= 75){ cfg.focus = 243 + 2 * (j.level - 75) + (j.fadj | 0); cfgSaved = true; }
@@ -2076,7 +2123,11 @@ try{
 }catch(e){}
 // 技を選んだことが無い時は、前と同じく集中力から決める(253 未満なら左右打ち(Lv80)を外す)
 function offList(){ return cfg.off || (cfg.focus >= 253 ? [] : ['sayuu']); }
-function saveCfg(){ cfgSaved = true; try{ const o = cfg.off ? { focus: cfg.focus, off: cfg.off } : { focus: cfg.focus }; if(cfg.input === 'btn') o.input = 'btn'; localStorage.setItem(CFG_STORE2, JSON.stringify(o)); }catch(e){} }
+function saveCfg(){ cfgSaved = true; try{ const o = cfg.off ? { focus: cfg.focus, off: cfg.off } : { focus: cfg.focus }; if(cfg.input === 'btn') o.input = 'btn'; if(cfg.size && cfg.size !== 'm') o.size = cfg.size; localStorage.setItem(CFG_STORE2, JSON.stringify(o)); }catch(e){} }
+// 大きさ: 盤面の値などを calc(... * var(--k)) で大きくする(小窓にも同じ値を渡す)
+function sizeK(){ return SIZE_K[cfg.size] || 1; }
+function applySize(){ document.documentElement.style.setProperty('--k', String(sizeK())); }
+applySize();
 const isBtn = () => cfg.input === 'btn';
 function mkG(key){ const off = offList();
   return GM.setup({ item: key, level: cfg.focus >= 253 ? 80 : 79, hammer: 'hikari', star: 3, focus: cfg.focus,
@@ -2153,8 +2204,8 @@ function pressCrit(){
 function renderCrit(){
   const cs = critCells(), b = $('critB'), p = $('critP');
   b.hidden = !cs.length; if(!cs.length) critPick = false;
-  p.hidden = !critPick;
-  if(critPick) p.innerHTML = '会心だったマス:' + cs.map(c => `<button data-j="${c.j}">${posName(c.j)}</button>`).join('') + '<button data-j="-1" style="background:var(--chip);color:var(--ink);border-color:var(--line)">やめる</button>';
+  p.hidden = !critPick; $('critRow').hidden = !cs.length;
+  if(critPick) p.innerHTML = '会心:' + cs.map(c => `<button data-j="${c.j}">${posName(c.j)}</button>`).join('') + '<button data-j="-1" style="color:var(--ink);border-color:var(--line)">やめる</button>';
   p.querySelectorAll('button').forEach(x => x.onclick = () => { const j = +x.dataset.j; if(j < 0){ critPick = false; render(); } else applyCrit(j); });
 }
 // 会心だったマスの印(小窓に小さく出す)。次に集中力が減る(次の手を打つ)まで出す。add: 前の印に足す(2026-11-03)
@@ -2173,7 +2224,9 @@ function pipBel(i, z){
   const nz = s.bel[i].map((p, q) => p > 1e-9 ? z[0] + q : null).filter(x => x !== null);
   return nz.length && nz.length < s.bel[i].length ? (nz.length === 1 ? `理想値 ${nz[0]}` : `理想値 ${nz[0]}〜${nz[nz.length-1]}`) : `${z[0]}〜${z[1]}`;
 }
-function renderHs(){ const h = s.hs | 0; $('hsBt').textContent = HS_LABEL[h]; $('hsBn').textContent = HS_NOTE[h]; $('hsB').className = 'hsb' + (h ? ' hs' + h : ''); }
+// 必殺: なしの間は温度の横の小さい印。たまった・効果中の時だけ、盤面の上の色の帯にする(同じボタンを移す)
+function renderHs(){ const h = s.hs | 0, b = $('hsB'); $('hsBt').textContent = HS_LABEL[h]; $('hsBn').textContent = HS_NOTE[h]; b.className = 'hsb' + (h ? ' hs' + h : '');
+  const to = h ? $('hsRow') : $('hsSlot'); if(b.parentNode !== to) to.appendChild(b); $('hsRow').hidden = !h; }
 function renderCfg(){
   $('powTest').hidden = !W[item + '_test']; $('powGpu').hidden = !gpuOk(); renderTres();
   $('cfgB2v').textContent = cfg.focus;
@@ -2184,7 +2237,7 @@ function render(){
   renderCfg(); renderHs(); renderCrit();
   $('temp').textContent = s.temp; $('focus').textContent = s.F;
   const k = s.first ? 0 : C.tempKind(s.temp), lab = (KIND[G.trait] || {})[k];
-  $('kind').textContent = lab || ''; $('kind').className = 'k' + (lab ? ' on' : ''); $('kind').style.display = lab ? '' : 'none';
+  $('kind').textContent = lab || ''; $('kind').className = 'k' + (lab ? ' on' : ''); $('kind').style.display = lab ? '' : 'none'; $('stTemp').classList.toggle('kd', !!lab);
   const rows = G.cells.length / 2, best = qs && qs[0] && qs[0].a, tg = best && best.t.area ? best.tg : [];
   const picking = Array.isArray(s.lit);
   let h = '';
@@ -2200,7 +2253,8 @@ function render(){
       const tags = (tg.includes(i) ? '<i>叩く</i>' : '') + (s.lit === i ? '<i class="lit">光</i>' : '');
       const b = s.bel[i], nz = b.map((p, q) => p > 1e-9 ? z[0] + q : null).filter(x => x !== null);
       const bel = nz.length && nz.length < b.length ? (nz.length === 1 ? `理想値 ${nz[0]}` : `理想値 ${nz[0]}〜${nz[nz.length-1]}`) : '';
-      const need = v < z[0] ? `あと ${z[0] - v}〜${z[1] - v}` : v <= z[1] ? 'ゾーン内' : '超えた';
+      // 棒の下の1行: 「180〜190・あと8〜18」(理想値が絞れたら理想値の表示に替える)
+      const need = `${z[0]}〜${z[1]}・` + (v < z[0] ? `あと${z[0] - v}〜${z[1] - v}` : v <= z[1] ? 'ゾーン内' : '超えた');
       h += `<div class="${cls}" data-i="${i}"><div class="lbl">${posName(i)}${tags}</div><div class="v">${v}</div>`
          + `<div class="z"><span>${z[0]}</span><span>${z[1]}</span></div><div class="bar"><span class="f" style="width:${Math.min(100, v/top*100)}%"></span>`
          + `<span class="zn" style="left:${z[0]/top*100}%;width:${(z[1]-z[0])/top*100}%"></span></div><div class="bel">${bel || `<span class="need">${need}</span>`}</div></div>`;
@@ -2256,7 +2310,7 @@ function whyText(a){
     : a1 >= z[0] && a2 <= z[1] ? 'ここでゾーンに入れる'
     : a2 > z[1] ? (t.pow < 1 ? '弱く打って、超えないように少しだけ伸ばす' : `ゾーンに入れる(超える目もある。${crTxt(x)}なら止まる)`)
     : 'ゾーンに入れる(少し届かない目もある)';
-  return `${lit}${goal}。ふつうは ${v} → ${a1}〜${a2}(ゾーン ${z[0]}〜${z[1]})`;
+  return `${lit}${goal}。ふつうは ${v} → ${a1}〜${a2}`;
 }
 function renderFoot(){
   const go = $('go'), msg = $('msg');
@@ -2329,38 +2383,45 @@ function calcChain(a){
   return k;
 }
 function applyChain(a, n){
-  snap();
+  snap(); s.lastHit = null;
   for(let k = 0; k < n && !Array.isArray(s.lit); k++){ if(GM.costOf(G, s, a.t) > s.F) break; GM.afterAct(G, s, a, null); }
   save(); recalc();
 }
 
 // ---- 小窓(PC の Chrome・Edge。いつも最前面に出る。ゲームの上に重ねて、どの技でどこを打つかを見る) ----
 let pipW = null;
-const PIP_CSS = `body{margin:0;background:#0f1115;color:#f4f6f9;font:15px/1.4 system-ui,"Hiragino Sans","Yu Gothic UI",sans-serif;padding:8px;user-select:none}
-.nm{font-size:26px;font-weight:800;color:#ff9447;line-height:1.15}.tg{font-size:19px;font-weight:800;margin-left:6px}
-.st{font-size:12px;color:#adb6c5;font-weight:700;margin:2px 0 6px}.st b{color:#f4f6f9}
-.it{display:block;width:100%;font:inherit;font-size:13px;font-weight:800;color:#ffcf5c;background:#20242c;border:1px solid #566074;border-radius:6px;padding:3px 4px;margin-bottom:4px}
-.bd{display:grid;gap:5px;margin-bottom:6px}.c{border:2px solid #566074;border-radius:8px;background:#20242c;text-align:center;padding:2px 0;min-height:40px}
-.c .v{font-size:20px;font-weight:800;font-variant-numeric:tabular-nums}.c .zn{font-size:11px;color:#adb6c5;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.1}.c .l{font-size:10px;color:#adb6c5;font-weight:700}
+const PIP_CSS = `:root{--k:1}
+body{margin:0;background:#0f1115;color:#f4f6f9;font:calc(15px * var(--k))/1.35 system-ui,"Hiragino Sans","Yu Gothic UI",sans-serif;padding:6px 8px;user-select:none}
+.nm{font-size:calc(24px * var(--k));font-weight:800;color:#ff9447;line-height:1.15}.tg{font-size:calc(18px * var(--k));font-weight:800;margin-left:6px}
+.st{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:calc(13px * var(--k));color:#adb6c5;font-weight:700;margin:2px 0 5px}.st b{color:#f4f6f9;font-size:calc(15px * var(--k))}
+.bd{display:grid;gap:5px;margin-bottom:6px}.c{border:2px solid #566074;border-radius:8px;background:#20242c;text-align:center;padding:1px 2px 2px}
+.c .t{display:flex;align-items:baseline;justify-content:center;gap:6px;flex-wrap:wrap}
+.c .v{font-size:calc(22px * var(--k));font-weight:800;font-variant-numeric:tabular-nums;line-height:1.15}.c .zn{font-size:calc(13px * var(--k));color:#adb6c5;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.15}.c .l{font-size:calc(13px * var(--k));color:#adb6c5;font-weight:700}
 .c.in{border-color:#3fd98b}.c.in .v{color:#3fd98b}.c.ov{border-color:#ff6b6b}
 .c.hit{border-color:#ff7a14;background:#5a2a08;box-shadow:0 0 0 2px #ff7a14}.c.hit .l{color:#ffb070}
 .c.lit{outline:2px solid #ffcf5c}.c.pick{cursor:pointer;outline:3px dashed #ffcf5c}.c.gap{visibility:hidden}
-.why{font-size:12px;color:#adb6c5;font-weight:700;margin-bottom:6px}
-button{font:inherit;font-weight:800;width:100%;min-height:40px;border-radius:8px;border:1px solid #b84d00;background:#ff7a14;color:#fff;cursor:pointer}
-.row{display:flex;gap:6px}.row button+button{flex:none;width:auto;padding:0 10px}
-.lw{background:#5a1414;border:2px solid #ff6b6b;color:#fff;font-size:14px;font-weight:800;border-radius:8px;padding:3px 8px;margin:2px 0 6px}
-.hs{font-size:13px;font-weight:800;border:1px solid #566074;border-radius:8px;padding:3px 8px;margin:0 0 6px;cursor:pointer;color:#adb6c5;background:#20242c}
-.alts{display:flex;flex-wrap:wrap;gap:5px;margin:0 0 6px}.alts .ah{flex-basis:100%;font-size:11px;color:#adb6c5;font-weight:700}
-.alts .alt{width:auto;flex:1 1 45%;min-height:34px;font-size:13px;background:#272c36;border-color:#566074;color:#f4f6f9;padding:2px 6px}.alts .alt b{color:#ffcf5c}
-.pw{display:grid;grid-template-columns:minmax(0,1fr) 96px;gap:8px;align-items:start}.pw.one{grid-template-columns:1fr}
-.hy .ah{font-size:11px;color:#adb6c5;font-weight:700;margin-bottom:3px;text-align:center}
-.hyr{display:flex;flex-direction:column;gap:4px}.hb{border:2px solid;border-radius:8px;background:#20242c;padding:2px 3px;text-align:center}
-.hb .hv{font-size:18px;font-weight:800;font-variant-numeric:tabular-nums;line-height:1.15;white-space:nowrap}.hb .hl{font-size:13px;font-weight:800;color:#ffcf5c;font-variant-numeric:tabular-nums;white-space:nowrap}
-.hb .hn{font-size:10px;color:#adb6c5;font-weight:700;line-height:1.2}
-.ck{font-size:12px;font-weight:800;color:#ffd166;margin:-2px 0 4px}
-.cr{display:flex;flex-wrap:wrap;gap:4px;align-items:center;margin:0 0 6px;font-size:12px;font-weight:700;color:#adb6c5}
-.cb{width:auto;flex:1 1 auto;min-height:32px;font-size:13px;color:#0f1115;background:#ff7ad1;border-color:#ff7ad1;padding:2px 8px}.cb.no{flex:none;background:#272c36;border-color:#566074;color:#f4f6f9}
+button{font:inherit;font-weight:800;width:100%;min-height:44px;border-radius:8px;border:1px solid #b84d00;background:#ff7a14;color:#fff;cursor:pointer;font-size:calc(16px * var(--k))}
+.row{display:flex;gap:6px}.row button+button{flex:none;width:auto;padding:0 12px}
+.lw{background:#5a1414;border:2px solid #ff6b6b;color:#fff;font-size:calc(14px * var(--k));font-weight:800;border-radius:8px;padding:2px 8px;margin:2px 0 5px}
+.hs{font-size:calc(13px * var(--k));font-weight:800;border:1px solid #566074;border-radius:6px;padding:1px 8px;cursor:pointer;color:#adb6c5;background:#20242c}
 .hs.hs1{color:#0f1115;background:#5fd3ff;border-color:#5fd3ff;box-shadow:0 0 10px rgba(95,211,255,.6)}.hs.hs2{color:#0f1115;background:#ff9a3c;border-color:#ff9a3c}
+.pw{display:grid;grid-template-columns:minmax(0,1fr) 124px;gap:8px;align-items:start}.pw.one{grid-template-columns:1fr}
+.hy .ah{font-size:13px;color:#adb6c5;font-weight:700;margin-bottom:3px;text-align:center}
+.hyr{display:flex;flex-direction:column;gap:4px}.hb{border:2px solid;border-radius:8px;background:#20242c;padding:1px 3px;text-align:center}
+.hb .hr{display:flex;flex-wrap:wrap;justify-content:center;align-items:baseline;column-gap:5px}
+.hb .hv{font-size:calc(17px * var(--k));font-weight:800;font-variant-numeric:tabular-nums;line-height:1.15;white-space:nowrap}.hb .hl{font-size:13px;font-weight:800;color:#ffcf5c;font-variant-numeric:tabular-nums;white-space:nowrap}
+.hb .hn{font-size:13px;color:#adb6c5;font-weight:700;line-height:1.2;letter-spacing:-.03em;font-feature-settings:'palt';display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.hy.lit .hn{-webkit-line-clamp:1}
+.ck{font-size:calc(13px * var(--k));font-weight:800;color:#ffd166;margin:0 0 5px}
+.cr{display:flex;flex-wrap:wrap;gap:4px;align-items:center;margin:0 0 5px;font-size:calc(13px * var(--k));font-weight:700;color:#adb6c5}
+.cb{width:auto;flex:1 1 auto;font-size:calc(14px * var(--k));color:#ff7ad1;background:#20242c;border:2px solid #ff7ad1;padding:2px 8px}.cb.no{flex:none;border-color:#566074;color:#f4f6f9}
+.ih{font-size:calc(17px * var(--k));font-weight:800;color:#ff9447;margin:0 0 5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ih.ret{color:#58a6ff}.ih small{font-size:calc(13px * var(--k));color:#adb6c5;margin-left:6px}
+.ch{display:grid;gap:4px;margin:0 0 6px}.chp{min-height:44px;padding:0 2px;background:#20242c;border:1px solid #566074;color:#f4f6f9;line-height:1.1;font-size:calc(13px * var(--k))}
+.chp b{display:block;font-size:calc(16px * var(--k));font-variant-numeric:tabular-nums}.chp.cur{border:2px solid #ff7a14;box-shadow:0 0 0 2px rgba(255,122,20,.45)}.ret .chp.cur{border-color:#58a6ff;box-shadow:0 0 0 2px rgba(88,166,255,.45)}.chp.rc{border-style:dashed;border-color:#58a6ff}.chp.done b{color:#3fd98b}.chp:disabled{opacity:.4}
+.pv{display:grid;gap:5px;margin:0 0 6px}.pv button{min-height:48px;padding:0;font-size:calc(19px * var(--k));font-variant-numeric:tabular-nums;background:#090b0e;border:1px solid #3c4353;color:#f4f6f9}
+.pv button.zn{background:#123a26;border-color:#3fd98b;color:#d9ffe9}.pv button.c{border-color:rgba(255,122,209,.5)}.pv button.top{border:2px solid #ff9447}
+.pv button.ov{color:#ff6b6b;text-decoration:line-through}.pv button.on{box-shadow:0 0 0 2px #f4f6f9}
+.no{background:#272c36;border-color:#566074;color:#f4f6f9}
 .bd.aim .c:not(.hit){opacity:.4;filter:saturate(.55)}.bd.aim .c.hit{border-width:3px;animation:aimP 1.2s ease-in-out infinite}
 @keyframes aimP{0%,100%{box-shadow:0 0 0 2px #ff7a14}50%{box-shadow:0 0 0 5px rgba(255,122,20,.6),0 0 14px rgba(255,122,20,.6)}}
 body.hsfx::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:9;background:radial-gradient(ellipse at 50% 45%,rgba(255,150,40,0) 50%,rgba(255,130,30,.2) 82%,rgba(255,110,20,.36) 100%);box-shadow:inset 0 0 26px rgba(255,140,40,.55);animation:hsHaze 2.6s ease-in-out infinite}
@@ -2393,14 +2454,54 @@ function hayamiHtml(){
   if(!L.length) return '';
   const blocks = L.map((g, k) => {
     const c = HY_COL[Math.round(k * (HY_COL.length - 1) / Math.max(1, L.length - 1))];
-    return `<div class="hb" style="border-color:${c}"><div class="hv" style="color:${c}">${g.lo}〜${g.hi}</div>`
-      + (lit && g.ll !== null ? `<div class="hl">光 ${g.ll}〜${g.lh}</div>` : '') + `<div class="hn">${g.names.join('・')}</div></div>`;
+    return `<div class="hb" style="border-color:${c}"><div class="hr"><span class="hv" style="color:${c}">${g.lo}〜${g.hi}</span>`
+      + (lit && g.ll !== null ? `<span class="hl">光${g.ll}〜${g.lh}</span>` : '') + `</div><div class="hn">${g.names.join('・')}</div></div>`;
   }).join('');
-  return `<div class="hy"><div class="ah">早見 ${s.temp}℃</div><div class="hyr">${blocks}</div></div>`;
+  return `<div class="hy${lit ? ' lit' : ''}"><div class="ah">早見 ${s.temp}℃</div><div class="hyr">${blocks}</div></div>`;
+}
+// 小窓の入力: 叩いた後の値・戻りの値を小窓だけで入れる(本画面の入れ方がリールでもボタンで入れる)。確定は本画面と同じ pickVal → commitReels
+function pipInput(d){
+  const ret = !!pend.ret, tgs = pend.per.map(p => p.j).sort((a, b) => a - b);
+  if(!ret && !tgs.includes(pend.cur)) pend.cur = tgs.find(i => !(pend.filled && pend.filled[i])) ?? tgs[0];
+  const j = ret ? pend.per[0].j : pend.cur, p = pend.per.find(x => x.j === j);
+  if(!p || !p.its) return '';
+  const n = tgs.length, k = tgs.indexOf(j) + 1;
+  const title = ret ? `<div class="ih ret">戻り ${posName(j)}<small>${s.v[j]} → 減った後(点線は予想)</small></div>`
+    : `<div class="ih">${pend.a.t.name} ${posName(j)}<small>${n > 1 ? `${k}/${n}・` : ''}今 ${s.v[j]} → 叩いた後</small></div>`;
+  // マスの並び: 何マスの時は叩くマス(押すと選び直せる)、戻りは減ったマス(違ったら押して選び直す)
+  const cells = ret ? G.active.slice().sort((a, b) => a - b) : n > 1 ? tgs : [];
+  const ch = cells.length ? `<div class="ch" style="grid-template-columns:repeat(${cells.length},1fr)">` + cells.map(i => {
+      const f = !ret && pend.filled && pend.filled[i], q = pend.per.find(x => x.j === i);
+      const v = ret ? s.v[i] : f ? q.its[pend.sel[i]].w : '?';
+      return `<button class="chp${i === j ? ' cur' : ''}${f ? ' done' : ''}${ret && i === pend.retPred ? ' rc' : ''}" data-j="${i}">${posName(i)}<b>${v}</b></button>`; }).join('') + '</div>' : '';
+  const nv = p.its.length, cols = nv <= 15 ? 5 : nv <= 24 ? 6 : 7;
+  const vals = valBtns(p, 'pv').replace('<div class="pv">', `<div class="pv" style="grid-template-columns:repeat(${cols},1fr)">`);
+  const ok = !ret && n > 1 ? `<button id="pOk"${tgs.every(i => pend.filled && pend.filled[i]) ? '' : ' disabled style="opacity:.45"'}>決定</button>` : '';
+  return `<div class="pin${ret ? ' ret' : ''}">${title}${ch}${vals}<div class="row"><button class="no" id="pCancel" style="flex:1">やめる</button>${ok ? ok.replace('<button id="pOk"', '<button id="pOk" style="flex:1;width:auto"') : ''}</div></div>`;
 }
 function renderPip(){
   if(!pipW || !G || !s) return;
   const d = pipW.document, a = qs && qs[0] && qs[0].a, picking = Array.isArray(s.lit);
+  d.documentElement.style.setProperty('--k', String(sizeK()));
+  // 商材の選ぶ欄・ほかの手は小窓には出さない(本画面には残す)。押す物は残しておく(隠す)
+  const hidden = `<div hidden><select class="it" id="pItem" aria-label="商材">${$('item').innerHTML}</select><div class="alts">${
+    qs && qs[0] && a && !picking && !s.dead && !busy && !(s.hs === 1 && qs[0].hsPick) ? qs.slice(1, 3).map((x, k) => `<button class="alt" data-k="${k + 1}">${actName(x.a)} ${tgName(x.a)} <b>${pct(x.q2 !== undefined ? x.q2 : x.q)}</b></button>`).join('') : ''}</div></div>`;
+  const wire = () => {
+    const pi = d.getElementById('pItem'); pi.value = item;
+    pi.onchange = () => { $('item').value = pi.value; setItem(pi.value, false); };
+    d.querySelectorAll('.alt').forEach(b => b.onclick = () => startAct(qs[+b.dataset.k].a));
+  };
+  d.body.classList.toggle('hsfx', (s.hs | 0) === 2);
+  if(pend && pend.per && pend.per.length){
+    d.body.innerHTML = pipInput(d) + hidden; wire();
+    d.querySelectorAll('.pv button').forEach(b => b.onclick = () => pickVal(pend.ret ? pend.per[0].j : pend.cur, +b.dataset.k));
+    d.querySelectorAll('.chp[data-j]').forEach(b => b.onclick = () => { const i = +b.dataset.j;
+      if(pend.ret){ if(i !== pend.per[0].j){ setRetCell(i); renderRet(); } return; }
+      pend.cur = i; if(isBtn()) renderBtns(); else renderPip(); });
+    d.getElementById('pCancel').onclick = () => closeReels();
+    const ok = d.getElementById('pOk'); if(ok) ok.onclick = () => { if(pend && pend.per.every(p => pend.filled && pend.filled[p.j])) commitReels(); };
+    return;
+  }
   const tg = a && a.t.area && !picking ? a.tg : [];
   let head;
   if(picking) head = '<div class="nm">光ったマスを選ぶ</div>';
@@ -2414,32 +2515,25 @@ function renderPip(){
     const i = 2*r + c, z = G.cells[i];
     if(!z){ h += '<div class="c gap"></div>'; continue; }
     const v = s.v[i], cls = ['c', v > z[1] ? 'ov' : v >= z[0] ? 'in' : '', tg.includes(i) ? 'hit' : '', s.lit === i ? 'lit' : '', picking && s.lit.includes(i) ? 'pick' : ''].join(' ');
-    h += `<div class="${cls}" data-i="${i}"><div class="l">${posName(i)}${tg.includes(i) ? ' ◀叩く' : ''}</div><div class="v">${v}</div><div class="zn">${pipBel(i, z)}</div></div>`;
+    h += `<div class="${cls}" data-i="${i}"><div class="t"><span class="l">${posName(i)}${tg.includes(i) ? '◀' : ''}</span><span class="v">${v}</span></div><div class="zn">${pipBel(i, z)}</div></div>`;
   }
   h += '</div>';
-  const why = a && !picking && !s.dead && qs ? whyText(a) : '';
   const lw = a && !picking && qs ? litWarn(a) : '';
   const hsv = s.hs | 0;
-  const hsRow = `<div class="hs${hsv ? ' hs' + hsv : ''}" id="pHs" role="button" aria-label="必殺の状態を切り替える">必殺:${HS_LABEL[hsv]}<span style="font-weight:700;opacity:.8"> ・ ${HS_NOTE[hsv]}</span></div>`;
-  // ほかの手(本画面と同じ2位・3位)。必殺を温存して寄せている間は出さない(本画面と同じ)
-  const q0 = qs && qs[0];
-  const alts = q0 && a && !picking && !s.dead && !busy && !(s.hs === 1 && q0.hsPick)
-    ? qs.slice(1, 3).map((x, k) => `<button class="alt" data-k="${k + 1}">${actName(x.a)} ${tgName(x.a)} <b>${pct(x.q2 !== undefined ? x.q2 : x.q)}</b></button>`).join('') : '';
+  // 必殺は帯にせず、温度・集中力の行の小さい印(押すと なし → たまった → 効果中)
+  const hsMark = `<span class="hs${hsv ? ' hs' + hsv : ''}" id="pHs" role="button" aria-label="必殺の状態を切り替える">必殺:${HS_LABEL[hsv]}</span>`;
+  // 会心は叩いた後だけ1行(今の会心! か、会心にしたマスの印)
   const ccs = critCells();
-  const critRow = !ccs.length ? '' : critPick
+  const critRow = ccs.length ? (critPick
     ? `<div class="cr">会心:${ccs.map(c => `<button class="cb" data-j="${c.j}">${posName(c.j)}</button>`).join('')}<button class="cb no" data-j="-1">やめる</button></div>`
-    : `<div class="cr"><button class="cb" id="pCrit">今の会心!(${ccs.map(c => posName(c.j)).join('・')})</button></div>`;
+    : `<div class="cr"><button class="cb" id="pCrit">今の会心!(${ccs.length > 2 ? ccs.length + 'マス' : ccs.map(c => posName(c.j)).join('・')})</button></div>`) : critLine();
   let btn = '';
-  if(a && !a.t.area && !picking && !busy && qs) btn = `<div class="row"><button id="pGo">打った</button>${chainN > 1 ? `<button id="pChain">×${chainN}</button>` : ''}</div>`;
-  else if(a && a.t.area && !picking && qs) btn = '<div class="why">結果は元の画面で入れる</div>';
-  const main = `<select class="it" id="pItem" aria-label="商材">${$('item').innerHTML}</select>` + head + (lw ? `<div class="lw">${lw}</div>` : '') + `<div class="st">温度 <b>${s.temp}</b>℃ ・ 集中力 <b>${s.F}</b></div>` + critLine() + hsRow + critRow + h + (why ? `<div class="why">${why}</div>` : '') + (alts ? `<div class="alts"><div class="ah">ほかの手</div>${alts}</div>` : '') + btn;
+  if(a && !picking && !busy && qs && !s.dead) btn = `<div class="row"><button id="pGo">${a.t.area ? '打った → 結果を入れる' : '打った'}</button>${!a.t.area && chainN > 1 ? `<button id="pChain">×${chainN}</button>` : ''}</div>`;
+  const main = head + (lw ? `<div class="lw">${lw}</div>` : '') + `<div class="st"><span>温度 <b>${s.temp}</b>℃</span><span>集中力 <b>${s.F}</b></span>${hsMark}</div>` + critRow + h + btn;
   const hy = hayamiHtml();      // 早見は右に並べる(下だと見にくい)
-  d.body.innerHTML = `<div class="pw${hy ? '' : ' one'}"><div class="pm">${main}</div>${hy}</div>`;
-  d.body.classList.toggle('hsfx', (s.hs | 0) === 2);
-  const pi = d.getElementById('pItem'); pi.value = item;
-  pi.onchange = () => { $('item').value = pi.value; setItem(pi.value, false); };
+  d.body.innerHTML = `<div class="pw${hy ? '' : ' one'}"><div class="pm">${main}</div>${hy}</div>` + hidden;
+  wire();
   const go = d.getElementById('pGo'); if(go) go.onclick = () => startAct(a);
-  d.querySelectorAll('.alt').forEach(b => b.onclick = () => startAct(qs[+b.dataset.k].a));
   const pc = d.getElementById('pCrit'); if(pc) pc.onclick = () => pressCrit();
   d.querySelectorAll('.cb[data-j]').forEach(x => x.onclick = () => { const j = +x.dataset.j; if(j < 0){ critPick = false; render(); } else applyCrit(j); });
   d.getElementById('pHs').onclick = () => $('hsB').click();     // 本画面の「必殺」と同じ(なし → たまった → 効果中)
@@ -2703,7 +2797,7 @@ function finishCalc(id, res){
 function startAct(a){
   if(!a) return;
   if(!a.t.area){            // 火力上げ・冷やし込み: 結果は決まっている
-    snap(a.t.name); GM.afterAct(G, s, a, null); save(); if(!askRet()) recalc(); return;
+    snap(a.t.name); s.lastHit = null; GM.afterAct(G, s, a, null); save(); if(!askRet()) recalc(); return;     // 次の手を入れたら「今の会心!」は消す
   }
   prepAct(a);
   openReels();
@@ -2740,19 +2834,25 @@ function wireReel(p){
   mark(p.j);
 }
 const REEL_T = 'ゲームと同じ位置のマスを合わせて「決定」';
-function openReels(){
+// 入れ方の切り替え(シートの上の端)の今の方を示す
+function renderInTog(){ $('inTog').querySelectorAll('span').forEach(e => e.classList.toggle('on', e.dataset.v === (isBtn() ? 'btn' : 'reel'))); }
+// keep: 入れ方を切り替えた時。押した(filled)マスの値はそのまま残す
+function openReels(keep){
   const sh = $('reelM').querySelector('.sheet');
   sh.classList.toggle('ret', !!pend.ret); $('reelBig').hidden = !pend.ret;
   $('reelOk').hidden = false; $('reelOk').disabled = false;
-  $('reelM').classList.add('show');
+  $('reelM').classList.add('show'); renderInTog();
   if(pend.ret){ renderRet(); return; }
+  const kept = i => keep && pend.filled && pend.filled[i] && Number.isFinite(pend.sel[i]);
   if(isBtn()){
     // ボタン: 候補はリールと同じ。sel は最初はリールと同じ所(外から一部のマスだけ入れられても困らないように)、filled が押したマス
-    for(const p of pend.per){ const ri = reelItems(p.outs, G.cells[p.j]); p.its = ri.its; pend.sel[p.j] = ri.start; }
-    pend.filled = {}; pend.cur = pend.per.map(p => p.j).sort((a, b) => a - b)[0];
+    for(const p of pend.per){ const ri = reelItems(p.outs, G.cells[p.j]); p.its = ri.its; if(!kept(p.j)) pend.sel[p.j] = ri.start; }
+    if(!keep || !pend.filled) pend.filled = {};
+    const tgs = pend.per.map(p => p.j).sort((a, b) => a - b);
+    if(!keep || !tgs.includes(pend.cur)) pend.cur = tgs.find(i => !pend.filled[i]) ?? tgs[0];
     renderBtns(); return;
   }
-  $('reelT').textContent = REEL_T;
+  $('reelT').textContent = `${pend.a.t.name}: 合わせて「決定」`;
   const rows = G.cells.length / 2, tgs = pend.per.map(p => p.j);
   const usedRows = [...Array(rows).keys()].filter(r => G.cells[2*r] || G.cells[2*r+1]);
   const cols = [0, 1].filter(c => G.cells.some((z, i) => z && i % 2 === c));
@@ -2765,13 +2865,14 @@ function openReels(){
       if(!z){ h += '<div class="rcell gap"></div>'; continue; }
       if(!tgs.includes(i)){ h += `<div class="rcell still"><div class="rl">${posName(i)}</div><b>${s.v[i]}</b></div>`; continue; }
       const p = pend.per.find(x => x.j === i), ri = reelItems(p.outs, z);
-      p.its = ri.its; pend.sel[i] = ri.start;
+      p.its = ri.its; if(!kept(i)) pend.sel[i] = ri.start;
       h += reelHtml(p, vis);
     }
     h += '</div>';
   }
   $('reels').innerHTML = h;
   for(const p of pend.per) wireReel(p);
+  renderPip();
 }
 // 小さい盤面(ゲームと同じ並び i = 2*行 + 列)。sel: 押せるマス、cur: 光らせるマス、lab(i): { v, cls, tag }
 function miniBoard(sel, cur, lab){
@@ -2790,17 +2891,31 @@ function miniBoard(sel, cur, lab){
   }
   return h + '</div>';
 }
-// 値のボタン(5列)。会心の値は別の行。一番出やすい値(会心でない中で確率が一番高く、並んでいない時)を縁取り
-function valBtns(p){
-  const its = p.its.map((x, k) => ({ x, k })), ns = its.filter(o => o.x.tag !== 'c'), cs = its.filter(o => o.x.tag === 'c');
+// 値のボタン(5列)。会心の値もふつうの値と1つの並びに混ぜる(小さい順)。ゾーン内は緑・会心でしか出ない値は縁を薄いピンク・
+// 一番出やすい値(会心でない中で確率が一番高く、並んでいない時)を橙の縁取り。小窓も同じ物を使う(cls: 並びの class)
+function valBtns(p, cls){
+  const z = G.cells[p.j], its = p.its.map((x, k) => ({ x, k })), ns = its.filter(o => o.x.tag !== 'c');
   const mx = Math.max(0, ...ns.map(o => o.x.p)), tops = ns.filter(o => o.x.p >= mx - 1e-12), top = ns.length > 1 && tops.length === 1 ? tops[0].k : -1;
   const done = pend.filled && pend.filled[p.j];
-  const b = o => `<button type="button" class="${o.x.tag}${o.x.ov ? ' ov' : ''}${o.k === top ? ' top' : ''}${done && pend.sel[p.j] === o.k ? ' on' : ''}" data-k="${o.k}">${o.x.w}</button>`;
-  return `<div class="vbs">${ns.map(b).join('')}</div>` + (cs.length ? `<div class="vbl">会心</div><div class="vbs">${cs.map(b).join('')}</div>` : '');
+  const b = o => `<button type="button" class="${o.x.tag}${o.x.ov ? ' ov' : z && o.x.w >= z[0] ? ' zn' : ''}${o.k === top ? ' top' : ''}${done && pend.sel[p.j] === o.k ? ' on' : ''}" data-k="${o.k}">${o.x.w}</button>`;
+  return `<div class="${cls || 'vbs'}">${its.map(b).join('')}</div>`;
+}
+// 値を押した時(本画面のボタン・小窓のボタンの両方から)。1マスなら決まる。何マスの時は次のマスへ(全部入れたら「決定」)
+function pickVal(j, k){
+  if(!pend) return;
+  pend.sel[j] = k;
+  if(pend.ret){ commitReels(); return; }
+  (pend.filled = pend.filled || {})[j] = true;
+  const tgs = pend.per.map(p => p.j).sort((a, b) => a - b);
+  if(tgs.length === 1){ commitReels(); return; }
+  const nx = tgs.find(i => i > j && !pend.filled[i]); const n2 = nx !== undefined ? nx : tgs.find(i => !pend.filled[i]);
+  if(n2 !== undefined) pend.cur = n2;
+  if(isBtn()) renderBtns();
+  else { const el = $('rl' + j); if(el){ el.scrollTop = k * 44; mark(j); } renderPip(); }    // リールの人が小窓で入れた時は、本画面のリールも合わせる
 }
 function renderBtns(){
   const tgs = pend.per.map(p => p.j).sort((a, b) => a - b), multi = tgs.length > 1, j = pend.cur, p = pend.per.find(x => x.j === j);
-  $('reelT').textContent = multi ? `${pend.a.t.name}: マスを選んで値を押す。全部入れたら「決定」` : `${pend.a.t.name}: ${posName(j)}の値を押す`;
+  $('reelT').textContent = multi ? `${pend.a.t.name}: ${posName(tgs[0])}から` : `${pend.a.t.name}: ${posName(j)}`;
   let h = '';
   if(multi) h += miniBoard(tgs, j, i => {
     if(!tgs.includes(i)) return { v: s.v[i] };
@@ -2809,14 +2924,9 @@ function renderBtns(){
   h += `<div class="vbh"><b>${posName(j)}</b> 今 ${s.v[j]} → 叩いた後</div>` + valBtns(p);
   $('reels').innerHTML = h;
   $('reels').querySelectorAll('.mb[data-j]').forEach(b => b.onclick = () => { pend.cur = +b.dataset.j; renderBtns(); });
-  $('reels').querySelectorAll('.vbs button').forEach(b => b.onclick = () => {
-    pend.sel[j] = +b.dataset.k; pend.filled[j] = true;
-    if(!multi){ commitReels(); return; }
-    const nx = tgs.find(i => i > j && !pend.filled[i]); const n2 = nx !== undefined ? nx : tgs.find(i => !pend.filled[i]);
-    if(n2 !== undefined) pend.cur = n2;
-    renderBtns();
-  });
+  $('reels').querySelectorAll('.vbs button').forEach(b => b.onclick = () => pickVal(j, +b.dataset.k));
   $('reelOk').hidden = !multi; $('reelOk').disabled = !tgs.every(i => pend.filled[i]);
+  renderPip();
 }
 function mark(j){
   const el = $('rl' + j), p = pend && pend.per.find(x => x.j === j); if(!el || !p) return;
@@ -2829,7 +2939,7 @@ function mark(j){
 function closeReels(){
   // 戻りの値を入れずに閉じた時は、平均(14)で減らしておく(あとで盤面のマスを押して直せる)
   if(pend && pend.ret){ const { j, from } = s.ret || {}; if(s.ret){ s.v[j] = Math.max(0, from - 14); s.ret = null; toast(`${posName(j)}を平均の−14で入れた。マスを押して直せる`); } pend = null; $('reelM').classList.remove('show'); $('reelT').textContent = REEL_T; save(); recalc(); return; }
-  $('reelM').classList.remove('show'); pend = null; $('reelT').textContent = REEL_T;
+  $('reelM').classList.remove('show'); pend = null; $('reelT').textContent = REEL_T; renderPip();
 }
 // 戻りの地金: 温度が200の倍数になって1マスが減った時、実際の値を入れてもらう(12〜16 減る。最初は真ん中の14)
 const RETLOG = 'kajiNaviRetLog', RETLOG_MAX = 500;
@@ -2855,16 +2965,17 @@ function askRet(){
 function renderRet(){
   const p = pend.per[0], j = p.j, btn = isBtn();
   $('reelBig').textContent = `戻り ${posName(j)}`;
-  $('reelT').textContent = btn ? 'ゲームで減った後の値を押す' : 'ゲームで減った後の値を合わせて「決定」';
+  $('reelT').textContent = btn ? '減った後の値を押す' : '減った後の値を合わせて「決定」';
   let h = `<div class="vbh">減ったマス(違ったら押して選び直す)</div>`
     + miniBoard(G.active, j, i => ({ v: s.v[i], tag: i === pend.retPred ? '<em>予想</em>' : '' }))
     + `<div class="vbh"><b>${posName(j)}</b> ${s.v[j]} → 減った後(12〜16 減る)</div>`;
   h += btn ? valBtns(p) : `<div class="rrow" style="grid-template-columns:1fr">${reelHtml(p, 5)}</div>`;
   $('reels').innerHTML = h;
   $('reels').querySelectorAll('.mb[data-j]').forEach(b => b.onclick = () => { const i = +b.dataset.j; if(i === pend.per[0].j) return; setRetCell(i); renderRet(); });
-  if(btn) $('reels').querySelectorAll('.vbs button').forEach(b => b.onclick = () => { pend.sel[j] = +b.dataset.k; commitReels(); });
+  if(btn) $('reels').querySelectorAll('.vbs button').forEach(b => b.onclick = () => pickVal(j, +b.dataset.k));
   else wireReel(p);
   $('reelOk').hidden = btn; $('reelOk').disabled = false;
+  renderPip();
 }
 // vals: 外から実際の値を渡す時(画面読み取りなど){マスの番号: 値}。リールの候補に無い値でもそのまま入れる。画面のボタンからはイベントが来るので使わない
 function commitReels(vals){
@@ -2929,6 +3040,8 @@ $('numOk').onclick = () => { const v = parseInt($('numI').value, 10); $('numM').
 $('numCancel').onclick = () => { $('numM').classList.remove('show'); numCb = null; };
 $('numM').onclick = $('numCancel').onclick;
 $('reelOk').onclick = commitReels;
+// シートの上の端の「リール ⇄ ボタン」: その場で入れ方を変えて保存する(cfg.input)
+$('inTog').onclick = () => { cfg.input = isBtn() ? 'reel' : 'btn'; saveCfg(); if(pend) openReels(true); else renderInTog(); };
 $('reelCancel').onclick = closeReels;
 // 入力のシートは外(暗い所)を触っても閉じない(押し間違いで入れた値が消えないように)。閉じるのは「やめる」だけ
 
@@ -2971,7 +3084,7 @@ $('cfgOk').onclick = () => {
   const f = parseInt($('cfF').value, 10);
   if(!(f >= 1 && f <= 999)) return;
   const fresh = !hist.length && s.first;                  // まだ打っていなければ、新しい集中力で始め直す
-  cfg = { focus: f, off: offDraft.slice(), input: inDraft }; saveCfg();
+  cfg = { focus: f, off: offDraft.slice(), input: inDraft, size: cfg.size }; saveCfg();
   $('cfgM').classList.remove('show');
   G = mkG(item); net = loadNet(item);
   if(fresh) s = GM.newState(G);
@@ -3048,8 +3161,15 @@ async function finishTest(res){
 }
 $('tresPick').onclick = () => pickDir();
 document.querySelectorAll('#tres .tres-b button').forEach(bt => bt.onclick = () => finishTest(bt.dataset.r));
-$('reset').onclick = askReset;
-if('documentPictureInPicture' in window){ $('pipB').hidden = false; $('pipB').onclick = openPip; }
+$('reset').onclick = () => { $('setM').classList.remove('show'); askReset(); };
+if('documentPictureInPicture' in window){ $('pipB').hidden = false; $('pipRow').hidden = false; $('pipB').onclick = () => { $('setM').classList.remove('show'); openPip(); }; }
+// ---- 設定(⚙): 声・計算の強さ・大きさ・最初の値・使う技・小窓・戻りの記録・最初から・説明 ----
+function renderSize(){ $('sizeSeg').querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === (cfg.size || 'm')))); }
+function openSet(){ renderSize(); renderRetLogB(); $('setM').classList.add('show'); }
+$('gearB').onclick = openSet;
+$('setClose').onclick = () => $('setM').classList.remove('show');
+$('setM').onclick = $('setClose').onclick;
+$('sizeSeg').addEventListener('click', e => { const b = e.target.closest('button'); if(!b) return; cfg.size = SIZE_K[b.dataset.v] ? b.dataset.v : 'm'; saveCfg(); applySize(); renderSize(); renderPip(); requestAnimationFrame(fitFoot); });
 $('undo').onclick = () => { if(!hist.length){ toast('これ以上は戻せない'); return; } s = hist.pop(); const u = s._u; delete s._u; pend = null; save(); recalc(); toast('戻した: ' + u); };
 $('item').innerHTML = ITEM_ORDER.filter(k => GM.ITEMS[k]).map(k => `<option value="${k}">${GM.ITEMS[k].name}${W[k] ? '' : GM.ITEMS[k].T === 0 ? '(仮の計算)' : '(準備中)'}</option>`).join('');
 $('item').onchange = e => setItem(e.target.value, false);
@@ -3064,7 +3184,7 @@ window.__navi = { get s(){ return s; }, get qs(){ return qs; }, get G(){ return 
   mut(fn){ snap(); fn(s); pend = null; if($('reelM').classList.contains('show')) $('reelM').classList.remove('show'); save(); recalc(); },
   reset(F){ s = GM.newState(G); if(Number.isFinite(F)) s.F = F; hist = []; pend = null; save(); recalc(); },
   // 画面で見た打ち始めの集中力を覚える
-  setStartFocus(f){ if(cfg.focus === f) return; cfg = { focus: f, off: cfg.off, input: cfg.input }; saveCfg(); G = mkG(item); net = loadNet(item); renderCfg(); },
+  setStartFocus(f){ if(cfg.focus === f) return; cfg = { focus: f, off: cfg.off, input: cfg.input, size: cfg.size }; saveCfg(); G = mkG(item); net = loadNet(item); renderCfg(); },
   setHs(h){ if((s.hs | 0) === h) return; snap(); s.hs = h; save(); recalc(); },
   get power(){ return power; }, get lastCalc(){ return lastCalc; },
   setVoiceRate, get voiceRate(){ return voiceRate; }, get vel(){ return VC.el ? { rate: VC.el.playbackRate, pitch: VC.el.preservesPitch, src: !!VC.el.src } : null; },

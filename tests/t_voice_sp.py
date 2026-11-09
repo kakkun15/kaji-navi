@@ -11,7 +11,7 @@ with sync_playwright() as p:
     def wait():
         pg.wait_for_function('window.__navi.qs || Array.isArray(window.__navi.s.lit) || window.__navi.s.dead'); pg.wait_for_timeout(1200)
     pg.select_option('#item','hidane'); wait()
-    pg.tap('#vB'); pg.wait_for_timeout(200); pg.tap('#vB'); wait()   # オフ→オン(触った)
+    pg.tap('#gearB'); pg.tap('#vB'); pg.wait_for_timeout(200); pg.tap('#vB'); pg.tap('#setClose'); wait()   # オフ→オン(触った)
     print('触った後', pg.evaluate("JSON.stringify({log: __navi.vlog, how: __navi.vhow})"))
     for k in range(6):
         if pg.evaluate("Array.isArray(__navi.s.lit)"):

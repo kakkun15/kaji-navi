@@ -35,7 +35,7 @@ with sync_playwright() as p:
     has_pip = pg.evaluate("'documentPictureInPicture' in window")
     print('小窓あり', has_pip)
     if has_pip and shown:
-        pg.click('#pipB'); pg.wait_for_timeout(500)
+        pg.click('#gearB'); pg.click('#pipB'); pg.wait_for_timeout(500)
         pw = pg.evaluate("!!documentPictureInPicture.window")
         print('小窓が開いた', pw)
         if pw:

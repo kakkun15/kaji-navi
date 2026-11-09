@@ -32,7 +32,7 @@ with sync_playwright() as p:
     pg.click('#undo'); pg.wait_for_timeout(200)
     print('戻した後 候補', pg.evaluate(f"__navi.s.bel[{j0}].filter(x => x > 1e-9).length"), '/ ボタン', pg.locator('#critB').is_visible())
     # 小窓
-    pg.click('#pipB'); pg.wait_for_timeout(500)
+    pg.click('#gearB'); pg.click('#pipB'); pg.wait_for_timeout(500)
     if pg.evaluate("!!(window.documentPictureInPicture && documentPictureInPicture.window)"):
         D = "documentPictureInPicture.window.document"
         print('小窓のボタン', pg.evaluate(f"{D}.getElementById('pCrit') && {D}.getElementById('pCrit').innerText"))
