@@ -214,10 +214,13 @@ select{font:inherit;font-weight:700;padding:6px 10px;border:1px solid var(--line
 /* 値のボタン・小さい盤面(リールのシートの戻り) */
 .vbh{font-size:13px;font-weight:700;color:var(--sub);margin:2px 2px 6px}.vbh b{color:var(--ink);font-size:15px}
 .vbs{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:10px}
+.vbs.dense{gap:5px}
+.foot.dmulti .rec .tg{display:none}
+.vbs.dense button{font-size:calc(17px * var(--k));letter-spacing:-.02em}
 .vbs button{min-height:48px;padding:0;font-size:calc(20px * var(--k));font-weight:800;font-variant-numeric:tabular-nums;background:var(--sunk)}
 /* 値のボタン: ゾーン内は緑・超える値は赤の取り消し線・一番出やすい値は橙の縁 */
 .vbs button.zn{background:#123a26;border-color:var(--good);color:#d9ffe9}
-.vbs button.top{border:2px solid var(--accent)}
+.vbs button.best{border:2px solid var(--accent)}
 .vbs button.ov{color:var(--bad);text-decoration:line-through}
 .vbs button.on{background:var(--card2);box-shadow:0 0 0 2px var(--ink)}
 .vbl{font-size:13px;font-weight:800;color:var(--crit);margin:-2px 2px 6px}
@@ -2380,7 +2383,7 @@ function renderFoot(){
   // じか入れの部品(direct.js)はいったん全部しまって、出す所で出す
   go.hidden = false; $('undo').hidden = false;
   for(const id of ['dLab', 'dVals', 'dLit', 'dCancel', 'dOk', 'critSw']) $(id).hidden = true;
-  foot.classList.remove('ret'); foot.classList.toggle('dir', isBtn()); renderUndo();
+  foot.classList.remove('ret', 'dmulti'); foot.classList.toggle('dir', isBtn()); renderUndo();
   const rl = $('relit');
   rl.hidden = !(s.litCand && !Array.isArray(s.lit) && !s.dead && !pend);
   if(!rl.hidden){
@@ -2998,7 +3001,7 @@ function valBtnsIn(p, X, mode){
   const ns = mode === 'c' ? its : its.filter(o => o.x.tag !== 'c'), pv = o => mode === 'c' ? o.x.pc : o.x.p;
   const mx = Math.max(0, ...ns.map(pv)), tops = ns.filter(o => pv(o) >= mx - 1e-12), top = ns.length > 1 && tops.length === 1 ? tops[0].k : -1;
   const done = X.filled && X.filled[p.j];
-  return its.map(o => `<button type="button" class="${o.x.ov ? 'ov' : z && o.x.w >= z[0] ? 'zn' : ''}${o.k === top ? ' top' : ''}${done && X.sel[p.j] === o.k ? ' on' : ''}" data-k="${o.k}">${o.x.w}</button>`).join('');
+  return its.map(o => `<button type="button" class="${o.x.ov ? 'ov' : z && o.x.w >= z[0] ? 'zn' : ''}${o.k === top ? ' best' : ''}${done && X.sel[p.j] === o.k ? ' on' : ''}" data-k="${o.k}">${o.x.w}</button>`).join('');
 }
 function valBtns(p, cls, X, mode){ return `<div class="${cls || 'vbs'}">${valBtnsIn(p, X, mode)}</div>`; }
 // 値を押した時(下の帯・小窓の両方から)。1マスなら決まる。何マスの時は次のマスへ(全部入れたら「決定」)。
@@ -3141,13 +3144,21 @@ function setCur(i){
   pend.cur = i; critSw = pend.crit && pend.crit[i] ? critKey(pend.a, i) : null;
   if(isBtn()) render(); else renderPip();
 }
+// 値が6つ以上ある時は、1段に並べる数を増やして(最大7つ・幅44px以上)段を減らす。盤面が下の帯に隠れにくくなる
+function denseVals(dv){
+  const n = dv.children.length;
+  const cols = n > 5 ? Math.min(7, Math.ceil(n / Math.ceil(n / 7))) : 5;
+  dv.style.gridTemplateColumns = `repeat(${cols},1fr)`; dv.classList.toggle('dense', cols > 5);
+}
 // 下の帯の ②値ボタン ③「戻す」か「やめる」・「会心が出た」・(何マスが全部入ったら)「決定」
 function renderDirect(X){
   const tgs = X.per.map(p => p.j).sort((a, b) => a - b), multi = tgs.length > 1, j = X.cur, p = X.per.find(x => x.j === j), mode = valMode(X, p);
   const lab = $('dLab'), dv = $('dVals'), sw = $('critSw'), live = X === pend;
+  document.querySelector('.foot').classList.toggle('dmulti', multi);   // 何マスの時は叩くマスの名前の行をしまう(盤面と左の小さい図で分かる)
   lab.innerHTML = `<b>${posName(j)}</b>叩いた後の値を押す` + (multi ? `<span>${tgs.indexOf(j) + 1}/${tgs.length}</span>` : ''); lab.hidden = false;
   dv.innerHTML = valBtnsIn(p, X, mode); dv.hidden = false;
   dv.querySelectorAll('button').forEach(b => b.onclick = () => directPick(X, j, +b.dataset.k));
+  denseVals(dv);
   sw.hidden = !mode; sw.setAttribute('aria-checked', String(mode === 'c'));
   sw.onclick = () => { critSw = mode === 'c' ? null : critKey(X.a, j); renderFoot(); };
   $('undo').hidden = live; $('dCancel').hidden = !live; $('dCancel').onclick = () => closeReels();

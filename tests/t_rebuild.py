@@ -1,12 +1,14 @@
 # 入力の流れの作り直し(下の帯のじか入れ・「会心が出た」・戻り・光ったマス・戻すの名前・入れ方の設定・ほかの手を全部)。
-# python3 tests/t_rebuild.py   スクショは OUT(既定 /tmp)に出す。main の版(git show origin/main:dist/app.html)と同じ局面で結果を比べる
+# python3 tests/t_rebuild.py   スクショは OUT(既定 /tmp)に出す。作り直す前の版(git show e66e4b9:dist/app.html)と同じ局面で結果を比べる
 import os, json, subprocess, tempfile
 from playwright.sync_api import sync_playwright
 OUT = os.environ.get('OUT', '/tmp')
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 URL = 'file://' + os.path.join(ROOT, 'dist', 'app.html')
 TMP = tempfile.mkdtemp()
-def git_show(path): return subprocess.run(['git', 'show', 'origin/main:' + path], cwd=ROOT, capture_output=True, check=True).stdout.decode('utf-8')
+# 比べる元: 作り直す前の版(#36 の前。上の段を2行にした e66e4b9)。main は作り直しの後なので比べる元にならない
+REF = 'e66e4b9'
+def git_show(path): return subprocess.run(['git', 'show', REF + ':' + path], cwd=ROOT, capture_output=True, check=True).stdout.decode('utf-8')
 MAIN_HTML = git_show('dist/app.html'); open(os.path.join(TMP, 'main_app.html'), 'w', encoding='utf-8').write(MAIN_HTML)
 MAIN_URL = 'file://' + os.path.join(TMP, 'main_app.html')
 ng = []

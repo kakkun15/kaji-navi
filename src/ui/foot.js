@@ -35,7 +35,7 @@ function renderFoot(){
   // じか入れの部品(direct.js)はいったん全部しまって、出す所で出す
   go.hidden = false; $('undo').hidden = false;
   for(const id of ['dLab', 'dVals', 'dLit', 'dCancel', 'dOk', 'critSw']) $(id).hidden = true;
-  foot.classList.remove('ret'); foot.classList.toggle('dir', isBtn()); renderUndo();
+  foot.classList.remove('ret', 'dmulti'); foot.classList.toggle('dir', isBtn()); renderUndo();
   const rl = $('relit');
   rl.hidden = !(s.litCand && !Array.isArray(s.lit) && !s.dead && !pend);
   if(!rl.hidden){
