@@ -17,8 +17,13 @@ with sync_playwright() as p:
         if pg.evaluate("Array.isArray(__navi.s.lit)"):
             i=pg.evaluate("__navi.s.lit[0]"); pg.tap(f'.cell[data-i="{i}"]'); wait(); continue
         if pg.evaluate("!document.getElementById('chainB').hidden"): pg.tap('#chainB'); wait(); continue
-        pg.tap('#go'); pg.wait_for_timeout(400)
-        if pg.evaluate("document.getElementById('reelM').classList.contains('show')"): pg.tap('#reelOk')
+        # 叩く手は下の帯の値ボタンを押す(何マスの技は全部入れてから「決定」)。結果の無い手は「打った」
+        if pg.is_visible('#dVals'):
+            for _ in range(4):
+                if not pg.is_visible('#dVals') or pg.is_visible('#dOk'): break
+                pg.tap('#dVals button'); pg.wait_for_timeout(150)
+            if pg.is_visible('#dOk'): pg.tap('#dOk')
+        else: pg.tap('#go'); pg.wait_for_timeout(400)
         wait()
     st = pg.evaluate("JSON.stringify({log: __navi.vlog, how: __navi.vhow, ctx: (window.__navi && 1)})")
     print('打った後', st)

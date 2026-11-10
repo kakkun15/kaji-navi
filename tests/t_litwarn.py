@@ -50,7 +50,7 @@ with sync_playwright() as p:
                 pg.evaluate("documentPictureInPicture.window.document.getElementById('pHs').click()"); pg.wait_for_timeout(200)
                 print('  押した → s.hs', pg.evaluate("__navi.s.hs|0"), '本画面', pg.inner_text('#hsBt'), '小窓', pg.evaluate("documentPictureInPicture.window.document.getElementById('pHs').innerText"))
             alts = pg.evaluate("[...documentPictureInPicture.window.document.querySelectorAll('.alt')].map(b => b.innerText)")
-            main = pg.evaluate("[...document.querySelectorAll('#alts button')].map(b => b.innerText)")
+            main = pg.evaluate("[...document.querySelectorAll('#alts button[data-k]')].map(b => b.innerText)")
             print('小窓のほかの手', alts, '/ 本画面', main, '/ 同じ', [x.replace('\n',' ') for x in alts] == [x.replace('\n',' ') for x in main])
             want = pg.evaluate("__navi.qs[1].a.t.name")
             pg.evaluate("documentPictureInPicture.window.document.querySelector('.alt').click()"); pg.wait_for_timeout(300)
