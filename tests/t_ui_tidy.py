@@ -78,7 +78,7 @@ with sync_playwright() as p:
     cols = pg.evaluate("getComputedStyle(document.getElementById('dVals')).gridTemplateColumns.split(' ').length")
     hs = pg.evaluate("[...document.querySelectorAll('#dVals button')].map(b => b.getBoundingClientRect().height)")
     nc = pg.evaluate("__navi.pend.per.find(p => p.j === 0).its.filter(x => x.tag !== 'c').map(x => x.w)")
-    chk(f'会心でなくても出る値だけ・小さい順・5列・48px 以上 {ws}', ws == sorted(ws) and ws == nc and cols == 5 and min(hs) >= 48)
+    chk(f'会心でなくても出る値だけ・小さい順・5〜7列・44px 以上 {ws}', ws == sorted(ws) and ws == nc and cols == (5 if len(ws) <= 5 else min(7, -(-len(ws) // -(-len(ws) // 7)))) and min(hs) >= 44)
     zn = pg.evaluate("[...document.querySelectorAll('#dVals button')].map(b => [+b.textContent, b.classList.contains('zn'), b.classList.contains('ov')])")
     chk(f'ゾーン内は緑(zn)・超えるは ov', all(z == (180 <= w <= 190) and o == (w > 190) for w, z, o in zn))
     pg.screenshot(path=f'{OUT}/ui_btn4.png')

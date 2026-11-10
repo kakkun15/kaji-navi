@@ -28,13 +28,21 @@ function setCur(i){
   pend.cur = i; critSw = pend.crit && pend.crit[i] ? critKey(pend.a, i) : null;
   if(isBtn()) render(); else renderPip();
 }
+// 値が6つ以上ある時は、1段に並べる数を増やして(最大7つ・幅44px以上)段を減らす。盤面が下の帯に隠れにくくなる
+function denseVals(dv){
+  const n = dv.children.length;
+  const cols = n > 5 ? Math.min(7, Math.ceil(n / Math.ceil(n / 7))) : 5;
+  dv.style.gridTemplateColumns = `repeat(${cols},1fr)`; dv.classList.toggle('dense', cols > 5);
+}
 // 下の帯の ②値ボタン ③「戻す」か「やめる」・「会心が出た」・(何マスが全部入ったら)「決定」
 function renderDirect(X){
   const tgs = X.per.map(p => p.j).sort((a, b) => a - b), multi = tgs.length > 1, j = X.cur, p = X.per.find(x => x.j === j), mode = valMode(X, p);
   const lab = $('dLab'), dv = $('dVals'), sw = $('critSw'), live = X === pend;
+  document.querySelector('.foot').classList.toggle('dmulti', multi);   // 何マスの時は叩くマスの名前の行をしまう(盤面と左の小さい図で分かる)
   lab.innerHTML = `<b>${posName(j)}</b>叩いた後の値を押す` + (multi ? `<span>${tgs.indexOf(j) + 1}/${tgs.length}</span>` : ''); lab.hidden = false;
   dv.innerHTML = valBtnsIn(p, X, mode); dv.hidden = false;
   dv.querySelectorAll('button').forEach(b => b.onclick = () => directPick(X, j, +b.dataset.k));
+  denseVals(dv);
   sw.hidden = !mode; sw.setAttribute('aria-checked', String(mode === 'c'));
   sw.onclick = () => { critSw = mode === 'c' ? null : critKey(X.a, j); renderFoot(); };
   $('undo').hidden = live; $('dCancel').hidden = !live; $('dCancel').onclick = () => closeReels();

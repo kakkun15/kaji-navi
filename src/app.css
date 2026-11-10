@@ -204,10 +204,13 @@ select{font:inherit;font-weight:700;padding:6px 10px;border:1px solid var(--line
 /* 値のボタン・小さい盤面(リールのシートの戻り) */
 .vbh{font-size:13px;font-weight:700;color:var(--sub);margin:2px 2px 6px}.vbh b{color:var(--ink);font-size:15px}
 .vbs{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:10px}
+.vbs.dense{gap:5px}
+.foot.dmulti .rec .tg{display:none}
+.vbs.dense button{font-size:calc(17px * var(--k));letter-spacing:-.02em}
 .vbs button{min-height:48px;padding:0;font-size:calc(20px * var(--k));font-weight:800;font-variant-numeric:tabular-nums;background:var(--sunk)}
 /* 値のボタン: ゾーン内は緑・超える値は赤の取り消し線・一番出やすい値は橙の縁 */
 .vbs button.zn{background:#123a26;border-color:var(--good);color:#d9ffe9}
-.vbs button.top{border:2px solid var(--accent)}
+.vbs button.best{border:2px solid var(--accent)}
 .vbs button.ov{color:var(--bad);text-decoration:line-through}
 .vbs button.on{background:var(--card2);box-shadow:0 0 0 2px var(--ink)}
 .vbl{font-size:13px;font-weight:800;color:var(--crit);margin:-2px 2px 6px}
