@@ -40,6 +40,14 @@ function renderDirect(X){
   $('undo').hidden = live; $('dCancel').hidden = !live; $('dCancel').onclick = () => closeReels();
   const ok = $('dOk'); ok.hidden = !(live && multi && tgs.every(i => X.filled[i])); ok.onclick = () => commitReels();
 }
+// リールのシートの「会心が出た」(叩くマスごと)。会心でもそうでなくても出る値があるマスだけ。必殺の効果中・戻りは出さない
+function renderReelCrit(){
+  const e = $('reelCrit'), ps = !pend || pend.ret || s.hs === 2 ? [] : pend.per.filter(p => p.its.some(x => x.tag !== 'c') && p.its.some(x => x.tag !== 'n')).sort((x, y) => x.j - y.j);
+  e.hidden = !ps.length; if(!ps.length){ e.innerHTML = ''; return; }
+  const multi = pend.per.length > 1;
+  e.innerHTML = ps.map(p => `<button type="button" class="critsw" role="switch" aria-checked="${!!(pend.crit && pend.crit[p.j])}" data-j="${p.j}"><i></i>${multi ? posName(p.j) + ' ' : ''}会心が出た</button>`).join('');
+  e.querySelectorAll('button').forEach(b => b.onclick = () => { const j = +b.dataset.j; pend.crit = pend.crit || {}; pend.crit[j] = !pend.crit[j]; b.setAttribute('aria-checked', String(pend.crit[j])); });
+}
 // 戻り(虹色のオーブ): 青い帯+大見出し、値ボタン5つ(押したら確定)。減ったマスの選び直しは盤面のマスを押す(edit.js)
 function renderRetFoot(P){
   const p = P.per[0], j = p.j, lab = $('dLab'), dv = $('dVals');

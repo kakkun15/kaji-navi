@@ -48,7 +48,8 @@ function pipBel(i, z){
 }
 // 必殺: なしの間は温度の横の小さい印。たまった・効果中の時だけ、盤面の上の色の帯にする(同じボタンを移す)
 function renderHs(){ const h = s.hs | 0, b = $('hsB'); $('hsBt').textContent = HS_LABEL[h]; $('hsBn').textContent = HS_NOTE[h]; b.className = 'hsb' + (h ? ' hs' + h : '');
-  const to = h ? $('hsRow') : $('hsSlot'); if(b.parentNode !== to) to.appendChild(b); $('hsRow').hidden = !h; }
+  const band = h && !window.matchMedia('(max-height:720px)').matches;      // 低い画面は帯にしない(盤面が下の帯に隠れるので)
+  const to = band ? $('hsRow') : $('hsSlot'); if(b.parentNode !== to) to.appendChild(b); $('hsRow').hidden = !band; }
 function renderCfg(){
   $('powTest').hidden = !W[item + '_test']; $('powGpu').hidden = !gpuOk(); renderTres();
   $('cfgB2v').textContent = cfg.focus;

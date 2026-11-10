@@ -27,7 +27,11 @@ function askNum(t, v, cb){ $('numT').textContent = t; $('numI').value = v; numCb
 $('numOk').onclick = () => { const v = parseInt($('numI').value, 10); $('numM').classList.remove('show'); if(Number.isFinite(v) && v >= 0 && numCb) numCb(v); numCb = null; };
 $('numCancel').onclick = () => { $('numM').classList.remove('show'); numCb = null; };
 $('numM').onclick = $('numCancel').onclick;
-$('reelOk').onclick = commitReels;
+// リールの「会心が出た」: オンのマスは会心として絞る(選んだ値が会心で出ない値なら数えない)
+$('reelOk').onclick = () => {
+  if(pend && !pend.ret && !isBtn() && pend.crit) for(const p of pend.per){ if(!pend.crit[p.j]) continue; if(p.its[pend.sel[p.j]].tag === 'n') pend.crit[p.j] = false; else (pend.filled = pend.filled || {})[p.j] = true; }
+  commitReels();
+};
 // シートの上の端の「リール ⇄ ボタン」(今は隠してある。入れ方は設定のシートで選ぶ): その場で入れ方を変えて保存する(cfg.input)
 function setInput(v){ cfg.input = v === 'reel' ? 'reel' : 'btn'; saveCfg(); if(pend) openReels(true); else renderInTog(); render(); }
 $('inTog').onclick = () => setInput(isBtn() ? 'reel' : 'btn');

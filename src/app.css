@@ -39,6 +39,8 @@ select{font:inherit;font-weight:700;padding:6px 10px;border:1px solid var(--line
 .hsslot .hsb{margin:0;width:auto;min-height:48px;flex-direction:row;justify-content:center;align-items:center;gap:6px;padding:2px 12px;line-height:1.15}
 .hsslot .hsb small,.hsslot .hsb b{font-size:13px}
 .hsslot .hsb #hsBn{display:none}
+.hsslot .hsb.hs1,.hsslot .hsb.hs2{flex-direction:column;gap:0;padding:2px 8px}
+.hsslot .hsb.hs1 b,.hsslot .hsb.hs2 b{font-size:15px}
 .hsrow .hsb{margin:8px 0 0}
 .vbtn{flex-direction:column;justify-content:center;align-items:center;gap:0;padding:4px 10px;min-width:58px}
 .vbtn b{font-size:15px}
@@ -178,6 +180,8 @@ select{font:inherit;font-weight:700;padding:6px 10px;border:1px solid var(--line
 .critsw[aria-checked="true"] i{background:var(--crit);border-color:var(--crit)}
 .acts #dOk{margin-left:0}
 .critsw+#dOk:not([hidden]){flex:1}
+.rcrit{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 10px}
+.rcrit .critsw{margin-left:0;min-height:44px;flex:1 1 40%;justify-content:center}
 .litb{display:grid;gap:6px;margin-bottom:8px}
 .litb button{min-height:48px;display:flex;align-items:baseline;justify-content:center;gap:8px;padding:2px 6px;border:2px solid var(--lit);box-shadow:none}
 .litb small{font-size:14px;color:var(--sub);font-weight:700}

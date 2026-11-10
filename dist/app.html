@@ -49,6 +49,8 @@ select{font:inherit;font-weight:700;padding:6px 10px;border:1px solid var(--line
 .hsslot .hsb{margin:0;width:auto;min-height:48px;flex-direction:row;justify-content:center;align-items:center;gap:6px;padding:2px 12px;line-height:1.15}
 .hsslot .hsb small,.hsslot .hsb b{font-size:13px}
 .hsslot .hsb #hsBn{display:none}
+.hsslot .hsb.hs1,.hsslot .hsb.hs2{flex-direction:column;gap:0;padding:2px 8px}
+.hsslot .hsb.hs1 b,.hsslot .hsb.hs2 b{font-size:15px}
 .hsrow .hsb{margin:8px 0 0}
 .vbtn{flex-direction:column;justify-content:center;align-items:center;gap:0;padding:4px 10px;min-width:58px}
 .vbtn b{font-size:15px}
@@ -188,6 +190,8 @@ select{font:inherit;font-weight:700;padding:6px 10px;border:1px solid var(--line
 .critsw[aria-checked="true"] i{background:var(--crit);border-color:var(--crit)}
 .acts #dOk{margin-left:0}
 .critsw+#dOk:not([hidden]){flex:1}
+.rcrit{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 10px}
+.rcrit .critsw{margin-left:0;min-height:44px;flex:1 1 40%;justify-content:center}
 .litb{display:grid;gap:6px;margin-bottom:8px}
 .litb button{min-height:48px;display:flex;align-items:baseline;justify-content:center;gap:8px;padding:2px 6px;border:2px solid var(--lit);box-shadow:none}
 .litb small{font-size:14px;color:var(--sub);font-weight:700}
@@ -313,6 +317,7 @@ select{font:inherit;font-weight:700;padding:6px 10px;border:1px solid var(--line
   <div class="shhead"><h2 id="reelT">叩いた後の値</h2><button type="button" class="intog" id="inTog" hidden aria-label="入れ方を切り替える(リール・ボタン)"><span data-v="reel">リール</span> ⇄ <span data-v="btn">ボタン</span></button></div>
   <div class="bigh" id="reelBig" hidden></div>
   <div class="reels" id="reels"></div>
+  <div class="rcrit" id="reelCrit" hidden></div>
   <div class="row2"><button id="reelCancel">やめる</button><button class="main" id="reelOk">決定</button></div>
 </div></div>
 
@@ -2274,7 +2279,8 @@ function pipBel(i, z){
 }
 // 必殺: なしの間は温度の横の小さい印。たまった・効果中の時だけ、盤面の上の色の帯にする(同じボタンを移す)
 function renderHs(){ const h = s.hs | 0, b = $('hsB'); $('hsBt').textContent = HS_LABEL[h]; $('hsBn').textContent = HS_NOTE[h]; b.className = 'hsb' + (h ? ' hs' + h : '');
-  const to = h ? $('hsRow') : $('hsSlot'); if(b.parentNode !== to) to.appendChild(b); $('hsRow').hidden = !h; }
+  const band = h && !window.matchMedia('(max-height:720px)').matches;      // 低い画面は帯にしない(盤面が下の帯に隠れるので)
+  const to = band ? $('hsRow') : $('hsSlot'); if(b.parentNode !== to) to.appendChild(b); $('hsRow').hidden = !band; }
 function renderCfg(){
   $('powTest').hidden = !W[item + '_test']; $('powGpu').hidden = !gpuOk(); renderTres();
   $('cfgB2v').textContent = cfg.focus;
@@ -2907,7 +2913,7 @@ let footScrolled = false;
 function fitFoot(){
   const f = document.querySelector('.foot'); if(!f) return;
   document.querySelector('main').style.paddingBottom = (f.offsetHeight + 16) + 'px'; document.documentElement.style.setProperty('--footH', f.offsetHeight + 'px');
-  const c = livePend() ? document.querySelector('#board .cell.cur, #board .cell.retc') : null;
+  const c = !isBtn() ? null : livePend() ? document.querySelector('#board .cell.cur, #board .cell.retc') : !$('dVals').hidden ? document.querySelector('#board .cell.cur, #board .cell.hit') : null;
   if(c){ const over = c.getBoundingClientRect().bottom + 6 - f.getBoundingClientRect().top; if(over > 0){ window.scrollBy(0, over); footScrolled = true; } }
   else if(footScrolled){ footScrolled = false; window.scrollTo(0, 0); }
 }
@@ -2943,7 +2949,7 @@ function openReels(keep){
   sh.classList.toggle('ret', !!pend.ret); $('reelBig').hidden = !pend.ret;
   $('reelOk').hidden = false; $('reelOk').disabled = false;
   $('reelM').classList.add('show'); renderInTog();
-  if(pend.ret){ renderRet(); return; }
+  if(pend.ret){ renderReelCrit(); renderRet(); return; }
   const kept = i => keep && pend.filled && pend.filled[i] && Number.isFinite(pend.sel[i]);
   $('reelT').textContent = `${pend.a.t.name}: 合わせて「決定」`;
   const rows = G.cells.length / 2, tgs = pend.per.map(p => p.j);
@@ -2965,6 +2971,7 @@ function openReels(keep){
   }
   $('reels').innerHTML = h;
   for(const p of pend.per) wireReel(p);
+  renderReelCrit();
   renderPip();
 }
 // 小さい盤面(ゲームと同じ並び i = 2*行 + 列)。sel: 押せるマス、cur: 光らせるマス、lab(i): { v, cls, tag }
@@ -3146,6 +3153,14 @@ function renderDirect(X){
   $('undo').hidden = live; $('dCancel').hidden = !live; $('dCancel').onclick = () => closeReels();
   const ok = $('dOk'); ok.hidden = !(live && multi && tgs.every(i => X.filled[i])); ok.onclick = () => commitReels();
 }
+// リールのシートの「会心が出た」(叩くマスごと)。会心でもそうでなくても出る値があるマスだけ。必殺の効果中・戻りは出さない
+function renderReelCrit(){
+  const e = $('reelCrit'), ps = !pend || pend.ret || s.hs === 2 ? [] : pend.per.filter(p => p.its.some(x => x.tag !== 'c') && p.its.some(x => x.tag !== 'n')).sort((x, y) => x.j - y.j);
+  e.hidden = !ps.length; if(!ps.length){ e.innerHTML = ''; return; }
+  const multi = pend.per.length > 1;
+  e.innerHTML = ps.map(p => `<button type="button" class="critsw" role="switch" aria-checked="${!!(pend.crit && pend.crit[p.j])}" data-j="${p.j}"><i></i>${multi ? posName(p.j) + ' ' : ''}会心が出た</button>`).join('');
+  e.querySelectorAll('button').forEach(b => b.onclick = () => { const j = +b.dataset.j; pend.crit = pend.crit || {}; pend.crit[j] = !pend.crit[j]; b.setAttribute('aria-checked', String(pend.crit[j])); });
+}
 // 戻り(虹色のオーブ): 青い帯+大見出し、値ボタン5つ(押したら確定)。減ったマスの選び直しは盤面のマスを押す(edit.js)
 function renderRetFoot(P){
   const p = P.per[0], j = p.j, lab = $('dLab'), dv = $('dVals');
@@ -3215,7 +3230,11 @@ function askNum(t, v, cb){ $('numT').textContent = t; $('numI').value = v; numCb
 $('numOk').onclick = () => { const v = parseInt($('numI').value, 10); $('numM').classList.remove('show'); if(Number.isFinite(v) && v >= 0 && numCb) numCb(v); numCb = null; };
 $('numCancel').onclick = () => { $('numM').classList.remove('show'); numCb = null; };
 $('numM').onclick = $('numCancel').onclick;
-$('reelOk').onclick = commitReels;
+// リールの「会心が出た」: オンのマスは会心として絞る(選んだ値が会心で出ない値なら数えない)
+$('reelOk').onclick = () => {
+  if(pend && !pend.ret && !isBtn() && pend.crit) for(const p of pend.per){ if(!pend.crit[p.j]) continue; if(p.its[pend.sel[p.j]].tag === 'n') pend.crit[p.j] = false; else (pend.filled = pend.filled || {})[p.j] = true; }
+  commitReels();
+};
 // シートの上の端の「リール ⇄ ボタン」(今は隠してある。入れ方は設定のシートで選ぶ): その場で入れ方を変えて保存する(cfg.input)
 function setInput(v){ cfg.input = v === 'reel' ? 'reel' : 'btn'; saveCfg(); if(pend) openReels(true); else renderInTog(); render(); }
 $('inTog').onclick = () => setInput(isBtn() ? 'reel' : 'btn');

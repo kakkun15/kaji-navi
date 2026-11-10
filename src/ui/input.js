@@ -32,7 +32,7 @@ let footScrolled = false;
 function fitFoot(){
   const f = document.querySelector('.foot'); if(!f) return;
   document.querySelector('main').style.paddingBottom = (f.offsetHeight + 16) + 'px'; document.documentElement.style.setProperty('--footH', f.offsetHeight + 'px');
-  const c = livePend() ? document.querySelector('#board .cell.cur, #board .cell.retc') : null;
+  const c = !isBtn() ? null : livePend() ? document.querySelector('#board .cell.cur, #board .cell.retc') : !$('dVals').hidden ? document.querySelector('#board .cell.cur, #board .cell.hit') : null;
   if(c){ const over = c.getBoundingClientRect().bottom + 6 - f.getBoundingClientRect().top; if(over > 0){ window.scrollBy(0, over); footScrolled = true; } }
   else if(footScrolled){ footScrolled = false; window.scrollTo(0, 0); }
 }
@@ -68,7 +68,7 @@ function openReels(keep){
   sh.classList.toggle('ret', !!pend.ret); $('reelBig').hidden = !pend.ret;
   $('reelOk').hidden = false; $('reelOk').disabled = false;
   $('reelM').classList.add('show'); renderInTog();
-  if(pend.ret){ renderRet(); return; }
+  if(pend.ret){ renderReelCrit(); renderRet(); return; }
   const kept = i => keep && pend.filled && pend.filled[i] && Number.isFinite(pend.sel[i]);
   $('reelT').textContent = `${pend.a.t.name}: 合わせて「決定」`;
   const rows = G.cells.length / 2, tgs = pend.per.map(p => p.j);
@@ -90,6 +90,7 @@ function openReels(keep){
   }
   $('reels').innerHTML = h;
   for(const p of pend.per) wireReel(p);
+  renderReelCrit();
   renderPip();
 }
 // 小さい盤面(ゲームと同じ並び i = 2*行 + 列)。sel: 押せるマス、cur: 光らせるマス、lab(i): { v, cls, tag }
