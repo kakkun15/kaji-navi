@@ -1,6 +1,6 @@
 # 公開用に、src の各ページへ計算のファイル(core.js・game.js・value.js)と学習済みの重みを埋め込んで dist/ に出す。
 #   python3 build.py
-import pathlib, json
+import pathlib, json, re
 root = pathlib.Path(__file__).parent
 src = root / 'src'
 out = root / 'dist'; out.mkdir(exist_ok=True)
@@ -44,6 +44,8 @@ parts = {
 wjs = None
 for p in src.glob('*.html'):
     h = p.read_text()
+    # 「/*#include 名前*/」だけの行を、src の中のそのファイルの中身に置き換える(app.css と ui/*.js。1つの <style>・<script> の中へ順につなぐ)
+    h = re.sub(r'^/\*#include ([\w./-]+)\*/\n', lambda m: (src / m.group(1)).read_text(), h, flags=re.M)
     for name, code in parts.items():
         h = h.replace(f'<script src="{name}"></script>', f'<script data-src="{name}">\n' + code + '\n</script>')
     if '<script src="weights.js"></script>' in h:
