@@ -3,6 +3,9 @@ $('board').addEventListener('click', e => {
   const c = e.target.closest('.cell'); if(!c || c.classList.contains('gap')) return;
   const i = +c.dataset.i;
   if(Array.isArray(s.lit)){ if(s.lit.includes(i)) pickLit(i); return; }
+  // じか入れの入れ途中: 戻りは減ったマスの選び直し、何マスの技は叩くマスへ戻って入れ直す(ほかのマスは何もしない)
+  const P = livePend();
+  if(P){ if(P.ret){ if(G.active.includes(i) && i !== P.per[0].j){ setRetCell(i); render(); } } else setCur(i); return; }
   askNum(`${posName(i)}の値`, s.v[i], v => { snap(`${posName(i)}の値の手直し`);
     // 必殺の効果中に値が増えた = 必殺の後のひと打ち(必ず会心)。ゾーン内なら理想値とみなし、必殺は使い終わり(2026-11-03)。
     // 複数マスの技の結果を1マスずつ直すこともあるので、次に集中力が減る(次の手を打つ)までは、ほかのマスの手直しも同じに扱う
@@ -23,7 +26,8 @@ $('numOk').onclick = () => { const v = parseInt($('numI').value, 10); $('numM').
 $('numCancel').onclick = () => { $('numM').classList.remove('show'); numCb = null; };
 $('numM').onclick = $('numCancel').onclick;
 $('reelOk').onclick = commitReels;
-// シートの上の端の「リール ⇄ ボタン」: その場で入れ方を変えて保存する(cfg.input)
-$('inTog').onclick = () => { cfg.input = isBtn() ? 'reel' : 'btn'; saveCfg(); if(pend) openReels(true); else renderInTog(); };
+// シートの上の端の「リール ⇄ ボタン」(今は隠してある。入れ方は設定のシートで選ぶ): その場で入れ方を変えて保存する(cfg.input)
+function setInput(v){ cfg.input = v === 'reel' ? 'reel' : 'btn'; saveCfg(); if(pend) openReels(true); else renderInTog(); render(); }
+$('inTog').onclick = () => setInput(isBtn() ? 'reel' : 'btn');
 $('reelCancel').onclick = closeReels;
 // 入力のシートは外(暗い所)を触っても閉じない(押し間違いで入れた値が消えないように)。閉じるのは「やめる」だけ

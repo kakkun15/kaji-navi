@@ -7,7 +7,8 @@ function litWarn(a){
   if(!a || !a.t.area || typeof s.lit !== 'number' || s.dead) return '';
   return a.tg.includes(s.lit) ? '' : `⚠ 光ってない方:${tgName(a)}(光ってるのは ${posName(s.lit)})`;
 }
-// ---- 今の会心!: 直前に叩いたマスが会心だった(画面で見分けられなかった時に手で教える) ----
+// ---- 今の会心!: 直前に叩いたマスが会心だった。画面には出さない(値を入れる時の「会心が出た」スイッチに替えた: direct.js)。
+// 部品(#critRow・#critB・#critP)と動きは残してある ----
 let critPick = false;
 function critCells(){ return s && s.lastHit && !pend && !Array.isArray(s.lit) ? s.lastHit.cells.filter(c => !c.done && Number.isFinite(c.w)) : []; }
 function applyCrit(j){
@@ -25,7 +26,7 @@ function pressCrit(){
 function renderCrit(){
   const cs = critCells(), b = $('critB'), p = $('critP');
   b.hidden = !cs.length; if(!cs.length) critPick = false;
-  p.hidden = !critPick; $('critRow').hidden = !cs.length;
+  p.hidden = !critPick; $('critRow').hidden = true;
   if(critPick) p.innerHTML = '会心:' + cs.map(c => `<button data-j="${c.j}">${posName(c.j)}</button>`).join('') + '<button data-j="-1" style="color:var(--ink);border-color:var(--line)">やめる</button>';
   p.querySelectorAll('button').forEach(x => x.onclick = () => { const j = +x.dataset.j; if(j < 0){ critPick = false; render(); } else applyCrit(j); });
 }
@@ -59,8 +60,12 @@ function render(){
   $('temp').textContent = s.temp; $('focus').textContent = s.F;
   const k = s.first ? 0 : C.tempKind(s.temp), lab = (KIND[G.trait] || {})[k];
   $('kind').textContent = lab || ''; $('kind').className = 'k' + (lab ? ' on' : ''); $('kind').style.display = lab ? '' : 'none'; $('stTemp').classList.toggle('kd', !!lab);
-  const rows = G.cells.length / 2, best = qs && qs[0] && qs[0].a, tg = best && best.t.area ? best.tg : [];
+  // P: じか入れの入れ途中。叩くマスは入れている手の物。戻りの時は選んでいるマスを青くして、予想のマスに印
+  const P = livePend(), ret = P && P.ret ? P : null, hitP = P && !P.ret ? P : null;
+  const rows = G.cells.length / 2, best = hitP ? hitP.a : ret ? null : qs && qs[0] && qs[0].a, tg = best && best.t.area ? best.tg : [];
   const picking = Array.isArray(s.lit);
+  // 何マスも叩く技(じか入れ): 今入れるマスだけ光らせる。入れたマスは「今の値 → 入れた値」
+  const seq = isBtn() && tg.length > 1 && !picking && !s.dead, cur = !seq ? -1 : hitP ? hitP.cur : Math.min(...tg);
   let h = '';
   for(let r = 0; r < rows; r++){
     const cols = [0, 1].filter(c => G.cells.some((z, i) => z && i % 2 === c));
@@ -68,15 +73,16 @@ function render(){
     for(const c of cols){
       const i = 2*r + c, z = G.cells[i];
       if(!z){ h += '<div class="cell gap"></div>'; continue; }
-      const v = s.v[i], top = Math.max(z[1] * 1.08, v + 1);
+      const done = !!(hitP && hitP.filled && hitP.filled[i] && tg.includes(i));
+      const v = done ? hitP.per.find(x => x.j === i).its[hitP.sel[i]].w : s.v[i], top = Math.max(z[1] * 1.08, v + 1);
       const cls = ['cell', v > z[1] ? 'over' : v >= z[0] ? 'in' : '', tg.includes(i) ? 'hit' : '', s.lit === i ? 'litc' : '',
-                   picking && s.lit.includes(i) ? 'pick' : ''].join(' ');
-      const tags = (tg.includes(i) ? '<i>叩く</i>' : '') + (s.lit === i ? '<i class="lit">光</i>' : '');
+                   picking && s.lit.includes(i) ? 'pick' : '', i === cur ? 'cur' : '', done ? 'done' : '', ret && ret.per[0].j === i ? 'retc' : ''].join(' ');
+      const tags = (tg.includes(i) ? '<i>叩く</i>' : '') + (s.lit === i ? '<i class="lit">光</i>' : '') + (ret && ret.retPred === i ? '<i class="pred">予想</i>' : '');
       const b = s.bel[i], nz = b.map((p, q) => p > 1e-9 ? z[0] + q : null).filter(x => x !== null);
       const bel = nz.length && nz.length < b.length ? (nz.length === 1 ? `理想値 ${nz[0]}` : `理想値 ${nz[0]}〜${nz[nz.length-1]}`) : '';
       // 棒の下の1行: 「180〜190・あと8〜18」(理想値が絞れたら理想値の表示に替える)
       const need = `${z[0]}〜${z[1]}・` + (v < z[0] ? `あと${z[0] - v}〜${z[1] - v}` : v <= z[1] ? 'ゾーン内' : '超えた');
-      h += `<div class="${cls}" data-i="${i}"><div class="lbl">${posName(i)}${tags}</div><div class="v">${v}</div>`
+      h += `<div class="${cls}" data-i="${i}"><div class="lbl">${posName(i)}${tags}</div><div class="v">${done ? `<span class="fr">${s.v[i]}→</span>` : ''}${v}</div>`
          + `<div class="z"><span>${z[0]}</span><span>${z[1]}</span></div><div class="bar"><span class="f" style="width:${Math.min(100, v/top*100)}%"></span>`
          + `<span class="zn" style="left:${z[0]/top*100}%;width:${(z[1]-z[0])/top*100}%"></span></div><div class="bel">${bel || `<span class="need">${need}</span>`}</div></div>`;
     }
@@ -85,6 +91,7 @@ function render(){
   $('board').innerHTML = h;
   // 叩くマスを強調して、ほかのマス(光ったマスも)を薄くする。必殺の効果中は盤面の縁に橙のモヤ(2026-11-03)
   $('board').classList.toggle('aim', tg.length > 0 && !picking && !s.dead);
+  $('board').classList.toggle('seq', seq);
   $('board').classList.toggle('hsfx', (s.hs | 0) === 2);
   renderFoot();
 }

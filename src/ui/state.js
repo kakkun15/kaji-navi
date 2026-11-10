@@ -7,14 +7,15 @@ const STORE = 'kajiNaviV1', CFG_STORE = 'kajiNaviCfgV1';
 // 打てる技は集中力から決める: 253 以上(光★3 の Lv80)なら左右打ちまで、それより下は弱ねらい打ちまで
 const CFG_STORE2 = 'kajiNaviCfgV2';
 // off: 使わない(覚えていない)技の id。たたくは外せない。みだれ打ちは一覧に出さず、いつも外す
-// input: 叩いた後の値の入れ方('reel' リール・既定 / 'btn' ボタン(テスト))。古い保存には無いのでリールにする
+// input: 叩いた後の値の入れ方('btn' ボタン = 下の帯にじかに値ボタン・既定 / 'reel' シートのリール)。
+//   保存には、リールを選び直した人だけ input:'reel2' と書く。前の版の 'reel'・'btn'・無しは全部ボタンにする
 // size: 文字の大きさ('s' 小・'m' 中(既定)・'l' 大)。古い保存には無いので中にする
-let cfg = { focus: 245, off: null, input: 'reel', size: 'm' }, cfgSaved = false;
+let cfg = { focus: 245, off: null, input: 'btn', size: 'm' }, cfgSaved = false;
 const SIZE_K = { s: 0.9, m: 1, l: 1.25 };     // cfgSaved: 開始の集中力を一度でも決めたか(初めての人には最初に聞く)
 const TECH_LIST = C.TECHS.filter(t => t.id !== 'midare');
 try{
   const j2 = JSON.parse(localStorage.getItem(CFG_STORE2) || 'null');
-  if(j2 && j2.focus >= 1){ cfg.focus = j2.focus | 0; cfgSaved = true; if(Array.isArray(j2.off)) cfg.off = j2.off.filter(id => C.TECH[id] && id !== 'tataku'); if(j2.input === 'btn') cfg.input = 'btn'; if(SIZE_K[j2.size]) cfg.size = j2.size; }
+  if(j2 && j2.focus >= 1){ cfg.focus = j2.focus | 0; cfgSaved = true; if(Array.isArray(j2.off)) cfg.off = j2.off.filter(id => C.TECH[id] && id !== 'tataku'); if(j2.input === 'reel2') cfg.input = 'reel'; if(SIZE_K[j2.size]) cfg.size = j2.size; }
   else {      // 前の版の保存(職人Lv・ハンマー)から引き継ぐ
     const j = JSON.parse(localStorage.getItem(CFG_STORE) || 'null');
     if(j && j.level >= 75){ cfg.focus = 243 + 2 * (j.level - 75) + (j.fadj | 0); cfgSaved = true; }
@@ -22,12 +23,12 @@ try{
 }catch(e){}
 // 技を選んだことが無い時は、前と同じく集中力から決める(253 未満なら左右打ち(Lv80)を外す)
 function offList(){ return cfg.off || (cfg.focus >= 253 ? [] : ['sayuu']); }
-function saveCfg(){ cfgSaved = true; try{ const o = cfg.off ? { focus: cfg.focus, off: cfg.off } : { focus: cfg.focus }; if(cfg.input === 'btn') o.input = 'btn'; if(cfg.size && cfg.size !== 'm') o.size = cfg.size; localStorage.setItem(CFG_STORE2, JSON.stringify(o)); }catch(e){} }
+function saveCfg(){ cfgSaved = true; try{ const o = cfg.off ? { focus: cfg.focus, off: cfg.off } : { focus: cfg.focus }; if(cfg.input === 'reel') o.input = 'reel2'; if(cfg.size && cfg.size !== 'm') o.size = cfg.size; localStorage.setItem(CFG_STORE2, JSON.stringify(o)); }catch(e){} }
 // 大きさ: 盤面の値などを calc(... * var(--k)) で大きくする(小窓にも同じ値を渡す)
 function sizeK(){ return SIZE_K[cfg.size] || 1; }
 function applySize(){ document.documentElement.style.setProperty('--k', String(sizeK())); }
 applySize();
-const isBtn = () => cfg.input === 'btn';
+const isBtn = () => cfg.input !== 'reel';
 function mkG(key){ const off = offList();
   return GM.setup({ item: key, level: cfg.focus >= 253 ? 80 : 79, hammer: 'hikari', star: 3, focus: cfg.focus,
     techs: TECH_LIST.filter(t => !off.includes(t.id)).map(t => t.id) }); }

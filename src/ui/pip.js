@@ -23,8 +23,8 @@ button{font:inherit;font-weight:800;width:100%;min-height:44px;border-radius:8px
 .hb .hn{font-size:13px;color:#adb6c5;font-weight:700;line-height:1.2;letter-spacing:-.03em;font-feature-settings:'palt';display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .hy.lit .hn{-webkit-line-clamp:1}
 .ck{font-size:calc(13px * var(--k));font-weight:800;color:#ffd166;margin:0 0 5px}
-.cr{display:flex;flex-wrap:wrap;gap:4px;align-items:center;margin:0 0 5px;font-size:calc(13px * var(--k));font-weight:700;color:#adb6c5}
-.cb{width:auto;flex:1 1 auto;font-size:calc(14px * var(--k));color:#ff7ad1;background:#20242c;border:2px solid #ff7ad1;padding:2px 8px}.cb.no{flex:none;border-color:#566074;color:#f4f6f9}
+.sw{background:#20242c;border:1px solid #566074;color:#adb6c5;white-space:nowrap;padding:0 10px;font-size:calc(14px * var(--k))}.sw.on{border:2px solid #ff7ad1;color:#f4f6f9}
+.dl{font-size:calc(13px * var(--k));font-weight:700;color:#adb6c5;margin:0 0 4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.dl b{color:#f4f6f9;margin-right:6px}
 .ih{font-size:calc(17px * var(--k));font-weight:800;color:#ff9447;margin:0 0 5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ih.ret{color:#58a6ff}.ih small{font-size:calc(13px * var(--k));color:#adb6c5;margin-left:6px}
 .ch{display:grid;gap:4px;margin:0 0 6px}.chp{min-height:44px;padding:0 2px;background:#20242c;border:1px solid #566074;color:#f4f6f9;line-height:1.1;font-size:calc(13px * var(--k))}
 .chp b{display:block;font-size:calc(16px * var(--k));font-variant-numeric:tabular-nums}.chp.cur{border:2px solid #ff7a14;box-shadow:0 0 0 2px rgba(255,122,20,.45)}.ret .chp.cur{border-color:#58a6ff;box-shadow:0 0 0 2px rgba(88,166,255,.45)}.chp.rc{border-style:dashed;border-color:#58a6ff}.chp.done b{color:#3fd98b}.chp:disabled{opacity:.4}
@@ -69,7 +69,8 @@ function hayamiHtml(){
   }).join('');
   return `<div class="hy${lit ? ' lit' : ''}"><div class="ah">早見 ${s.temp}℃</div><div class="hyr">${blocks}</div></div>`;
 }
-// 小窓の入力: 叩いた後の値・戻りの値を小窓だけで入れる(本画面の入れ方がリールでもボタンで入れる)。確定は本画面と同じ pickVal → commitReels
+// 小窓の入力: 叩いた後の値・戻りの値を小窓だけで入れる(本画面の入れ方がリールでもボタンで入れる)。確定は本画面と同じ pickVal → commitReels。
+// 「会心が出た」スイッチも本画面と同じ物(direct.js の critSw)
 function pipInput(d){
   const ret = !!pend.ret, tgs = pend.per.map(p => p.j).sort((a, b) => a - b);
   if(!ret && !tgs.includes(pend.cur)) pend.cur = tgs.find(i => !(pend.filled && pend.filled[i])) ?? tgs[0];
@@ -85,21 +86,24 @@ function pipInput(d){
       const v = ret ? s.v[i] : f ? q.its[pend.sel[i]].w : '?';
       return `<button class="chp${i === j ? ' cur' : ''}${f ? ' done' : ''}${ret && i === pend.retPred ? ' rc' : ''}" data-j="${i}">${posName(i)}<b>${v}</b></button>`; }).join('') + '</div>' : '';
   const nv = p.its.length, cols = nv <= 15 ? 5 : nv <= 24 ? 6 : 7;
-  const vals = valBtns(p, 'pv').replace('<div class="pv">', `<div class="pv" style="grid-template-columns:repeat(${cols},1fr)">`);
+  const mode = valMode(pend, p);
+  const vals = valBtns(p, 'pv', pend, mode).replace('<div class="pv">', `<div class="pv" style="grid-template-columns:repeat(${cols},1fr)">`);
   const ok = !ret && n > 1 ? `<button id="pOk"${tgs.every(i => pend.filled && pend.filled[i]) ? '' : ' disabled style="opacity:.45"'}>決定</button>` : '';
-  return `<div class="pin${ret ? ' ret' : ''}">${title}${ch}${vals}<div class="row"><button class="no" id="pCancel" style="flex:1">やめる</button>${ok ? ok.replace('<button id="pOk"', '<button id="pOk" style="flex:1;width:auto"') : ''}</div></div>`;
+  const sw = mode ? `<button class="sw${mode === 'c' ? ' on' : ''}" id="pSw" role="switch" aria-checked="${mode === 'c'}" style="flex:none;width:auto">会心が出た</button>` : '';
+  return `<div class="pin${ret ? ' ret' : ''}">${title}${ch}${vals}<div class="row"><button class="no" id="pCancel" style="flex:1">やめる</button>${sw}${ok ? ok.replace('<button id="pOk"', '<button id="pOk" style="flex:1;width:auto"') : ''}</div></div>`;
 }
 function renderPip(){
   if(!pipW || !G || !s) return;
   const d = pipW.document, a = qs && qs[0] && qs[0].a, picking = Array.isArray(s.lit);
   d.documentElement.style.setProperty('--k', String(sizeK()));
-  // 商材の選ぶ欄・ほかの手は小窓には出さない(本画面には残す)。押す物は残しておく(隠す)
-  const hidden = `<div hidden><select class="it" id="pItem" aria-label="商材">${$('item').innerHTML}</select><div class="alts">${
+  // 商材の選ぶ欄・ほかの手・今の会心! は小窓には出さない(本画面には残す)。押す物は残しておく(隠す)
+  const hidden = `<div hidden><select class="it" id="pItem" aria-label="商材">${$('item').innerHTML}</select>${critCells().length ? '<button id="pCrit">今の会心!</button>' : ''}<div class="alts">${
     qs && qs[0] && a && !picking && !s.dead && !busy && !(s.hs === 1 && qs[0].hsPick) ? qs.slice(1, 3).map((x, k) => `<button class="alt" data-k="${k + 1}">${actName(x.a)} ${tgName(x.a)} <b>${pct(x.q2 !== undefined ? x.q2 : x.q)}</b></button>`).join('') : ''}</div></div>`;
   const wire = () => {
     const pi = d.getElementById('pItem'); pi.value = item;
     pi.onchange = () => { $('item').value = pi.value; setItem(pi.value, false); };
     d.querySelectorAll('.alt').forEach(b => b.onclick = () => startAct(qs[+b.dataset.k].a));
+    const pc = d.getElementById('pCrit'); if(pc) pc.onclick = () => pressCrit();
   };
   d.body.classList.toggle('hsfx', (s.hs | 0) === 2);
   if(pend && pend.per && pend.per.length){
@@ -107,8 +111,9 @@ function renderPip(){
     d.querySelectorAll('.pv button').forEach(b => b.onclick = () => pickVal(pend.ret ? pend.per[0].j : pend.cur, +b.dataset.k));
     d.querySelectorAll('.chp[data-j]').forEach(b => b.onclick = () => { const i = +b.dataset.j;
       if(pend.ret){ if(i !== pend.per[0].j){ setRetCell(i); renderRet(); } return; }
-      pend.cur = i; if(isBtn()) renderBtns(); else renderPip(); });
+      setCur(i); });
     d.getElementById('pCancel').onclick = () => closeReels();
+    const sw = d.getElementById('pSw'); if(sw) sw.onclick = () => { critSw = critOn(pend.a, pend.cur) ? null : critKey(pend.a, pend.cur); renderFoot(); };
     const ok = d.getElementById('pOk'); if(ok) ok.onclick = () => { if(pend && pend.per.every(p => pend.filled && pend.filled[p.j])) commitReels(); };
     return;
   }
@@ -132,20 +137,28 @@ function renderPip(){
   const hsv = s.hs | 0;
   // 必殺は帯にせず、温度・集中力の行の小さい印(押すと なし → たまった → 効果中)
   const hsMark = `<span class="hs${hsv ? ' hs' + hsv : ''}" id="pHs" role="button" aria-label="必殺の状態を切り替える">必殺:${HS_LABEL[hsv]}</span>`;
-  // 会心は叩いた後だけ1行(今の会心! か、会心にしたマスの印)
-  const ccs = critCells();
-  const critRow = ccs.length ? (critPick
-    ? `<div class="cr">会心:${ccs.map(c => `<button class="cb" data-j="${c.j}">${posName(c.j)}</button>`).join('')}<button class="cb no" data-j="-1">やめる</button></div>`
-    : `<div class="cr"><button class="cb" id="pCrit">今の会心!(${ccs.length > 2 ? ccs.length + 'マス' : ccs.map(c => posName(c.j)).join('・')})</button></div>`) : critLine();
-  let btn = '';
-  if(a && !picking && !busy && qs && !s.dead) btn = `<div class="row"><button id="pGo">打った</button>${!a.t.area && chainN > 1 ? `<button id="pChain">×${chainN}</button>` : ''}</div>`;
+  // 会心にしたマスの印(必殺の後・「会心が出た」で入れた後)
+  const critRow = critLine();
+  // 叩く手のじか入れ(入れ方: ボタン): 「打った」の代わりに値ボタンを出す(値を押す = 打った+結果)。何マスの技は1マス目から
+  const X = a && a.t.area && isBtn() && !picking && !busy && qs && !s.dead ? previewOf(a) : null;
+  let btn = '', wide = false;
+  if(X){
+    const p = X.per.find(x => x.j === X.cur), mode = valMode(X, p), nv = p.its.filter(x => mode === 'n' ? x.tag !== 'c' : mode === 'c' ? x.tag !== 'n' : true).length;
+    wide = nv > 10 || X.per.length > 1;       // 値が多い時・何マスの技は早見をしまって、横いっぱいに並べる(420px に収める)
+    btn = (X.per.length > 1 ? `<div class="dl"><b>${posName(X.cur)}</b>叩いた後の値を押す</div>` : '')
+      + valBtns(p, 'pv', X, mode).replace('<div class="pv">', `<div class="pv" id="pDv" style="grid-template-columns:repeat(${wide ? 7 : 5},1fr)">`)
+      + (mode ? `<div class="row" style="justify-content:flex-end"><button class="sw${mode === 'c' ? ' on' : ''}" id="pSw" role="switch" aria-checked="${mode === 'c'}" style="width:auto">会心が出た</button></div>` : '');
+  }
+  else if(a && !picking && !busy && qs && !s.dead) btn = `<div class="row"><button id="pGo">打った</button>${!a.t.area && chainN > 1 ? `<button id="pChain">×${chainN}</button>` : ''}</div>`;
   const main = head + (lw ? `<div class="lw">${lw}</div>` : '') + `<div class="st"><span>温度 <b>${s.temp}</b>℃</span><span>集中力 <b>${s.F}</b></span>${hsMark}</div>` + critRow + h + btn;
-  const hy = hayamiHtml();      // 早見は右に並べる(下だと見にくい)
+  const hy = wide ? '' : hayamiHtml();      // 早見は右に並べる(下だと見にくい)
   d.body.innerHTML = `<div class="pw${hy ? '' : ' one'}"><div class="pm">${main}</div>${hy}</div>` + hidden;
   wire();
   const go = d.getElementById('pGo'); if(go) go.onclick = () => startAct(a);
-  const pc = d.getElementById('pCrit'); if(pc) pc.onclick = () => pressCrit();
-  d.querySelectorAll('.cb[data-j]').forEach(x => x.onclick = () => { const j = +x.dataset.j; if(j < 0){ critPick = false; render(); } else applyCrit(j); });
+  if(X){
+    d.querySelectorAll('#pDv button').forEach(b => b.onclick = () => directPick(X, X.cur, +b.dataset.k));
+    const sw = d.getElementById('pSw'); if(sw) sw.onclick = () => { critSw = critOn(X.a, X.cur) ? null : critKey(X.a, X.cur); renderFoot(); };
+  }
   d.getElementById('pHs').onclick = () => $('hsB').click();     // 本画面の「必殺」と同じ(なし → たまった → 効果中)
   const ch = d.getElementById('pChain'); if(ch) ch.onclick = () => applyChain(a, chainN);
   if(picking) d.querySelectorAll('.c.pick').forEach(e => e.onclick = () => pickLit(+e.dataset.i));

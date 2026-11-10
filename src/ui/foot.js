@@ -28,10 +28,14 @@ function whyText(a){
   return `${lit}${goal}。ふつうは ${v} → ${a1}〜${a2}`;
 }
 function renderFoot(){
-  const go = $('go'), msg = $('msg');
+  const go = $('go'), msg = $('msg'), foot = document.querySelector('.foot');
   msg.className = 'msg'; msg.textContent = '';
   $('chainB').hidden = true;
   $('alts').innerHTML = '';
+  // じか入れの部品(direct.js)はいったん全部しまって、出す所で出す
+  go.hidden = false; $('undo').hidden = false;
+  for(const id of ['dLab', 'dVals', 'dLit', 'dCancel', 'dOk', 'critSw']) $(id).hidden = true;
+  foot.classList.remove('ret'); foot.classList.toggle('dir', isBtn()); renderUndo();
   const rl = $('relit');
   rl.hidden = !(s.litCand && !Array.isArray(s.lit) && !s.dead && !pend);
   if(!rl.hidden){
@@ -39,16 +43,24 @@ function renderFoot(){
     $('relitB').onclick = () => { const c = s.litCand; snap('光ったマスの選び直し'); s.lit = c; save(); recalc(); };
   }
   requestAnimationFrame(fitFoot); queueMicrotask(renderPip);
+  const P = livePend();                   // じか入れの入れ途中(何マス・ほかの手・戻り)
+  if(P && P.ret){ renderRetFoot(P); return; }
   if(Array.isArray(s.lit)){
-    $('rec').innerHTML = '<span class="nm">光ったマスを押す</span>';
-    go.textContent = '上のマスを押す'; go.disabled = true; return;
+    $('rec').innerHTML = '<span class="nm">光ったマスを選ぶ</span>';
+    go.textContent = '上のマスを押す'; go.disabled = true; go.hidden = true; renderLitBtns(); return;
   }
   if(s.dead){ $('rec').innerHTML = '<span class="nm" style="color:var(--bad)">ゾーンを超えた</span>'; go.textContent = '最初から'; go.disabled = false; go.onclick = askReset; return; }
   if(busy || !qs){ $('rec').innerHTML = '<span class="tg">計算中…</span>'; go.textContent = '計算中…'; go.disabled = true; return; }
   const best = qs[0];
+  go.disabled = false;
+  // #go は隠していても、押されたら今までどおり推奨の手を打つ(外から click される)
+  if(best.a){ go.textContent = '打った'; go.onclick = () => startAct(best.a); } else { go.textContent = '次の局へ'; go.onclick = askReset; }
+  if(P && !sameAct(P.a, best.a)){         // 推奨でない手を入れている途中
+    $('rec').innerHTML = `<span>${miniMap(P.a.tg)}<span class="nm">${P.a.t.name}</span> <span class="tg">${tgName(P.a)}</span></span>`;
+    go.hidden = true; renderDirect(P); return;
+  }
   if(!best.a){
     $('rec').innerHTML = `<span><span class="nm">仕上げる</span></span><span class="p">大成功の見込み <b>${pct(best.q)}</b></span>`;
-    go.textContent = '次の局へ'; go.disabled = false; go.onclick = askReset;
     msg.textContent = best.idleCut ? 'もう叩く所が無い。ここで仕上げる。' : 'ここで仕上げるのが一番。'; return;
   }
   const c = GM.costOf(G, s, best.a.t);
@@ -66,8 +78,9 @@ function renderFoot(){
   // 必殺を温存して寄せている間は、ほかの手の%(温存の分を数えていない)を出さない
   if(!(s.hs === 1 && best.hsPick)) $('alts').innerHTML = qs.slice(1, 3).map((x, k) => `<button data-k="${k+1}">${actName(x.a)} ${tgName(x.a)} ${pct(x.q2 !== undefined ? x.q2 : x.q)}</button>`).join('');
   $('alts').querySelectorAll('button').forEach(b => b.onclick = () => startAct(qs[+b.dataset.k].a));
-  go.textContent = '打った'; go.disabled = false;
-  go.onclick = () => startAct(best.a);
+  if(allActsOk()){ $('alts').insertAdjacentHTML('beforeend', '<button id="allB">ほかの手を全部</button>'); $('allB').onclick = openAll; }
+  // 叩く手のじか入れ: 橙の「打った」は出さず、値ボタンを出す(値を押す = 打った+結果)
+  if(isBtn() && best.a.t.area){ go.hidden = true; renderDirect(P || previewOf(best.a)); return; }
   // 火力上げ・冷やし込みが続けて推奨される時は、まとめて入れるボタンを出す(打つたびに押し直さなくてよい)
   const cb = $('chainB');
   if(!best.a.t.area && chainN > 1){ cb.hidden = false; cb.innerHTML = `×${chainN}<br>まとめて`; cb.onclick = () => applyChain(best.a, chainN); }
@@ -98,7 +111,7 @@ function calcChain(a){
   return k;
 }
 function applyChain(a, n){
-  snap(); s.lastHit = null;
+  snap(`${a.t.name}×${n}`); s.lastHit = null;
   for(let k = 0; k < n && !Array.isArray(s.lit); k++){ if(GM.costOf(G, s, a.t) > s.F) break; GM.afterAct(G, s, a, null); }
   save(); recalc();
 }
