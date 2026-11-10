@@ -1,4 +1,5 @@
-# 「今の会心!」: 2マスの技を打った後、片方を会心にすると、そのマスだけ見当が絞られる。小窓からも同じ。python3 tests/t_crit.py
+# 「会心が出た」スイッチ: 2マスの技で、片方だけオンにして値を入れると、そのマスだけ会心として見当が絞られる。小窓からも同じ。python3 tests/t_crit.py
+# (前の「今の会心!」は画面に出さない。main と同じ結果になるかは tests/t_rebuild.py)
 import os, json
 from playwright.sync_api import sync_playwright
 with sync_playwright() as p:
@@ -9,35 +10,33 @@ with sync_playwright() as p:
     pg.goto('file://' + os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'dist', 'app.html')))
     pg.wait_for_function('window.__navi && window.__navi.qs')
     pg.select_option('#item', 'hidane'); pg.wait_for_function('window.__navi.item==="hidane" && !window.__navi.busy && window.__navi.qs')
-    pg.evaluate("__navi.mut(s => { s.first = false; s.temp = 1250; s.F = 200; s.lit = null; s.v = [150, 200, 170, 200, 170, 110]; })")
-    pg.wait_for_function('!window.__navi.busy && window.__navi.qs')
-    print('打つ前 会心ボタン', pg.locator('#critB').is_visible())
-    # 2マスの技(ななめ打ち)を打って、結果を入れる
-    pg.evaluate("(() => { const a = __navi.G.acts.find(x => x.t.id === 'naname' && x.tg.includes(1)); __navi.startAct(a); })()")
-    tg = pg.evaluate("__navi.pend.per.map(p => p.j)"); print('叩くマス', tg)
-    vals = {j: pg.evaluate(f"__navi.s.v[{j}]") + 40 for j in tg}   # 会心っぽい伸び(+40)
-    pg.evaluate(f"__navi.commitReels({json.dumps({str(k): v for k, v in vals.items()})})")
-    print('温度', pg.evaluate('__navi.s.temp'), '光', pg.evaluate('JSON.stringify(__navi.s.lit)'))
+    BASE = "__navi.mut(s => { s.first = false; s.temp = 1250; s.F = 200; s.lit = null; s.v = [150, 200, 170, 200, 170, 110]; })"
+    START = "(() => { const a = __navi.G.acts.find(x => x.t.id === 'naname' && x.tg.includes(1)); __navi.startAct(a); })()"
+    cand = lambda j: pg.evaluate(f"__navi.s.bel[{j}].filter(x => x > 1e-9).length")
+    pg.evaluate(BASE); pg.wait_for_function('!window.__navi.busy && window.__navi.qs')
+    # 2マスの技(ななめ打ち): 1マス目は会心オン、2マス目はオフ
+    pg.evaluate(START)
+    tg = pg.evaluate("__navi.pend.per.map(p => p.j).sort((a, b) => a - b)"); print('叩くマス', tg, '/ 今の会心!', pg.locator('#critB').is_visible())
+    off = pg.evaluate("[...document.querySelectorAll('#dVals button')].map(b => +b.textContent)")
+    pg.click('#critSw'); on = pg.evaluate("[...document.querySelectorAll('#dVals button')].map(b => +b.textContent)")
+    print('オフの値', off, '/ オンの値', on, '/ スイッチ', pg.get_attribute('#critSw', 'aria-checked'))
+    pg.locator('#dVals button').last.click()
+    print('次のマスではオフに戻る', pg.get_attribute('#critSw', 'aria-checked'), '/ 今のマス', pg.evaluate('__navi.pend.cur'))
+    pg.locator('#dVals button').nth(1).click(); pg.click('#dOk')
     if pg.evaluate('Array.isArray(__navi.s.lit)'): pg.evaluate('__navi.mut(s => { s.lit = s.lit[0]; })')
     pg.wait_for_function('!window.__navi.busy && window.__navi.qs')
-    j0 = tg[0]
-    before = pg.evaluate(f"__navi.s.bel[{j0}].filter(x => x > 1e-9).length")
-    other = pg.evaluate(f"JSON.stringify(__navi.s.bel[{tg[1]}])")
-    print('入れた後 会心ボタン', pg.locator('#critB').is_visible())
-    pg.click('#critB'); print('マスを選ぶ欄', pg.locator('#critP').is_visible(), pg.inner_text('#critP'))
-    pg.click(f'#critP button[data-j="{j0}"]'); pg.wait_for_function('!window.__navi.busy && window.__navi.qs')
-    after = pg.evaluate(f"__navi.s.bel[{j0}].filter(x => x > 1e-9).length")
-    print(f'会心にしたマス {j0}: 見当の候補 {before} → {after} / もう片方は変わらない', other == pg.evaluate(f"JSON.stringify(__navi.s.bel[{tg[1]}])"))
-    # 戻す
-    pg.click('#undo'); pg.wait_for_timeout(200)
-    print('戻した後 候補', pg.evaluate(f"__navi.s.bel[{j0}].filter(x => x > 1e-9).length"), '/ ボタン', pg.locator('#critB').is_visible())
+    print(f'会心で入れたマス {tg[0]}: 見当の候補 {cand(tg[0])} / もう片方 {tg[1]}: {cand(tg[1])} / 印', pg.evaluate('JSON.stringify(__navi.s.critMark)'))
     # 小窓
     pg.click('#gearB'); pg.click('#pipB'); pg.wait_for_timeout(500)
     if pg.evaluate("!!(window.documentPictureInPicture && documentPictureInPicture.window)"):
         D = "documentPictureInPicture.window.document"
-        print('小窓のボタン', pg.evaluate(f"{D}.getElementById('pCrit') && {D}.getElementById('pCrit').innerText"))
-        pg.evaluate(f"{D}.getElementById('pCrit').click()"); pg.wait_for_timeout(200)
-        print('小窓の選ぶ欄', pg.evaluate(f"[...{D}.querySelectorAll('.cb')].map(x => x.innerText)"))
-        pg.evaluate(f"{D}.querySelector('.cb[data-j=\"{tg[1]}\"]').click()"); pg.wait_for_function('!window.__navi.busy && window.__navi.qs'); pg.wait_for_timeout(200)
-        print('小窓で会心にした後 残りのボタン', pg.evaluate(f"{D}.getElementById('pCrit') && {D}.getElementById('pCrit').innerText"), '/ 候補', pg.evaluate(f"__navi.s.bel[{tg[1]}].filter(x => x > 1e-9).length"))
+        pg.evaluate(BASE); pg.wait_for_function('!window.__navi.busy && window.__navi.qs'); pg.evaluate(START); pg.wait_for_timeout(200)
+        pg.evaluate(f"{D}.getElementById('pSw').click()"); pg.wait_for_timeout(200)
+        print('小窓のスイッチ', pg.evaluate(f"{D}.getElementById('pSw').getAttribute('aria-checked')"), '/ 本画面も', pg.get_attribute('#critSw', 'aria-checked'))
+        pg.evaluate(f"[...{D}.querySelectorAll('.pv button')].pop().click()"); pg.wait_for_timeout(150)
+        pg.evaluate(f"{D}.querySelectorAll('.pv button')[1].click()"); pg.wait_for_timeout(150)
+        pg.evaluate(f"{D}.getElementById('pOk').click()"); pg.wait_for_timeout(300)
+        if pg.evaluate('Array.isArray(__navi.s.lit)'): pg.evaluate('__navi.mut(s => { s.lit = s.lit[0]; })')
+        pg.wait_for_function('!window.__navi.busy && window.__navi.qs')
+        print(f'小窓で会心にしたマス {tg[0]}: 候補 {cand(tg[0])} / もう片方 {tg[1]}: {cand(tg[1])}')
     print('errors', errs); b.close()

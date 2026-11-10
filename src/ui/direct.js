@@ -73,7 +73,7 @@ function openAll(){
   // 2手先まで読んだ手(q2)を先に、残りは1手読みの見込み(q)の順
   const deep = x => x.q2 !== undefined && x.q2 >= 0, qv = x => deep(x) ? x.q2 : x.q, noPct = s.hs === 1 && qs[0].hsPick;
   const L = qs.filter(x => x.a).sort((x, y) => (deep(y) - deep(x)) || qv(y) - qv(x));
-  $('allL').innerHTML = L.map((x, k) => `<button type="button" data-k="${k}"><span>${x.a.t.area ? miniMap(x.a.tg) : ''}<b>${x.a.t.name}</b> ${tgName(x.a)}</span>${noPct ? '' : `<span class="p">${pct(qv(x))}</span>`}</button>`).join('');
+  $('allL').innerHTML = L.map((x, k) => `<button type="button" data-k="${k}"><span>${x.a.t.area ? miniMap(x.a.tg) : ''}<b>${x.a.t.name}</b> ${tgName(x.a)}</span>${noPct ? '' : `<span class="p">${pct(Math.max(0, qv(x)))}</span>`}</button>`).join('');
   $('allL').querySelectorAll('button').forEach(b => b.onclick = () => { $('allM').classList.remove('show'); startAct(L[+b.dataset.k].a); });
   $('allM').classList.add('show');
 }

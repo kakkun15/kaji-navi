@@ -37,6 +37,7 @@ $('cfgOk').onclick = () => {
   const f = parseInt($('cfF').value, 10);
   if(!(f >= 1 && f <= 999)) return;
   const fresh = !hist.length && s.first;                  // まだ打っていなければ、新しい集中力で始め直す
+  if(livePend() && !pend.ret) pend = null;                // じか入れの入れかけはやめる(使う技・集中力が変わる)
   cfg = { focus: f, off: offDraft.slice(), input: inDraft, size: cfg.size }; saveCfg();
   $('cfgM').classList.remove('show');
   G = mkG(item); net = loadNet(item);

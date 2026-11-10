@@ -16,10 +16,12 @@ $('board').addEventListener('click', e => {
       const lc = s.lastHit && s.lastHit.cells.find(c => c.j === i); if(lc && Number.isFinite(lc.w)) lc.w = v; }   // 「今の会心!」は直した値で絞る
     s.v[i] = v; s.dead = GM.overDead(G, i, v); s.first = false; save(); recalc(); });
 });
-$('stTemp').onclick = () => askNum('温度(℃)', s.temp, v => { snap('温度の手直し'); s.temp = Math.round(v / 50) * 50; s.first = s.first && s.temp === 1000; s.lit = null; s.last = null;
+// じか入れの入れ途中に温度・集中力を直す時は、入れかけの値をやめてから(候補の値が変わるので)。戻りの途中は直せない
+function dropPend(){ const P = livePend(); if(P && P.ret) return false; if(P) closeReels(); return true; }
+$('stTemp').onclick = () => dropPend() && askNum('温度(℃)', s.temp, v => { snap('温度の手直し'); s.temp = Math.round(v / 50) * 50; s.first = s.first && s.temp === 1000; s.lit = null; s.last = null;
   if(G.trait === 'hikari' && !s.first && s.temp % 200 === 0){ const c = G.active.filter(i => s.v[i] < G.cells[i][0]); if(c.length) s.lit = c; }
   save(); recalc(); });
-$('stFocus').onclick = () => askNum('今の集中力', s.F, v => { snap('集中力の手直し'); s.F = v; save(); recalc(); });
+$('stFocus').onclick = () => dropPend() && askNum('今の集中力', s.F, v => { snap('集中力の手直し'); s.F = v; save(); recalc(); });
 let numCb = null;
 function askNum(t, v, cb){ $('numT').textContent = t; $('numI').value = v; numCb = cb; $('numM').classList.add('show'); setTimeout(() => $('numI').select(), 50); }
 $('numOk').onclick = () => { const v = parseInt($('numI').value, 10); $('numM').classList.remove('show'); if(Number.isFinite(v) && v >= 0 && numCb) numCb(v); numCb = null; };

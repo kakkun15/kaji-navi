@@ -13,7 +13,8 @@
 ## ファイル
 - `src/`: アプリ。直すのは src だけ。計算は `game.js` ゲームの決まり・`core.js` 伸びと誤差・`value.js` 読みとネット・`gpumax.js` GPU 最強・`pool.js` Worker と性能テストの局・`voice.js` 声・`wgsl/` GPU 最強の部品。
 - 画面は `app.html`(HTML の骨組みと `/*#include 名前*/` の行)・`app.css`(見た目)・`ui/*.js`。build.py が include の行をファイルの中身に置き換える。`ui/*.js` は**1つの関数の中へ上から順につながる**(変数は全部共有。並びは app.html の include の順):
-  `state` 設定と保存・局面 / `board` 盤面の描画・今の会心! / `foot` 下の帯(推奨・詳細・まとめて)/ `pip` 小窓 / `opts` 声の設定値・計算の強さ・罰 / `voice` 声 / `calc` 計算の段取り(Worker・先読み・GPU・`recalc`・`finishCalc`)/ `input` 値の入力(`startAct`・リール・値ボタン)/ `commit` 戻りと確定(`askRet`・`commitReels`)/ `edit` 光ったマス・手直し / `cfg` 最初の集中力と使う技のシート・必殺・最初から / `testlog` テスト中の記録 / `settings` 設定のシート・戻す・商材 / `api` 起動と `window.__navi`。
+  `state` 設定と保存・局面 / `board` 盤面の描画 / `foot` 下の帯(推奨・詳細・まとめて)/ `pip` 小窓 / `opts` 声の設定値・計算の強さ・罰 / `voice` 声 / `calc` 計算の段取り(Worker・先読み・GPU・`recalc`・`finishCalc`)/ `input` 値の入力(`startAct`・`pickVal`・リールのシート・値ボタン)/ `commit` 戻りと確定(`askRet`・`commitReels`)/ `direct` じか入れ(下の帯の値ボタン・「会心が出た」・光ったマスのボタン・戻りの帯・戻すの名前・ほかの手を全部)/ `edit` 光ったマス・手直し / `cfg` 最初の集中力と使う技のシート・必殺・最初から / `testlog` テスト中の記録 / `settings` 設定のシート・戻す・商材 / `api` 起動と `window.__navi`。
+- 入力の流れ: 入れ方「ボタン」(既定)は、叩く手なら下の帯にじかに値ボタン(値を押す = `startAct` → `pickVal` → `commitReels`)。「リール」はシート。`pend` が入れ途中。**main にある id・`window.__navi` の項目・`startAct(a)` → `commitReels(vals)` の動きは変えない**(外のスクリプトが使う。使わない部品は隠して残す。`tests/t_rebuild.py` が main と比べる)。
 - `dist/`: `python3 build.py` が作る(読まない)。`train/w_*.json`: 重み(読まない)。
 - `train/`: 学習・成績の道具。`tests/`: 試験。
 - 早見表は `kakkun15/kaji-hayami`、性能テストは `kakkun15/kaji-bench` に分けた(2026-11-07)。GPU の学習室は消した(最強(GPU)の部品は `src/wgsl/`)。
