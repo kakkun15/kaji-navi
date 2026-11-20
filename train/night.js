@@ -54,6 +54,10 @@ const cfgs = {
     { tag: 'n6', init: W('w_hidane_h128_best.json'), env: { TDEPTH: '2', TFRAC: '0.4' } },
     { tag: 'n7', init: W('w_pot_best.json'), env: { LR: '0.6' } },
     { tag: 'n8', init: W('w_hidane_h128_best.json'), env: { TDEPTH: '2', LR: '0.6' } },
+    { tag: 'n9', init: W('w_hidane_h128_best.json'), env: { TDEPTH: '2' }, seed: 31 },
+    { tag: 'n10', init: W('w_pot_best.json'), env: { TDEPTH: '2' }, seed: 32 },
+    { tag: 'n11', init: W('w_hidane_h128_best.json'), env: {}, seed: 33 },
+    { tag: 'n12', init: W('w_pot_best.json'), env: { TDEPTH: '2', TFRAC: '0.4' }, seed: 34 },
   ],
   hidane: [
     { tag: 'n1', init: W('w_hidane_h128_best.json'), env: { LR: '0.3', TDEPTH: '2' } },
@@ -86,21 +90,18 @@ const killAll = () => { for (const c of kids) try { c.kill(); } catch (e) {} };
 process.on('SIGINT', () => { killAll(); process.exit(1); });
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
-// 学習を時間まで回す。jobs: [{ item, cfg }] を NW 個まで同時に(足りなければ前から)
-async function trainUntil(jobs, until, label) {
+// 学習を1本始める
+const jobKids = new Map();   // tag → 子プロセスの promise
+function startJob({ item, cfg }) {
   const g = TEST ? 6 : 400, sm = TEST ? 40 : 3000, evn = TEST ? '30' : '400';
-  const running = jobs.slice(0, NW).map(({ item, cfg }) => {
-    const tag = `${item}_${cfg.tag}`;
-    log(`学習を始める ${tag} ${cfg.init} ${JSON.stringify(cfg.env)}`);
-    return run(['train/train.js', item, '9999', String(g), String(sm), String(1 + kids.size), cfg.init],
-      Object.assign({ TAG: '_' + cfg.tag, LEVEL, FOCUS, EVN: evn }, cfg.env), tag);
-  });
-  if (jobs.length > NW) log(`並べる数が足りないので ${jobs.length - NW} 個は回さない: ${jobs.slice(NW).map(j => j.item + '_' + j.cfg.tag).join(' ')}`);
-  while (Date.now() < until && kids.size) { status(`${label}(${kids.size} 本を学習中)`); await sleep(TEST ? 5e3 : 60e3); }
-  killAll(); await Promise.all(running);
-  log(`${label} の学習を止めた`);
+  const tag = `${item}_${cfg.tag}`;
+  log(`学習を始める ${tag} ${cfg.init} ${JSON.stringify(cfg.env)}`);
+  const p = run(['train/train.js', item, '9999', String(g), String(sm), String(cfg.seed || (1 + jobKids.size)), cfg.init],
+    Object.assign({ TAG: '_' + cfg.tag, LEVEL, FOCUS, EVN: evn }, cfg.env), tag);
+  jobKids.set(tag, p);
+  return p;
 }
-
+function stopItem(item) { for (const c of kids) if (c._tag && c._tag.startsWith(item + '_')) try { c.kill(); } catch (e) {} }
 // ---- 比べ(compare.js を局の範囲で分けて並べる) ----
 async function evalW(item, wfile, n, seed, depth, opts) {
   const per = Math.ceil(n / NW), tasks = [];
@@ -166,14 +167,22 @@ function writeMd() {
 
 (async () => {
   log(`始める。締め切り ${END.toLocaleString('ja-JP')}・並べる数 ${NW}・Lv${LEVEL}・集中力${FOCUS}${TEST ? '(動作確認)' : ''}`);
-  // 1. オーブ
-  await trainUntil(cfgs.orb.map(cfg => ({ item: 'orb', cfg })), ORB_END, '虹色のオーブ');
-  // 2. いと・ひだね・樹液(いとを多めに)
-  const jobs = [];
-  const order = ['ito', 'hidane', 'jueki', 'ito', 'ito', 'hidane', 'jueki', 'ito', 'ito', 'hidane', 'jueki', 'ito', 'ito', 'jueki'];
+  // 1. オーブと、ほかの商材を並べて始める。オーブの時間が来たらオーブだけ止めて、空いた所にほかの商材を足す
+  const others = [];
+  const order = ['ito', 'hidane', 'jueki', 'ito', 'ito', 'hidane', 'jueki', 'ito', 'ito', 'hidane', 'jueki', 'ito', 'ito', 'jueki', 'ito', 'ito', 'ito', 'ito'];
   const used = { ito: 0, hidane: 0, jueki: 0 };
-  for (const it of order) { const c = cfgs[it][used[it]++]; if (c) jobs.push({ item: it, cfg: c }); }
-  await trainUntil(jobs, TRAIN_END, 'いと・ひだね・樹液');
+  for (const it of order) { const c = cfgs[it][used[it]++]; if (c) others.push({ item: it, cfg: c }); }
+  const orbJobs = cfgs.orb.map(cfg => ({ item: 'orb', cfg }));
+  for (const j of orbJobs.slice(0, NW)) startJob(j);
+  let next = 0;
+  while (kids.size < NW && next < others.length) startJob(others[next++]);
+  while (Date.now() < ORB_END && kids.size) { status(`オーブとほか(${kids.size} 本を学習中)`); await sleep(TEST ? 5e3 : 60e3); }
+  stopItem('orb'); await sleep(3000); log('虹色のオーブの学習を止めた');
+  while (kids.size < NW && next < others.length) startJob(others[next++]);
+  if (next < others.length) log(`並べる数が足りないので回さない: ${others.slice(next).map(j => j.item + '_' + j.cfg.tag).join(' ')}`);
+  // 2. いと・ひだね・樹液を締め切りまで
+  while (Date.now() < TRAIN_END && kids.size) { status(`いと・ひだね・樹液(${kids.size} 本を学習中)`); await sleep(TEST ? 5e3 : 60e3); }
+  killAll(); await sleep(3000); log('学習を止めた');
   // 3. 比べ(いとを最後に最強でも)
   for (const it of ['orb', 'hidane', 'jueki']) { try { await judgeItem(it, false); } catch (e) { log(`比べで失敗 ${it} ${e.stack}`); } writeMd(); }
   try { await judgeItem('ito', true); } catch (e) { log(`比べで失敗 ito ${e.stack}`); }
