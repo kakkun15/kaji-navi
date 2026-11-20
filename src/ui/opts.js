@@ -17,7 +17,7 @@ function isTest(){ return power === 'maxTest' && !!W[item + '_test']; }
 const OVER_PEN = 1;
 // 商材ごとの罰。ひだねは 0.6: 1手読み・同じ局 2000局(種960・961)で 罰1 72.45% / 0.6 73.3%
 // (片方だけ大成功 8局 / 25局)。超えて失敗は 0.5% → 0.8% と少しだけ増える
-const OVER_PEN_MAP = { hidane: 0.6, pot: 0.6, orb: 0 };   // 虹色のオーブは超えても戻りで戻せるので、超える罰は無し
+const OVER_PEN_MAP = { hidane: 0.6, pot: 0.6, orb: 0, jueki: 0.6, ito: 0.6 };   // 虹色のオーブは超えても戻りで戻せるので、超える罰は無し
 function overPen(){ return OVER_PEN_MAP[item] ?? OVER_PEN; }
 // 集中力の余裕(value.js の focusMargin): 打った後の局面の集中力を F−m と少なめに見積もる(届かずで火種0個を減らす)。
 // ひだね: 1手読み・同じ局 4000局(種960〜963・Lv80・集中力253): m=10 で 大成功 80.30→80.20%(z −0.1)・届かず+超え 3.45→2.30%(z 3.3)。

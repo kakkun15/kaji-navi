@@ -221,11 +221,14 @@ for (let it = 1; it <= ITERS; it++) {
   const collect = (f, y, ya) => { X.push(f); Y.push(y); YA.push(ya); };
   let gw = 0;
   for (let g = 0; g < GAMES; g++) { const j = playGame(rnd, 0.1, collect); gw += j.great; }
-  const opt = { K: 8, rnd, buf: new Float32Array(D) };
-  for (let k = 0; k < SAMPLED; k++) {
+  // TDEPTH=2: ばらまいた局面の目標を2手読み(強と同じ上位 N2 手・2手目 K2 通り)で作る。1手読みより目の良い先生から学ぶ(2026-11-21)
+  const TD = +(process.env.TDEPTH || 1);
+  const opt = { K: 8, rnd, buf: new Float32Array(D), N2: +(process.env.TN2 || 4), K2: +(process.env.TK2 || 8) };
+  const NS = TD === 2 ? Math.round(SAMPLED * +(process.env.TFRAC || 0.25)) : SAMPLED;
+  for (let k = 0; k < NS; k++) {
     const s = sampleState(rnd);
-    const qs = V.evalActs(net, G, s, opt);
-    let best = 0; for (const x of qs) best = Math.max(best, x.q);
+    const qs = TD === 2 ? V.evalActs2(net, G, s, opt) : V.evalActs(net, G, s, opt);
+    let best = 0; for (const x of qs) best = Math.max(best, TD === 2 ? x.q2 : x.q);
     X.push(V.features(G, s, null, net.ver)); Y.push(best); YA.push(NaN);
   }
   // 直近3回分を残して学ぶ
@@ -236,7 +239,7 @@ for (let it = 1; it <= ITERS; it++) {
   save(net, OUT);
   let ev = '';
   if (it % 3 === 0 || it === ITERS) {
-    const e = evaluate(400, 99); ev = JSON.stringify(e);
+    const e = evaluate(+(process.env.EVN || 400), 99); ev = JSON.stringify(e);
     if (e.great > bestGreat) { bestGreat = e.great; save(net, OUT.replace('.json', '_best.json')); ev += ' *best'; }
   }
   log(`it ${it} selfplay ${(gw / GAMES).toFixed(3)} n ${AY.length} loss ${loss.toFixed(4)} ${((Date.now() - t0) / 1000).toFixed(0)}s ${ev}`);

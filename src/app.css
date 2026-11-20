@@ -87,6 +87,9 @@ select{font:inherit;font-weight:700;padding:6px 10px;border:1px solid var(--line
 .cell.in.hit{border-color:var(--btn1)}
 .cell.over{border-color:var(--bad)}
 .cell.over .v{color:var(--bad)}
+/* 虹色のオーブ: 超えても戻りで減るので、赤ではなく黄色 */
+.cell.over.movr{border-color:var(--amb)}
+.cell.over.movr .v,.cell.over.movr .need{color:var(--amb)}
 .cell.litc{box-shadow:0 0 0 3px var(--lit),var(--shadow)}
 .board{position:relative}
 .board.aim .cell:not(.hit){opacity:.42;filter:saturate(.55)}
@@ -189,6 +192,10 @@ select{font:inherit;font-weight:700;padding:6px 10px;border:1px solid var(--line
 .foot.ret{border-top:4px solid var(--blue)}
 .foot.ret .rec{margin-bottom:2px}
 .foot.ret .bigh{text-align:left;margin:0}
+.foot.ret .bigh .from{font-variant-numeric:tabular-nums;color:var(--ink)}
+/* 次の戻り(虹色のオーブ): 推奨の行の下に1行 */
+.rec .nr{grid-column:1/-1;font-size:13px;font-weight:700;color:var(--blue);line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rec .nr b{font-variant-numeric:tabular-nums}
 .undo small{display:block;max-width:6.5em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;font-weight:700;color:var(--sub);line-height:1.25}
 .foot.dir.fold .relit{display:none}
 .cell .v .fr{font-size:.4em;font-weight:700;color:var(--sub);margin-right:3px}
@@ -212,6 +219,13 @@ select{font:inherit;font-weight:700;padding:6px 10px;border:1px solid var(--line
 .vbs button.zn{background:#123a26;border-color:var(--good);color:#d9ffe9}
 .vbs button.best{border:2px solid var(--accent)}
 .vbs button.ov{color:var(--bad);text-decoration:line-through}
+/* 虹色のオーブ: 超える値は黄色(取り消し線なし)。次の戻りで減る見込みなら下に「戻り後 約○○」 */
+.vbs button.ov.my{color:var(--amb);text-decoration:none}
+.vbs button[data-ra]{display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.05;min-width:0;overflow:hidden}
+.vbs button[data-ra]::after{content:attr(data-ra);font-size:10px;font-weight:700;line-height:1.1;letter-spacing:-.04em;color:var(--sub);white-space:pre}
+/* 戻りの値: 予想(14 減)のボタンを少し濃く */
+.vbs button.pv{background:#1d3352;border-color:var(--blue)}
+.vbs button.zn.pv{background:#17583a}
 .vbs button.on{background:var(--card2);box-shadow:0 0 0 2px var(--ink)}
 .vbl{font-size:13px;font-weight:800;color:var(--crit);margin:-2px 2px 6px}
 .mboard{display:flex;flex-direction:column;gap:6px;margin-bottom:12px}
