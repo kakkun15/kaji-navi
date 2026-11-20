@@ -95,6 +95,12 @@ const jobKids = new Map();   // tag → 子プロセスの promise
 function startJob({ item, cfg }) {
   const g = TEST ? 6 : 400, sm = TEST ? 40 : 3000, evn = TEST ? '30' : '400';
   const tag = `${item}_${cfg.tag}`;
+  // 前に止めた続き: 途中の重みがあればそこから始める。前の _best は _best0 に写して、最後の比べに入れる
+  const cur = W(`w_${item}_${cfg.tag}.json`), bst = path.join(ROOT, W(`w_${item}_${cfg.tag}_best.json`));
+  if (fs.existsSync(path.join(ROOT, cur))) {
+    if (fs.existsSync(bst)) fs.copyFileSync(bst, bst.replace('_best.json', '_best0.json'));
+    cfg = Object.assign({}, cfg, { init: cur });
+  }
   log(`学習を始める ${tag} ${cfg.init} ${JSON.stringify(cfg.env)}`);
   const p = run(['train/train.js', item, '9999', String(g), String(sm), String(cfg.seed || (1 + jobKids.size)), cfg.init],
     Object.assign({ TAG: '_' + cfg.tag, LEVEL, FOCUS, EVN: evn }, cfg.env), tag);
@@ -126,7 +132,7 @@ const report = { started: new Date(T0).toISOString(), deadline: END.toISOString(
 const saveReport = () => fs.writeFileSync(path.join(OUT, 'report.json'), JSON.stringify(report, null, 1));
 
 async function judgeItem(item, final) {
-  const cands = cfgs[item].map(c => W(`w_${item}_${c.tag}_best.json`)).filter(f => fs.existsSync(path.join(ROOT, f)));
+  const cands = [].concat(...cfgs[item].map(c => [W(`w_${item}_${c.tag}_best.json`), W(`w_${item}_${c.tag}_best0.json`)])).filter(f => fs.existsSync(path.join(ROOT, f)));
   if (CUR[item]) cands.push(W(CUR[item]));
   const r = report.items[item] = { cands: {}, note: '' };
   const N1 = TEST ? 20 : 1000, N2 = TEST ? 6 : 400, N3 = TEST ? 4 : 300;
@@ -167,24 +173,17 @@ function writeMd() {
 
 (async () => {
   log(`始める。締め切り ${END.toLocaleString('ja-JP')}・並べる数 ${NW}・Lv${LEVEL}・集中力${FOCUS}${TEST ? '(動作確認)' : ''}`);
-  // 1. オーブと、ほかの商材を並べて始める。オーブの時間が来たらオーブだけ止めて、空いた所にほかの商材を足す
-  const others = [];
-  const order = ['ito', 'hidane', 'jueki', 'ito', 'ito', 'hidane', 'jueki', 'ito', 'ito', 'hidane', 'jueki', 'ito', 'ito', 'jueki', 'ito', 'ito', 'ito', 'ito'];
-  const used = { ito: 0, hidane: 0, jueki: 0 };
-  for (const it of order) { const c = cfgs[it][used[it]++]; if (c) others.push({ item: it, cfg: c }); }
-  const orbJobs = cfgs.orb.map(cfg => ({ item: 'orb', cfg }));
-  for (const j of orbJobs.slice(0, NW)) startJob(j);
-  let next = 0;
-  while (kids.size < NW && next < others.length) startJob(others[next++]);
-  while (Date.now() < ORB_END && kids.size) { status(`オーブとほか(${kids.size} 本を学習中)`); await sleep(TEST ? 5e3 : 60e3); }
-  stopItem('orb'); await sleep(3000); log('虹色のオーブの学習を止めた');
-  while (kids.size < NW && next < others.length) startJob(others[next++]);
-  if (next < others.length) log(`並べる数が足りないので回さない: ${others.slice(next).map(j => j.item + '_' + j.cfg.tag).join(' ')}`);
-  // 2. いと・ひだね・樹液を締め切りまで
-  while (Date.now() < TRAIN_END && kids.size) { status(`いと・ひだね・樹液(${kids.size} 本を学習中)`); await sleep(TEST ? 5e3 : 60e3); }
+  // オーブといとが大事・樹液は後回し(2026-11-21 利用者)。オーブ6本・いと10本・ひだね3本を締め切りまで並べる
+  const jobs = cfgs.orb.map(cfg => ({ item: 'orb', cfg }))
+    .concat(cfgs.ito.slice(0, 10).map(cfg => ({ item: 'ito', cfg })))
+    .concat(cfgs.hidane.map(cfg => ({ item: 'hidane', cfg })));
+  for (const j of jobs.slice(0, NW)) startJob(j);
+  if (jobs.length > NW) log(`並べる数が足りないので回さない: ${jobs.slice(NW).map(j => j.item + '_' + j.cfg.tag).join(' ')}`);
+  while (Date.now() < TRAIN_END && kids.size) { status(`オーブ・いと・ひだね(${kids.size} 本を学習中)`); await sleep(TEST ? 5e3 : 60e3); }
   killAll(); await sleep(3000); log('学習を止めた');
   // 3. 比べ(いとを最後に最強でも)
-  for (const it of ['orb', 'hidane', 'jueki']) { try { await judgeItem(it, false); } catch (e) { log(`比べで失敗 ${it} ${e.stack}`); } writeMd(); }
+  for (const it of ['orb', 'hidane']) { try { await judgeItem(it, false); } catch (e) { log(`比べで失敗 ${it} ${e.stack}`); } writeMd(); }
+  if (cfgs.jueki.some(c => fs.existsSync(path.join(ROOT, W(`w_jueki_${c.tag}_best0.json`))) || fs.existsSync(path.join(ROOT, W(`w_jueki_${c.tag}_best.json`))))) { try { await judgeItem('jueki', false); } catch (e) { log(`比べで失敗 jueki ${e.stack}`); } writeMd(); }
   try { await judgeItem('ito', true); } catch (e) { log(`比べで失敗 ito ${e.stack}`); }
   writeMd();
   status('終わった。report.md を見る');
