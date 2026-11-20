@@ -56,6 +56,21 @@ function renderCfg(){
   const n = TECH_LIST.length, on = n - offList().length;
   $('techBv').textContent = `${on}/${n}`; $('techB').classList.toggle('cut', on < n);
 }
+// ---- 戻り(虹色のオーブ): 次に戻りが来る温度と、減るマスの見込み ----
+function isOrb(){ return G.trait === 'modori'; }
+// 温度 t から下がっていって次に当たる200の倍数(t がちょうど倍数なら t)。無ければ 0
+function retAt(t){ return t > 0 ? Math.floor(t / 200) * 200 : 0; }
+// 盤面 v で戻りが起きた時に減るマス(無ければ -1)
+function retCell(v){ return GM.retTarget(G, { v }); }
+// 次の戻りの温度と、今の盤面で減るマス。a: 推奨の手(入れ途中の手)。打った後の温度から数える(熱風おろしでまたぐ倍数は飛ばす・
+// 火力上げで倍数に当たればそこ)。手が無ければ今の温度から(ちょうど倍数なら、もう済んでいるのでその次)。叩く技で下がっていく前提。n: まとめての回数
+function nextRet(a, n){
+  if(!isOrb()) return null;
+  const R = a && a.t ? retAt(s.temp + a.t.dT * (a.t.area ? 1 : Math.max(1, n || 1))) : s.temp % 200 === 0 ? s.temp - 200 : retAt(s.temp);
+  return R > 0 ? { R, j: retCell(s.v) } : null;
+}
+// 戻りで減った後の見込み(12〜16 減る。真ん中は 14)
+function retRange(v){ return `約${Math.max(0, v - GM.RET_MAX)}〜${Math.max(0, v - GM.RET_MIN)}`; }
 function render(){
   renderCfg(); renderHs(); renderCrit();
   $('temp').textContent = s.temp; $('focus').textContent = s.F;
@@ -67,6 +82,7 @@ function render(){
   const picking = Array.isArray(s.lit);
   // 何マスも叩く技(じか入れ): 今入れるマスだけ光らせる。入れたマスは「今の値 → 入れた値」
   const seq = isBtn() && tg.length > 1 && !picking && !s.dead, cur = !seq ? -1 : hitP ? hitP.cur : Math.min(...tg);
+  const nr = !picking && !ret && !s.dead ? nextRet(best) : null, nrj = nr ? nr.j : -1, orb = isOrb();
   let h = '';
   for(let r = 0; r < rows; r++){
     const cols = [0, 1].filter(c => G.cells.some((z, i) => z && i % 2 === c));
@@ -76,13 +92,15 @@ function render(){
       if(!z){ h += '<div class="cell gap"></div>'; continue; }
       const done = !!(hitP && hitP.filled && hitP.filled[i] && tg.includes(i));
       const v = done ? hitP.per.find(x => x.j === i).its[hitP.sel[i]].w : s.v[i], top = Math.max(z[1] * 1.08, v + 1);
-      const cls = ['cell', v > z[1] ? 'over' : v >= z[0] ? 'in' : '', tg.includes(i) ? 'hit' : '', s.lit === i ? 'litc' : '',
+      const cls = ['cell', v > z[1] ? (orb ? 'over movr' : 'over') : v >= z[0] ? 'in' : '', tg.includes(i) ? 'hit' : '', s.lit === i ? 'litc' : '',
                    picking && s.lit.includes(i) ? 'pick' : '', i === cur ? 'cur' : '', done ? 'done' : '', ret && ret.per[0].j === i ? 'retc' : ''].join(' ');
       const tags = (tg.includes(i) ? '<i>叩く</i>' : '') + (s.lit === i ? '<i class="lit">光</i>' : '') + (ret && ret.retPred === i ? '<i class="pred">予想</i>' : '');
       const b = s.bel[i], nz = b.map((p, q) => p > 1e-9 ? z[0] + q : null).filter(x => x !== null);
       const bel = nz.length && nz.length < b.length ? (nz.length === 1 ? `理想値 ${nz[0]}` : `理想値 ${nz[0]}〜${nz[nz.length-1]}`) : '';
       // 棒の下の1行: 「180〜190・あと8〜18」(理想値が絞れたら理想値の表示に替える)
-      const need = `${z[0]}〜${z[1]}・` + (v < z[0] ? `あと${z[0] - v}〜${z[1] - v}` : v <= z[1] ? 'ゾーン内' : '超えた');
+      // オーブは超えても戻りで減るので「+5・戻りで減る」(次の戻りで減るマスの時)か「85〜95・+5」
+      const need = orb && v > z[1] ? (i === nrj ? `+${v - z[1]}・戻りで減る` : `${z[0]}〜${z[1]}・+${v - z[1]}`)
+        : `${z[0]}〜${z[1]}・` + (v < z[0] ? `あと${z[0] - v}〜${z[1] - v}` : v <= z[1] ? 'ゾーン内' : '超えた');
       h += `<div class="${cls}" data-i="${i}"><div class="lbl">${posName(i)}${tags}</div><div class="v">${done ? `<span class="fr">${s.v[i]}→</span>` : ''}${v}</div>`
          + `<div class="z"><span>${z[0]}</span><span>${z[1]}</span></div><div class="bar"><span class="f" style="width:${Math.min(100, v/top*100)}%"></span>`
          + `<span class="zn" style="left:${z[0]/top*100}%;width:${(z[1]-z[0])/top*100}%"></span></div><div class="bel">${bel || `<span class="need">${need}</span>`}</div></div>`;

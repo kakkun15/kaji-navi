@@ -60,7 +60,7 @@ function renderReelCrit(){
 function renderRetFoot(P){
   const p = P.per[0], j = p.j, lab = $('dLab'), dv = $('dVals');
   document.querySelector('.foot').classList.add('ret');
-  $('rec').innerHTML = `<div class="bigh">戻り ${posName(j)}</div>`;
+  $('rec').innerHTML = `<div class="bigh">戻り ${posName(j)} <span class="from">${s.v[j]}→</span></div>`;
   lab.innerHTML = `減った後の値を押す<span>違うマスは盤面を押す</span>`; lab.hidden = false;
   dv.innerHTML = valBtnsIn(p, P, ''); dv.hidden = false;
   dv.querySelectorAll('button').forEach(b => b.onclick = () => pickVal(j, +b.dataset.k));

@@ -110,14 +110,23 @@ function miniBoard(sel, cur, lab){
   }
   return h + '</div>';
 }
-// 値のボタン(5列・小さい順)。ゾーン内は緑・超える値は赤の取り消し線・一番出やすい値が1つに決まる時だけ橙の縁。小窓も同じ物を使う。
+// 値のボタン(5列・小さい順)。ゾーン内は緑・超える値は赤の取り消し線(虹色のオーブは黄色)・一番出やすい値が1つに決まる時だけ橙の縁。小窓も同じ物を使う。
 // X: 入れている物(pend か、まだ押していない推奨の手)。mode: 'n' 会心でなくても出る値だけ / 'c' 会心で出うる値だけ / '' 全部
 function valBtnsIn(p, X, mode){
   const z = G.cells[p.j], its = p.its.map((x, k) => ({ x, k })).filter(o => mode === 'n' ? o.x.tag !== 'c' : mode === 'c' ? o.x.tag !== 'n' : true);
   const ns = mode === 'c' ? its : its.filter(o => o.x.tag !== 'c'), pv = o => mode === 'c' ? o.x.pc : o.x.p;
   const mx = Math.max(0, ...ns.map(pv)), tops = ns.filter(o => pv(o) >= mx - 1e-12), top = ns.length > 1 && tops.length === 1 ? tops[0].k : -1;
-  const done = X.filled && X.filled[p.j];
-  return its.map(o => `<button type="button" class="${o.x.ov ? 'ov' : z && o.x.w >= z[0] ? 'zn' : ''}${o.k === top ? ' best' : ''}${done && X.sel[p.j] === o.k ? ' on' : ''}" data-k="${o.k}">${o.x.w}</button>`).join('');
+  const done = X.filled && X.filled[p.j], orb = isOrb(), pw = X.ret ? Math.max(0, s.v[p.j] - 14) : -1;
+  return its.map(o => `<button type="button" class="${o.x.ov ? 'ov' + (orb ? ' my' : '') : z && o.x.w >= z[0] ? 'zn' : ''}${o.k === top ? ' best' : ''}${done && X.sel[p.j] === o.k ? ' on' : ''}${o.x.w === pw ? ' pv' : ''}"`
+    + `${orb && o.x.ov && !X.ret ? retAfter(p.j, o.x.w, X) : ''} data-k="${o.k}">${o.x.w}</button>`).join('');
+}
+// 虹色のオーブで超える値: 叩いた後の盤面で、次の戻りがこのマスを減らす見込みなら data-ra="戻り後 約○○"(ボタンの下に小さく出す)。
+// 何マスの技のほかのマスは、入れた値か今の値で見る
+function retAfter(j, w, X){
+  const R = retAt(s.temp + X.a.t.dT); if(!(R > 0)) return '';
+  const v = s.v.slice(); for(const q of X.per) if(X.filled && X.filled[q.j] && q.its) v[q.j] = q.its[X.sel[q.j]].w;
+  v[j] = w;
+  return retCell(v) === j ? ` data-ra="戻り後&#10;約${Math.max(0, w - 14)}"` : '';
 }
 function valBtns(p, cls, X, mode){ return `<div class="${cls || 'vbs'}">${valBtnsIn(p, X, mode)}</div>`; }
 // 値を押した時(下の帯・小窓の両方から)。1マスなら決まる。何マスの時は次のマスへ(全部入れたら「決定」)。

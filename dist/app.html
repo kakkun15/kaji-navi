@@ -97,6 +97,9 @@ select{font:inherit;font-weight:700;padding:6px 10px;border:1px solid var(--line
 .cell.in.hit{border-color:var(--btn1)}
 .cell.over{border-color:var(--bad)}
 .cell.over .v{color:var(--bad)}
+/* 虹色のオーブ: 超えても戻りで減るので、赤ではなく黄色 */
+.cell.over.movr{border-color:var(--amb)}
+.cell.over.movr .v,.cell.over.movr .need{color:var(--amb)}
 .cell.litc{box-shadow:0 0 0 3px var(--lit),var(--shadow)}
 .board{position:relative}
 .board.aim .cell:not(.hit){opacity:.42;filter:saturate(.55)}
@@ -199,6 +202,10 @@ select{font:inherit;font-weight:700;padding:6px 10px;border:1px solid var(--line
 .foot.ret{border-top:4px solid var(--blue)}
 .foot.ret .rec{margin-bottom:2px}
 .foot.ret .bigh{text-align:left;margin:0}
+.foot.ret .bigh .from{font-variant-numeric:tabular-nums;color:var(--ink)}
+/* 次の戻り(虹色のオーブ): 推奨の行の下に1行 */
+.rec .nr{grid-column:1/-1;font-size:13px;font-weight:700;color:var(--blue);line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rec .nr b{font-variant-numeric:tabular-nums}
 .undo small{display:block;max-width:6.5em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;font-weight:700;color:var(--sub);line-height:1.25}
 .foot.dir.fold .relit{display:none}
 .cell .v .fr{font-size:.4em;font-weight:700;color:var(--sub);margin-right:3px}
@@ -222,6 +229,13 @@ select{font:inherit;font-weight:700;padding:6px 10px;border:1px solid var(--line
 .vbs button.zn{background:#123a26;border-color:var(--good);color:#d9ffe9}
 .vbs button.best{border:2px solid var(--accent)}
 .vbs button.ov{color:var(--bad);text-decoration:line-through}
+/* 虹色のオーブ: 超える値は黄色(取り消し線なし)。次の戻りで減る見込みなら下に「戻り後 約○○」 */
+.vbs button.ov.my{color:var(--amb);text-decoration:none}
+.vbs button[data-ra]{display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.05;min-width:0;overflow:hidden}
+.vbs button[data-ra]::after{content:attr(data-ra);font-size:10px;font-weight:700;line-height:1.1;letter-spacing:-.04em;color:var(--sub);white-space:pre}
+/* 戻りの値: 予想(14 減)のボタンを少し濃く */
+.vbs button.pv{background:#1d3352;border-color:var(--blue)}
+.vbs button.zn.pv{background:#17583a}
 .vbs button.on{background:var(--card2);box-shadow:0 0 0 2px var(--ink)}
 .vbl{font-size:13px;font-weight:800;color:var(--crit);margin:-2px 2px 6px}
 .mboard{display:flex;flex-direction:column;gap:6px;margin-bottom:12px}
@@ -563,8 +577,9 @@ select{font:inherit;font-weight:700;padding:6px 10px;border:1px solid var(--line
     // 地金特性は倍半(たたき変化。meluce.jp)。許容誤差 0(2マスとも理想値ぴったりで大成功。さいほう針の値。docs/仕様.md)
     // 虹色のオーブ: 左上A 85〜95・右上B 140〜148・左中C 115〜121・右中D 140〜148・左下E 115〜121・右下F 85〜95、誤差合計7以下
     // (位置: dqxikoan.blog.jp/archives/5705931.html、誤差: rumayer.hatenablog.com 2023/08/30)。
-    // 地金特性「戻り」(メーター減少): 温度が200の倍数の時、ゾーンに入っていないマスのうち (値 ÷ ゾーン上限) が一番大きいマスが 12〜16 減る
-    // (比率: 10-yg4a1a3kyh.jp「道具鍛冶職人の素材特性」、量: gameranbu.jp)。ゾーンを超えても戻せるので、超えただけでは失敗にしない。
+    // 地金特性「戻り」(メーター減少): 温度がちょうど200の倍数になった時、1マスが 12〜16 減る(量: gameranbu.jp)。
+    // 減るのは、超えたマスがあれば一番超えているマス、無ければゾーンに一番近いマス(retTarget)。ゾーン内・0のマスは減らない。
+    // 熱風おろしで200の倍数をまたげば起きない。ゾーンを超えても戻せるので、超えただけでは失敗にしない(仕上げた時にゾーンの外なら失敗)。
     orb:    { name: '虹色のオーブ', trait: 'modori', T: 7,
               cells: [[85, 95], [140, 148], [115, 121], [140, 148], [115, 121], [85, 95]] },
     needle: { name: '光のさいほう針', trait: 'tataki', T: 0,
@@ -2300,6 +2315,21 @@ function renderCfg(){
   const n = TECH_LIST.length, on = n - offList().length;
   $('techBv').textContent = `${on}/${n}`; $('techB').classList.toggle('cut', on < n);
 }
+// ---- 戻り(虹色のオーブ): 次に戻りが来る温度と、減るマスの見込み ----
+function isOrb(){ return G.trait === 'modori'; }
+// 温度 t から下がっていって次に当たる200の倍数(t がちょうど倍数なら t)。無ければ 0
+function retAt(t){ return t > 0 ? Math.floor(t / 200) * 200 : 0; }
+// 盤面 v で戻りが起きた時に減るマス(無ければ -1)
+function retCell(v){ return GM.retTarget(G, { v }); }
+// 次の戻りの温度と、今の盤面で減るマス。a: 推奨の手(入れ途中の手)。打った後の温度から数える(熱風おろしでまたぐ倍数は飛ばす・
+// 火力上げで倍数に当たればそこ)。手が無ければ今の温度から(ちょうど倍数なら、もう済んでいるのでその次)。叩く技で下がっていく前提。n: まとめての回数
+function nextRet(a, n){
+  if(!isOrb()) return null;
+  const R = a && a.t ? retAt(s.temp + a.t.dT * (a.t.area ? 1 : Math.max(1, n || 1))) : s.temp % 200 === 0 ? s.temp - 200 : retAt(s.temp);
+  return R > 0 ? { R, j: retCell(s.v) } : null;
+}
+// 戻りで減った後の見込み(12〜16 減る。真ん中は 14)
+function retRange(v){ return `約${Math.max(0, v - GM.RET_MAX)}〜${Math.max(0, v - GM.RET_MIN)}`; }
 function render(){
   renderCfg(); renderHs(); renderCrit();
   $('temp').textContent = s.temp; $('focus').textContent = s.F;
@@ -2311,6 +2341,7 @@ function render(){
   const picking = Array.isArray(s.lit);
   // 何マスも叩く技(じか入れ): 今入れるマスだけ光らせる。入れたマスは「今の値 → 入れた値」
   const seq = isBtn() && tg.length > 1 && !picking && !s.dead, cur = !seq ? -1 : hitP ? hitP.cur : Math.min(...tg);
+  const nr = !picking && !ret && !s.dead ? nextRet(best) : null, nrj = nr ? nr.j : -1, orb = isOrb();
   let h = '';
   for(let r = 0; r < rows; r++){
     const cols = [0, 1].filter(c => G.cells.some((z, i) => z && i % 2 === c));
@@ -2320,13 +2351,15 @@ function render(){
       if(!z){ h += '<div class="cell gap"></div>'; continue; }
       const done = !!(hitP && hitP.filled && hitP.filled[i] && tg.includes(i));
       const v = done ? hitP.per.find(x => x.j === i).its[hitP.sel[i]].w : s.v[i], top = Math.max(z[1] * 1.08, v + 1);
-      const cls = ['cell', v > z[1] ? 'over' : v >= z[0] ? 'in' : '', tg.includes(i) ? 'hit' : '', s.lit === i ? 'litc' : '',
+      const cls = ['cell', v > z[1] ? (orb ? 'over movr' : 'over') : v >= z[0] ? 'in' : '', tg.includes(i) ? 'hit' : '', s.lit === i ? 'litc' : '',
                    picking && s.lit.includes(i) ? 'pick' : '', i === cur ? 'cur' : '', done ? 'done' : '', ret && ret.per[0].j === i ? 'retc' : ''].join(' ');
       const tags = (tg.includes(i) ? '<i>叩く</i>' : '') + (s.lit === i ? '<i class="lit">光</i>' : '') + (ret && ret.retPred === i ? '<i class="pred">予想</i>' : '');
       const b = s.bel[i], nz = b.map((p, q) => p > 1e-9 ? z[0] + q : null).filter(x => x !== null);
       const bel = nz.length && nz.length < b.length ? (nz.length === 1 ? `理想値 ${nz[0]}` : `理想値 ${nz[0]}〜${nz[nz.length-1]}`) : '';
       // 棒の下の1行: 「180〜190・あと8〜18」(理想値が絞れたら理想値の表示に替える)
-      const need = `${z[0]}〜${z[1]}・` + (v < z[0] ? `あと${z[0] - v}〜${z[1] - v}` : v <= z[1] ? 'ゾーン内' : '超えた');
+      // オーブは超えても戻りで減るので「+5・戻りで減る」(次の戻りで減るマスの時)か「85〜95・+5」
+      const need = orb && v > z[1] ? (i === nrj ? `+${v - z[1]}・戻りで減る` : `${z[0]}〜${z[1]}・+${v - z[1]}`)
+        : `${z[0]}〜${z[1]}・` + (v < z[0] ? `あと${z[0] - v}〜${z[1] - v}` : v <= z[1] ? 'ゾーン内' : '超えた');
       h += `<div class="${cls}" data-i="${i}"><div class="lbl">${posName(i)}${tags}</div><div class="v">${done ? `<span class="fr">${s.v[i]}→</span>` : ''}${v}</div>`
          + `<div class="z"><span>${z[0]}</span><span>${z[1]}</span></div><div class="bar"><span class="f" style="width:${Math.min(100, v/top*100)}%"></span>`
          + `<span class="zn" style="left:${z[0]/top*100}%;width:${(z[1]-z[0])/top*100}%"></span></div><div class="bel">${bel || `<span class="need">${need}</span>`}</div></div>`;
@@ -2365,25 +2398,51 @@ function whyText(a){
     const eff = G.trait === 'hikari' && k ? '届いていないマスが1つ光る(威力2倍・会心が出やすい)'
       : G.trait === 'shuchu' && k === 200 ? '会心が出やすい温度' : G.trait === 'shuchu' && k === 400 ? '集中力の消費が半分の温度'
       : G.trait === 'tataki' && k === 400 ? '威力2倍の温度'
-      : G.trait === 'modori' && k ? (() => { const j = GM.retTarget(G, s); return j >= 0 ? `戻り: ${posName(j)}が 12〜16 減る` : '戻り(減るマスは無い)'; })()
+      : G.trait === 'modori' && k ? (() => { const j = retCell(s.v); return j >= 0 ? `戻り: ${posName(j)}が12〜16減る(${retRange(s.v[j])})` : '戻り(減るマスは無い)'; })()
       : t.dT > 0 ? '温度を上げて、叩いた時の伸びを大きくする' : '温度を下げて、伸びを小さくする(超えないように)';
     return `${T}℃にする → ${eff}`;
   }
   const per = a.tg.map(j => { const { rs, cr } = GM.hitParams(G, s, t, j); return { j, lo: Math.min(...rs), hi: Math.max(...rs), cr }; });
-  const crTxt = x => `会心${Math.round(x.cr * 100)}%`;
+  const crTxt = x => `会心${Math.round(x.cr * 100)}%`, rn = retNote(a, per, per.length === 1 && !t.aim);
   if(per.length > 1){
     const lit = per.some(x => x.j === s.lit) ? '光ったマスも入れて、' : '';
-    return `${lit}${per.length}マスまとめて伸ばす(${per.map(x => `${posName(x.j)} +${x.lo}〜${x.hi}`).join('・')})`;
+    return `${lit}${per.length}マスまとめて伸ばす(${per.map(x => `${posName(x.j)} +${x.lo}〜${x.hi}`).join('・')})` + (rn ? `。${rn}` : '');
   }
   const x = per[0], v = s.v[x.j], z = G.cells[x.j], a1 = v + x.lo, a2 = v + x.hi;
   const lit = x.j === s.lit ? '光ったマス(威力2倍)。' : '';
-  const goal = t.aim ? `${crTxt(x)}で理想値ぴったりに止める`
+  const goal = isOrb() && !t.aim && v + Math.min(...hitWs(x.j, a)) > z[1] ? 'わざと超える'
+    : t.aim ? `${crTxt(x)}で理想値ぴったりに止める`
     : a2 < z[0] ? (t.pow >= 2 || lit ? 'まだ遠い。大きく伸ばす' : 'ゾーンに近づける')
     : v >= z[0] ? 'ゾーンの中で理想値に寄せる'
     : a1 >= z[0] && a2 <= z[1] ? 'ここでゾーンに入れる'
     : a2 > z[1] ? (t.pow < 1 ? '弱く打って、超えないように少しだけ伸ばす' : `ゾーンに入れる(超える目もある。${crTxt(x)}なら止まる)`)
     : 'ゾーンに入れる(少し届かない目もある)';
-  return `${lit}${goal}。ふつうは ${v} → ${a1}〜${a2}`;
+  return `${lit}${goal}。ふつうは ${v} → ${a1}〜${a2}` + (rn ? `。${rn}` : '');
+}
+// 叩いた後に出うる値の伸び(会心も入れる。ゲームの再現から)
+function hitWs(j, a){ const { rs, cr } = GM.hitParams(G, s, a.t, j); return GM.massOutcomes(G.cells[j], s.v[j], s.bel[j], rs, cr).map(o => o.w - s.v[j]); }
+// 虹色のオーブ: 叩く手の戻りの1言。打った後の温度がちょうど200の倍数なら「この後 1000℃で戻り: 左下が12〜16減る(約114〜118)」、
+// 熱風おろしで200の倍数をまたぐなら「1000℃の戻りをまたぐ」、わざと超える(全部の目がゾーンの上)なら次の戻りで減らすこと
+function retNote(a, per, said){
+  if(!isOrb() || !a.t.area) return '';
+  const nt = s.temp + a.t.dT, R = retAt(nt);
+  // 叩いた後の盤面の見込み: ふつうの目の真ん中
+  const v = s.v.slice(); for(const x of per) v[x.j] = s.v[x.j] + Math.round((x.lo + x.hi) / 2);
+  const over = per.filter(x => s.v[x.j] + Math.min(...hitWs(x.j, a)) > G.cells[x.j][1]).map(x => x.j);
+  if(nt > 0 && nt % 200 === 0){
+    const j = retCell(v); if(j < 0) return '';
+    return (over.includes(j) && !said ? 'わざと超えて、' : '') + `この後 ${nt}℃で戻り: ${posName(j)}が12〜16減る(${retRange(v[j])})`;
+  }
+  const M = retAt(s.temp - 1);           // 今の温度より下で一番近い200の倍数
+  if(M > nt && M > 0) return `${M}℃の戻りをまたぐ`;
+  if(over.length && R > 0 && over.includes(retCell(v))) return `${R}℃の戻りで減らす`;
+  return '';
+}
+// 次の戻りの1行(虹色のオーブの時はいつも。推奨の行の下)
+function nrHtml(a){
+  if(!isOrb() || s.dead) return '';
+  const n = nextRet(a, chainN);
+  return `<div class="nr">${n ? `次の戻り <b>${n.R}℃</b>・${n.j >= 0 ? posName(n.j) : '減るマス無し'}` : 'この後 戻りは無い'}</div>`;
 }
 function renderFoot(){
   const go = $('go'), msg = $('msg'), foot = document.querySelector('.foot');
@@ -2404,21 +2463,21 @@ function renderFoot(){
   const P = livePend();                   // じか入れの入れ途中(何マス・ほかの手・戻り)
   if(P && P.ret){ renderRetFoot(P); return; }
   if(Array.isArray(s.lit)){
-    $('rec').innerHTML = '<span class="nm">光ったマスを選ぶ</span>';
+    $('rec').innerHTML = '<span class="nm">光ったマスを選ぶ</span>' + nrHtml();
     go.textContent = '上のマスを押す'; go.disabled = true; go.hidden = true; renderLitBtns(); return;
   }
   if(s.dead){ $('rec').innerHTML = '<span class="nm" style="color:var(--bad)">ゾーンを超えた</span>'; go.textContent = '最初から'; go.disabled = false; go.onclick = askReset; return; }
-  if(busy || !qs){ $('rec').innerHTML = '<span class="tg">計算中…</span>'; go.textContent = '計算中…'; go.disabled = true; return; }
+  if(busy || !qs){ $('rec').innerHTML = '<span class="tg">計算中…</span>' + nrHtml(); go.textContent = '計算中…'; go.disabled = true; return; }
   const best = qs[0];
   go.disabled = false;
   // #go は隠していても、押されたら今までどおり推奨の手を打つ(外から click される)
   if(best.a){ go.textContent = '打った'; go.onclick = () => startAct(best.a); } else { go.textContent = '次の局へ'; go.onclick = askReset; }
   if(P && !sameAct(P.a, best.a)){         // 推奨でない手を入れている途中
-    $('rec').innerHTML = `<span>${miniMap(P.a.tg)}<span class="nm">${P.a.t.name}</span> <span class="tg">${tgName(P.a)}</span></span>`;
+    $('rec').innerHTML = `<span>${miniMap(P.a.tg)}<span class="nm">${P.a.t.name}</span> <span class="tg">${tgName(P.a)}</span></span>` + nrHtml(P.a);
     go.hidden = true; renderDirect(P); return;
   }
   if(!best.a){
-    $('rec').innerHTML = `<span><span class="nm">仕上げる</span></span><span class="p">大成功の見込み <b>${pct(best.q)}</b></span>`;
+    $('rec').innerHTML = `<span><span class="nm">仕上げる</span></span><span class="p">大成功の見込み <b>${pct(best.q)}</b></span>` + nrHtml();
     msg.textContent = best.idleCut ? 'もう叩く所が無い。ここで仕上げる。' : 'ここで仕上げるのが一番。'; return;
   }
   const c = GM.costOf(G, s, best.a.t);
@@ -2430,7 +2489,7 @@ function renderFoot(){
   $('rec').innerHTML = `<span>${best.a.t.area ? miniMap(best.a.tg) : ''}<span class="nm">${best.a.t.name}</span> <span class="tg">${tgName(best.a)}</span></span>`
     + `<span class="p">消費${c} / 見込み <b>${s.hs === 1 && best.hsPick && best.a.t.area ? '寄せ中' : pct(best.q2 !== undefined ? best.q2 : best.q)}</b></span>`
     + `<button class="det" id="detB" aria-expanded="${whyOpen}">${whyOpen ? '詳細 ▴' : '詳細 ▾'}</button>`
-    + (why ? `<div class="why">${why}</div>` : '')
+    + nrHtml(P && P.a || best.a) + (why ? `<div class="why">${why}</div>` : '')
     + (litWarn(best.a) ? `<div class="lw">${litWarn(best.a)}</div>` : '');
   $('detB').onclick = () => setDet(!whyOpen);
   // 必殺を温存して寄せている間は、ほかの手の%(温存の分を数えていない)を出さない
@@ -2461,17 +2520,20 @@ function calcChain(a){
   const opt = rule ? null : { K: 8, overPen: overPen(), focusMargin: focusMargin(), rnd: seeded(777), buf: new Float32Array(V.featLen(G, net.ver)) };
   while(k < 6){
     GM.afterAct(G, t, a, null); k++;
-    if(Array.isArray(t.lit) || t.F < GM.costOf(G, t, a.t)) break;
+    // 戻り(虹色のオーブ)が起きる温度で止める(黙って −14 で進めない。そこで戻りの値を入れてもらう)
+    if(t.ret || Array.isArray(t.lit) || t.F < GM.costOf(G, t, a.t)) break;
     if(rule){ const b = KajiRule0.policy(G, t); if(!b || b.t.id !== a.t.id) break; continue; }
     const r = V.evalActs(net, G, t, opt); r.sort((x, y) => y.q - x.q);
     if(!r[0].a || r[0].a.t.id !== a.t.id) break;
   }
   return k;
 }
+// 途中で戻り(虹色のオーブ)が起きたら、その温度で止めて戻りの値を入れてもらう。残りは入れた後に推奨し直す(盤面が変わるので)
 function applyChain(a, n){
   snap(`${a.t.name}×${n}`); s.lastHit = null;
-  for(let k = 0; k < n && !Array.isArray(s.lit); k++){ if(GM.costOf(G, s, a.t) > s.F) break; GM.afterAct(G, s, a, null); }
-  save(); recalc();
+  if(isBtn()){ pend = null; critSw = null; }
+  for(let k = 0; k < n && !Array.isArray(s.lit); k++){ if(GM.costOf(G, s, a.t) > s.F) break; GM.afterAct(G, s, a, null); if(s.ret) break; }
+  save(); if(!askRet()) recalc();
 }
 
 // ---- 小窓(PC の Chrome・Edge。いつも最前面に出る。ゲームの上に重ねて、どの技でどこを打つかを見る) ----
@@ -3004,14 +3066,23 @@ function miniBoard(sel, cur, lab){
   }
   return h + '</div>';
 }
-// 値のボタン(5列・小さい順)。ゾーン内は緑・超える値は赤の取り消し線・一番出やすい値が1つに決まる時だけ橙の縁。小窓も同じ物を使う。
+// 値のボタン(5列・小さい順)。ゾーン内は緑・超える値は赤の取り消し線(虹色のオーブは黄色)・一番出やすい値が1つに決まる時だけ橙の縁。小窓も同じ物を使う。
 // X: 入れている物(pend か、まだ押していない推奨の手)。mode: 'n' 会心でなくても出る値だけ / 'c' 会心で出うる値だけ / '' 全部
 function valBtnsIn(p, X, mode){
   const z = G.cells[p.j], its = p.its.map((x, k) => ({ x, k })).filter(o => mode === 'n' ? o.x.tag !== 'c' : mode === 'c' ? o.x.tag !== 'n' : true);
   const ns = mode === 'c' ? its : its.filter(o => o.x.tag !== 'c'), pv = o => mode === 'c' ? o.x.pc : o.x.p;
   const mx = Math.max(0, ...ns.map(pv)), tops = ns.filter(o => pv(o) >= mx - 1e-12), top = ns.length > 1 && tops.length === 1 ? tops[0].k : -1;
-  const done = X.filled && X.filled[p.j];
-  return its.map(o => `<button type="button" class="${o.x.ov ? 'ov' : z && o.x.w >= z[0] ? 'zn' : ''}${o.k === top ? ' best' : ''}${done && X.sel[p.j] === o.k ? ' on' : ''}" data-k="${o.k}">${o.x.w}</button>`).join('');
+  const done = X.filled && X.filled[p.j], orb = isOrb(), pw = X.ret ? Math.max(0, s.v[p.j] - 14) : -1;
+  return its.map(o => `<button type="button" class="${o.x.ov ? 'ov' + (orb ? ' my' : '') : z && o.x.w >= z[0] ? 'zn' : ''}${o.k === top ? ' best' : ''}${done && X.sel[p.j] === o.k ? ' on' : ''}${o.x.w === pw ? ' pv' : ''}"`
+    + `${orb && o.x.ov && !X.ret ? retAfter(p.j, o.x.w, X) : ''} data-k="${o.k}">${o.x.w}</button>`).join('');
+}
+// 虹色のオーブで超える値: 叩いた後の盤面で、次の戻りがこのマスを減らす見込みなら data-ra="戻り後 約○○"(ボタンの下に小さく出す)。
+// 何マスの技のほかのマスは、入れた値か今の値で見る
+function retAfter(j, w, X){
+  const R = retAt(s.temp + X.a.t.dT); if(!(R > 0)) return '';
+  const v = s.v.slice(); for(const q of X.per) if(X.filled && X.filled[q.j] && q.its) v[q.j] = q.its[X.sel[q.j]].w;
+  v[j] = w;
+  return retCell(v) === j ? ` data-ra="戻り後&#10;約${Math.max(0, w - 14)}"` : '';
 }
 function valBtns(p, cls, X, mode){ return `<div class="${cls || 'vbs'}">${valBtnsIn(p, X, mode)}</div>`; }
 // 値を押した時(下の帯・小窓の両方から)。1マスなら決まる。何マスの時は次のマスへ(全部入れたら「決定」)。
@@ -3186,7 +3257,7 @@ function renderReelCrit(){
 function renderRetFoot(P){
   const p = P.per[0], j = p.j, lab = $('dLab'), dv = $('dVals');
   document.querySelector('.foot').classList.add('ret');
-  $('rec').innerHTML = `<div class="bigh">戻り ${posName(j)}</div>`;
+  $('rec').innerHTML = `<div class="bigh">戻り ${posName(j)} <span class="from">${s.v[j]}→</span></div>`;
   lab.innerHTML = `減った後の値を押す<span>違うマスは盤面を押す</span>`; lab.hidden = false;
   dv.innerHTML = valBtnsIn(p, P, ''); dv.hidden = false;
   dv.querySelectorAll('button').forEach(b => b.onclick = () => pickVal(j, +b.dataset.k));
