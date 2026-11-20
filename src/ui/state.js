@@ -1,5 +1,5 @@
 const C = KajiCore, GM = KajiGame, V = KajiValue, W = window.KAJI_WEIGHTS || {};
-const ITEM_ORDER = ['lamp', 'hidane', 'pot', 'hammer', 'pan', 'orb', 'needle'];
+const ITEM_ORDER = ['lamp', 'hidane', 'pot', 'hammer', 'pan', 'orb', 'jueki', 'ito', 'needle'];
 const SEARCH = { lamp: { depth: 2, K: 6, N2: 3, K2: 4 } };       // ランプだけ軽い2手読み(1000局で +4pt)
 const $ = id => document.getElementById(id);
 const STORE = 'kajiNaviV1', CFG_STORE = 'kajiNaviCfgV1';

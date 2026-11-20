@@ -569,6 +569,14 @@ select{font:inherit;font-weight:700;padding:6px 10px;border:1px solid var(--line
               cells: [[85, 95], [140, 148], [115, 121], [140, 148], [115, 121], [85, 95]] },
     needle: { name: '光のさいほう針', trait: 'tataki', T: 0,
               cells: [[460, 474], null, [376, 382], null] },    // あくまの錬金ツボ: ゾーンは利用者が確かめた値(2026-11-02)。地金はたたき変化(400℃の倍数で威力2倍・200℃の倍数で半分、切り上げ)。誤差合計7以下
+    // 超かがやきの樹液: A155〜161 B220〜230 / C155〜161 D220〜230 / E140〜150 F140〜150、地金は集中力変化、誤差合計7以下
+    // (mi-mi-dqx.blazeworks.jp/archives/6474・note.com/hiyokosora・ameblo amenitywithdqx で一致。2026-11-21)
+    jueki:  { name: '超かがやきの樹液', trait: 'shuchu', T: 7,
+              cells: [[155, 161], [220, 230], [155, 161], [220, 230], [140, 150], [140, 150]] },
+    // 超あまつゆのいと: A180〜190 B245〜251 / C150〜156 D180〜190 / E180〜190 F245〜251、地金はたたき変化(倍半)、誤差合計7以下
+    // (note.com/enptcan_dq・YouTube の数値で一致。倍半: futaba-aoi.blog。2026-11-21)
+    ito:    { name: '超あまつゆのいと', trait: 'tataki', T: 7,
+              cells: [[180, 190], [245, 251], [150, 156], [180, 190], [180, 190], [245, 251]] },
     pot:    { name: 'あくまの錬金ツボ', trait: 'tataki', T: 7,
               cells: [[190, 200], [130, 136], [130, 136], [190, 200], [130, 138], [130, 138]] },
   };
@@ -647,17 +655,19 @@ select{font:inherit;font-weight:700;padding:6px 10px;border:1px solid var(--line
   // ---- ゾーンを超えた時 ---------------------------------------------------
   // ふつうは超えたら終わり。戻りの地金は減って戻れるので、超えただけでは終わらない(仕上げた時にゾーンの外なら失敗)
   function overDead(G, j, w) { return G.trait !== 'modori' && w > G.cells[j][1]; }
-  // 戻りで減るマス(無ければ -1)。同じ比率が並んだ時は番号の小さいマス(実機の決まりは不明)
+  // 戻りで減るマス(無ければ -1)。超えたマスがあれば一番超えているマス、無ければゾーンに一番近い(届いていない差が一番小さい)マス。
+  // 同じ差が並んだ時は番号の小さいマス(実機の決まりは不明)。値0のマス・ゾーン内のマスは減らない
+  // (超えたマスが先: dqx-blog.com・tomahawkch.com・まさとるてぃあ、無ければ一番近いマス: dqx-blog.com・トワログ。2026-11-21 に比率から直した)
   const RET_MIN = 12, RET_MAX = 16, RET_MEAN = 14;
   function retTarget(G, s) {
-    let best = -1, br = 0;
+    let over = -1, od = 0, near = -1, nd = Infinity;
     for (const i of G.active) {
       const z = G.cells[i], v = s.v[i];
       if (v <= 0 || (v >= z[0] && v <= z[1])) continue;
-      const r = v / z[1];
-      if (r > br) { br = r; best = i; }
+      if (v > z[1]) { if (v - z[1] > od) { od = v - z[1]; over = i; } }
+      else if (z[0] - v < nd) { nd = z[0] - v; near = i; }
     }
-    return best;
+    return over >= 0 ? over : near;
   }
 
   // ---- 手 ---------------------------------------------------------------
@@ -2154,7 +2164,7 @@ const AR_CLIPS = {
 (function(){
 'use strict';
 const C = KajiCore, GM = KajiGame, V = KajiValue, W = window.KAJI_WEIGHTS || {};
-const ITEM_ORDER = ['lamp', 'hidane', 'pot', 'hammer', 'pan', 'orb', 'needle'];
+const ITEM_ORDER = ['lamp', 'hidane', 'pot', 'hammer', 'pan', 'orb', 'jueki', 'ito', 'needle'];
 const SEARCH = { lamp: { depth: 2, K: 6, N2: 3, K2: 4 } };       // ランプだけ軽い2手読み(1000局で +4pt)
 const $ = id => document.getElementById(id);
 const STORE = 'kajiNaviV1', CFG_STORE = 'kajiNaviCfgV1';
@@ -2649,7 +2659,7 @@ function isTest(){ return power === 'maxTest' && !!W[item + '_test']; }
 const OVER_PEN = 1;
 // 商材ごとの罰。ひだねは 0.6: 1手読み・同じ局 2000局(種960・961)で 罰1 72.45% / 0.6 73.3%
 // (片方だけ大成功 8局 / 25局)。超えて失敗は 0.5% → 0.8% と少しだけ増える
-const OVER_PEN_MAP = { hidane: 0.6, pot: 0.6, orb: 0 };   // 虹色のオーブは超えても戻りで戻せるので、超える罰は無し
+const OVER_PEN_MAP = { hidane: 0.6, pot: 0.6, orb: 0, jueki: 0.6, ito: 0.6 };   // 虹色のオーブは超えても戻りで戻せるので、超える罰は無し
 function overPen(){ return OVER_PEN_MAP[item] ?? OVER_PEN; }
 // 集中力の余裕(value.js の focusMargin): 打った後の局面の集中力を F−m と少なめに見積もる(届かずで火種0個を減らす)。
 // ひだね: 1手読み・同じ局 4000局(種960〜963・Lv80・集中力253): m=10 で 大成功 80.30→80.20%(z −0.1)・届かず+超え 3.45→2.30%(z 3.3)。
