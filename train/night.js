@@ -25,7 +25,8 @@ function deadline() {
 const END = TEST ? new Date(Date.now() + 8 * 60e3) : deadline();
 const T0 = Date.now(), TOTAL = END - T0;
 // 締め切りから逆算: 最後の比べに残す時間
-const EVAL_RESERVE = TEST ? 4 * 60e3 : Math.min(2 * 3600e3, TOTAL * 0.15);
+// 比べ(ふつうで足切り → 最強で決勝)に残す時間。途中から入れ直しても同じ時刻に学習を止めるよう、締め切りから決めた分だけ引く
+const EVAL_RESERVE = TEST ? 4 * 60e3 : +(process.env.EVALMIN || 105) * 60e3;
 const TRAIN_END = END - EVAL_RESERVE;
 const ORB_END = T0 + (TRAIN_END - T0) * 0.25;            // 学習の時間のうち 1/4 をオーブに
 
@@ -131,30 +132,34 @@ function pair(a, b) {
 const report = { started: new Date(T0).toISOString(), deadline: END.toISOString(), workers: NW, items: {} };
 const saveReport = () => fs.writeFileSync(path.join(OUT, 'report.json'), JSON.stringify(report, null, 1));
 
-async function judgeItem(item, final) {
+// ふつう(1手読み)で全部の候補を足切りする
+async function screenItem(item) {
   const cands = [].concat(...cfgs[item].map(c => [W(`w_${item}_${c.tag}_best.json`), W(`w_${item}_${c.tag}_best0.json`)])).filter(f => fs.existsSync(path.join(ROOT, f)));
   if (CUR[item]) cands.push(W(CUR[item]));
   const r = report.items[item] = { cands: {}, note: '' };
-  const N1 = TEST ? 20 : 1000, N2 = TEST ? 6 : 400, N3 = TEST ? 4 : 300;
-  // ふるい: ふつう(1手読み)
-  for (const f of cands) { status(`${item} のふるい ${f}`); const e = await evalW(item, f, N1, 960, 1); r.cands[f] = { normal: e.great }; log(`ふつう ${item} ${f} ${e.great} (${e.n}局・種960)`); saveReport(); }
-  const order = cands.slice().sort((a, b) => r.cands[b].normal - r.cands[a].normal);
-  const top = order.filter(f => f !== W(CUR[item] || '')).slice(0, 2);
+  for (const f of cands) { status(`${item} のふるい ${f}`); const e = await evalW(item, f, TEST ? 20 : 1000, 960, 1); r.cands[f] = { normal: e.great }; log(`ふつう ${item} ${f} ${e.great} (${e.n}局・種960)`); saveReport(); }
+  return cands.sort((a, b) => r.cands[b].normal - r.cands[a].normal);
+}
+// 最強(上位12手・2手目24通り)で決勝。今の重みがあれば一緒に。締め切りが近ければ打ち切る
+async function finalItem(item, order, nTop) {
+  const r = report.items[item];
+  if (!order.length) return;
+  const top = order.filter(f => f !== W(CUR[item] || '')).slice(0, nTop);
   if (CUR[item]) top.push(W(CUR[item]));
-  // 強(2手読み・上位4手・2手目8通り)
-  const strong = {};
-  for (const f of top) { status(`${item} の強の比べ ${f}`); const e = await evalW(item, f, N2, 961, 2, { N2: '4', K2: '8' }); strong[f] = e; r.cands[f].strong = e.great; log(`強 ${item} ${f} ${e.great} (${e.n}局・種961)`); saveReport(); }
-  const best = top.slice().sort((a, b) => strong[b].great - strong[a].great)[0];
-  r.best = best;
-  if (CUR[item] && best !== W(CUR[item])) { r.vsCur = pair(strong[W(CUR[item])].kinds, strong[best].kinds); log(`強で今の重みと比べ ${item}: ${JSON.stringify(r.vsCur)}`); }
-  // 最強(上位12手・2手目24通り)で、勝った重みと今の重み(あれば)。いとは今の重みが無いので勝った重みだけ
-  if (final) {
-    const fs3 = [best].concat(CUR[item] && best !== W(CUR[item]) ? [W(CUR[item])] : []);
-    const m = {};
-    for (const f of fs3) { status(`${item} の最強の比べ ${f}`); const e = await evalW(item, f, N3, 962, 2, { N2: '12', K2: '24', K: '12' }); m[f] = e; r.cands[f].max = e.great; log(`最強 ${item} ${f} ${e.great} (${e.n}局・種962)`); saveReport(); }
-    if (fs3.length === 2) r.vsCurMax = pair(m[fs3[1]].kinds, m[fs3[0]].kinds);
+  const N3 = TEST ? 4 : +(process.env.MAXN || 300), m = {};
+  for (const f of top) {
+    if (Date.now() > END.getTime() - (TEST ? 0 : 8 * 60e3)) { log(`締め切りが近いので最強の比べを打ち切る ${item} ${f}`); break; }
+    status(`${item} の最強の比べ ${f}`); const t0 = Date.now();
+    const e = await evalW(item, f, N3, 962, 2, { N2: '12', K2: '24', K: '12' }); m[f] = e; r.cands[f].max = e.great;
+    log(`最強 ${item} ${f} ${e.great} (${e.n}局・種962・${Math.round((Date.now() - t0) / 60e3)}分)`); saveReport();
   }
-  // 勝った重みを残す(今の重みのままなら残さない)
+  const done = Object.keys(m);
+  // 決める: 最強で比べられた中の一番。最強が1つも無ければ、ふつうの一番
+  let best = done.length ? done.sort((a, b) => m[b].great - m[a].great)[0] : order[0];
+  const cw = CUR[item] && W(CUR[item]);
+  if (cw && m[cw] && m[best].great <= m[cw].great) best = cw;   // 同じなら今の重みのまま
+  r.best = best;
+  if (CUR[item] && m[W(CUR[item])] && best !== W(CUR[item])) { r.vsCurMax = pair(m[W(CUR[item])].kinds, m[best].kinds); log(`最強で今の重みと比べ ${item}: ${JSON.stringify(r.vsCurMax)}`); }
   if (!CUR[item] || best !== W(CUR[item])) { fs.copyFileSync(path.join(ROOT, best), path.join(OUT, `w_${item}_best.json`)); r.saved = `night/w_${item}_best.json`; }
   saveReport();
 }
@@ -162,10 +167,9 @@ async function judgeItem(item, final) {
 function writeMd() {
   const L = ['# 夜の学習の結果', '', `始めた ${new Date(T0).toLocaleString('ja-JP')} / 終わった ${new Date().toLocaleString('ja-JP')} / 並べた数 ${NW}`, ''];
   for (const [item, r] of Object.entries(report.items)) {
-    L.push(`## ${item}`, '', '| 重み | ふつう(1000局・種960) | 強(400局・種961) | 最強(300局・種962) |', '|---|---|---|---|');
-    for (const [f, x] of Object.entries(r.cands)) L.push(`| ${path.basename(f)}${f === r.best ? ' ★' : ''} | ${x.normal ?? ''} | ${x.strong ?? ''} | ${x.max ?? ''} |`);
-    if (r.vsCur) L.push('', `強で今の重みと同じ局: 今だけ大成功 ${r.vsCur.onlyA} / 新しいのだけ ${r.vsCur.onlyB} / z ${r.vsCur.z}`);
-    if (r.vsCurMax) L.push(`最強で今の重みと同じ局: 今だけ大成功 ${r.vsCurMax.onlyA} / 新しいのだけ ${r.vsCurMax.onlyB} / z ${r.vsCurMax.z}`);
+    L.push(`## ${item}`, '', '| 重み | ふつう(1000局・種960) | 最強(300局・種962) |', '|---|---|---|');
+    for (const [f, x] of Object.entries(r.cands)) L.push(`| ${path.basename(f)}${f === r.best ? ' ★' : ''} | ${x.normal ?? ''} | ${x.max ?? ''} |`);
+    if (r.vsCurMax) L.push('', `最強で今の重みと同じ局: 今だけ大成功 ${r.vsCurMax.onlyA} / 新しいのだけ ${r.vsCurMax.onlyB} / z ${r.vsCurMax.z}`);
     L.push('', r.saved ? `残した重み: ${r.saved}` : '今の重みのまま(新しいのは勝てなかった)', '');
   }
   fs.writeFileSync(path.join(OUT, 'report.md'), L.join('\n'));
@@ -181,10 +185,11 @@ function writeMd() {
   if (jobs.length > NW) log(`並べる数が足りないので回さない: ${jobs.slice(NW).map(j => j.item + '_' + j.cfg.tag).join(' ')}`);
   while (Date.now() < TRAIN_END && kids.size) { status(`オーブ・いと・ひだね(${kids.size} 本を学習中)`); await sleep(TEST ? 5e3 : 60e3); }
   killAll(); await sleep(3000); log('学習を止めた');
-  // 3. 比べ(いとを最後に最強でも)
-  for (const it of ['orb', 'hidane']) { try { await judgeItem(it, false); } catch (e) { log(`比べで失敗 ${it} ${e.stack}`); } writeMd(); }
-  if (cfgs.jueki.some(c => fs.existsSync(path.join(ROOT, W(`w_jueki_${c.tag}_best0.json`))) || fs.existsSync(path.join(ROOT, W(`w_jueki_${c.tag}_best.json`))))) { try { await judgeItem('jueki', false); } catch (e) { log(`比べで失敗 jueki ${e.stack}`); } writeMd(); }
-  try { await judgeItem('ito', true); } catch (e) { log(`比べで失敗 ito ${e.stack}`); }
+  // 3. 比べ: まず全部ふつうで足切り(速い)→ 大事な順(いと・オーブ・ひだね)に最強で決勝。樹液はふつうだけ
+  const ord = {};
+  for (const it of ['ito', 'orb', 'hidane', 'jueki']) { try { ord[it] = await screenItem(it); } catch (e) { log(`ふるいで失敗 ${it} ${e.stack}`); } writeMd(); }
+  for (const [it, n] of [['ito', 3], ['orb', 2], ['hidane', 1]]) { try { if (ord[it]) await finalItem(it, ord[it], n); } catch (e) { log(`最強の比べで失敗 ${it} ${e.stack}`); } writeMd(); }
+  try { if (ord.jueki && ord.jueki.length) { report.items.jueki.best = ord.jueki[0]; fs.copyFileSync(path.join(ROOT, ord.jueki[0]), path.join(OUT, 'w_jueki_best.json')); report.items.jueki.saved = 'night/w_jueki_best.json(ふつうだけで選んだ)'; saveReport(); } } catch (e) {}
   writeMd();
   status('終わった。report.md を見る');
   log('終わった');
