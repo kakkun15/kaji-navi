@@ -19,7 +19,7 @@ function deadline() {
   const now = new Date(), t = new Date(now);
   const [h, m] = (d || '20:00').split(':').map(Number);
   t.setHours(h, m || 0, 0, 0);
-  if (t - now < 3 * 3600e3) t.setDate(t.getDate() + 1);   // 3時間を切っていたら次の日
+  if (t <= now) t.setDate(t.getDate() + 1);   // 過ぎていたら次の日
   return t;
 }
 const END = TEST ? new Date(Date.now() + 8 * 60e3) : deadline();
@@ -181,7 +181,8 @@ function writeMd() {
   const jobs = cfgs.orb.map(cfg => ({ item: 'orb', cfg }))
     .concat(cfgs.ito.slice(0, 10).map(cfg => ({ item: 'ito', cfg })))
     .concat(cfgs.hidane.map(cfg => ({ item: 'hidane', cfg })));
-  for (const j of jobs.slice(0, NW)) startJob(j);
+  if (Date.now() < TRAIN_END) for (const j of jobs.slice(0, NW)) startJob(j);
+  else log('学習の時間はもう過ぎているので、比べだけする');
   if (jobs.length > NW) log(`並べる数が足りないので回さない: ${jobs.slice(NW).map(j => j.item + '_' + j.cfg.tag).join(' ')}`);
   while (Date.now() < TRAIN_END && kids.size) { status(`オーブ・いと・ひだね(${kids.size} 本を学習中)`); await sleep(TEST ? 5e3 : 60e3); }
   killAll(); await sleep(3000); log('学習を止めた');
