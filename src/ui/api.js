@@ -9,7 +9,7 @@ window.__navi = { get s(){ return s; }, get qs(){ return qs; }, get G(){ return 
   reset(F){ s = GM.newState(G); if(Number.isFinite(F)) s.F = F; hist = []; pend = null; save(); recalc(); },
   // 画面で見た打ち始めの集中力を覚える
   setStartFocus(f){ if(cfg.focus === f) return; cfg = { focus: f, off: cfg.off, input: cfg.input, size: cfg.size }; saveCfg(); G = mkG(item); net = loadNet(item); renderCfg(); },
-  setHs(h){ if((s.hs | 0) === h) return; snap(); s.hs = h; save(); recalc(); },
+  setHs(h){ if((s.hs | 0) === h) return; if(h === 2){ if(!pend) useHs(); return; } snap(); s.hs = h; save(); recalc(); },
   get power(){ return power; }, get lastCalc(){ return lastCalc; },
   setVoiceRate, get voiceRate(){ return voiceRate; }, get vel(){ return VC.el ? { rate: VC.el.playbackRate, pitch: VC.el.preservesPitch, src: !!VC.el.src } : null; },
   recalc, closeReels, say: vSay, moveText, get voiceOn(){ return voiceOn; }, get vlog(){ return VC.log; }, get vhow(){ return VC.how; } };

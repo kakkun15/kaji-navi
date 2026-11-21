@@ -196,12 +196,12 @@ with sync_playwright() as p:
     mut(pg, HIT1); pg.click('#critSw'); pg.wait_for_timeout(80); shot(pg, 'phone_hit1_crit'); w = vals(pg)[-1]; press(pg, w); idle(pg); lit_first(pg); a = state(pg)
     mut(mp, HIT1); mp.evaluate("document.getElementById('go').click()"); mp.evaluate(f"__navi.commitReels({{0: {w}}})"); idle(mp); lit_first(mp); mp.click('#critB'); idle(mp); m = state(mp)
     chk(f'推奨の手を会心オンで {w}: main と同じ', same(a, m) and a['v'][0] == w)
-    # 必殺の効果中: スイッチは出さず、会心の値だけ
-    mut(pg, CR); pg.evaluate('__navi.setHs(2)'); idle(pg); start(pg, 'tataku', [0])
+    # 必殺の効果中: スイッチは出さず、会心の値だけ(setHs(2) は1ターン進むようにしたので、状態だけ mut で作る)
+    mut(pg, CR); pg.evaluate('__navi.mut(s => { s.hs = 2; })'); idle(pg); start(pg, 'tataku', [0])
     tags = pg.evaluate("__navi.pend.per[0].its.map(x => [x.w, x.tag])")
     chk(f'必殺の効果中: スイッチは出ない・会心の値だけ {vals(pg)}', not pg.is_visible('#critSw') and vals(pg) == [w for w, t in tags] and all(t == 'c' for w, t in tags))
     w = vals(pg)[-1]; press(pg, w); idle(pg); a = state(pg)
-    mut(mp, CR); mp.evaluate('__navi.setHs(2)'); idle(mp); start(mp, 'tataku', [0]); mp.evaluate(f"__navi.commitReels({{0: {w}}})"); idle(mp)
+    mut(mp, CR); mp.evaluate('__navi.mut(s => { s.hs = 2; })'); idle(mp); start(mp, 'tataku', [0]); mp.evaluate(f"__navi.commitReels({{0: {w}}})"); idle(mp)
     chk('必殺の効果中: main と同じ', same(a, state(mp)))
     chk(f'エラー無し {errs} {merrs}', not errs and not merrs)
 

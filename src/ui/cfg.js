@@ -65,7 +65,9 @@ $('power').onchange = e => { const v = e.target.value; power = v === 'max' || v 
 $('vRate').onchange = e => { setVoiceRate(+e.target.value); VC.saidKey = null; announce(true); };
 // 必殺の状態を手で切り替える(なし → たまった → 効果中 → なし)。戻すで戻せる
 $('critB').onclick = () => pressCrit();
-$('hsB').onclick = () => { if(pend) return; snap(); s.hs = ((s.hs | 0) + 1) % 3; save(); recalc(); };
+// 必殺を「効果中」にする = ヘパイトスの炎を使った = 1ターン(温度 −50。戻り・光る温度もふつうの手と同じ)。戻すの名前は「ヘパイトスの炎」
+function useHs(){ startAct(GM.HS_ACT); toast('必殺を使った: 1ターン進めた(温度 −50)。違えば「戻す」'); }
+$('hsB').onclick = () => { if(pend) return; const n = ((s.hs | 0) + 1) % 3; if(n === 2){ useHs(); return; } snap(); s.hs = n; save(); recalc(); };
 
 function doReset(){ s = GM.newState(G); hist = []; pend = null; save(); recalc(); }
 // 画面の「最初から」は確かめてから(押し間違いで局が消えないように)。外から呼ぶ reset は確かめない
