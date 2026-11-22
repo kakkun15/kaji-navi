@@ -14,8 +14,8 @@ WEIGHTS = {
     'pan':    ['w_pan_v3c_best.json', 'w_pan_v3b_best.json', 'w_pan_v3_best.json'],
     'orb':    ['w_orb_best.json', 'w_orba1_best.json'],   # 虹色のオーブ: ひだねの重みから戻りの地金で学び直し(2026-10-25)
     'needle': ['w_needle_r0_best.json'],
-    'jueki':  ['w_jueki_best.json'],    # 超かがやきの樹液(重みは夜の学習の後)
-    'ito':    ['w_ito_best.json'],      # 超あまつゆのいと(同上)
+    'jueki':  ['w_jueki_best.json'],    # 超かがやきの樹液: ひだねの重みから(2026-11-21 夜の学習・25分だけ。ふつう72.1%/強74.3%)
+    'ito':    ['w_ito_best.json'],      # 超あまつゆのいと: ひだねの重みから(2026-11-21 夜の学習。最強63.7% 300局・種962)
 }
 
 def rounded(x):
